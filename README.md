@@ -7,7 +7,7 @@
   <b>Synapse Agent</b> | <b>Synapse Desktop</b>
 </p>
 <p align="center">
-  <a href="https://github.com/johsua092-ui/synapse-agent-/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/johsua092-ui/synapse-ai-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
   <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/Lang-اردو-green?style=for-the-badge" alt="اردو"></a>
   <a href="README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
@@ -34,17 +34,17 @@ Use any model you want — OpenRouter, OpenAI, your own endpoint, and many other
 ### Linux, macOS, WSL2, Termux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/johsua092-ui/synapse-agent-/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/johsua092-ui/synapse-ai-agent/main/scripts/install.sh | bash
 ```
 
 ### Windows (native, PowerShell)
 
-> **Heads up:** Native Windows runs Synapse without WSL — CLI, gateway, TUI, and tools all work natively. If you'd rather use WSL2, the Linux/macOS one-liner above works there too. Found a bug? Please [file issues](https://github.com/johsua092-ui/synapse-agent-/issues).
+> **Heads up:** Native Windows runs Synapse without WSL — CLI, gateway, TUI, and tools all work natively. If you'd rather use WSL2, the Linux/macOS one-liner above works there too. Found a bug? Please [file issues](https://github.com/johsua092-ui/synapse-ai-agent/issues).
 
 Run this in PowerShell:
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/johsua092-ui/synapse-agent-/main/install.ps1)
+iex (irm https://raw.githubusercontent.com/johsua092-ui/synapse-ai-agent/main/scripts/install.ps1)
 ```
 
 The installer handles everything: uv, Python 3.11, Node.js, ripgrep, ffmpeg, **and a portable Git Bash** (MinGit, unpacked to `%LOCALAPPDATA%\synapse\git` — no admin required, completely isolated from any system Git install). Synapse uses this bundled Git Bash to run shell commands.
@@ -218,7 +218,7 @@ full git checkout it creates at `$SYNAPSE_HOME/synapse-agent` (usually
 managed venv, lazy dependencies, gateway, and docs tooling.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/johsua092-ui/synapse-agent-/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/johsua092-ui/synapse-ai-agent/main/scripts/install.sh | bash
 cd "${SYNAPSE_HOME:-$HOME/.synapse}/synapse-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh

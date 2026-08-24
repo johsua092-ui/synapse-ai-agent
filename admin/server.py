@@ -2333,7 +2333,7 @@ IMMUTABLE_INSTALL_WARNING_JS = (
     'keys are stored on the Railway volume, not inside the container, so '
     'nothing needs reconfiguring and it resumes where it left off.\\n\\n'
     'To have it included permanently, please raise an issue here:\\n'
-    'https://github.com/johsua092-ui/synapse-agent-/issues\\n\\n'
+    'https://github.com/johsua092-ui/synapse-ai-agent/issues\\n\\n'
     'It will be reviewed and built into the template, so next time it works out '
     'of the box with no install step.\\n\\n'
     'Install anyway (temporary)?"))'
