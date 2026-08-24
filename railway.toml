@@ -1,0 +1,24 @@
+# Railway deployment config for Synapse Agent
+# ============================================
+# Railway builds the Dockerfile, then runs the container. The image's
+# ENTRYPOINT is /opt/synapse/docker/entrypoint-dispatch.sh (s6-overlay /init
+# as PID 1), which boots the supervised dashboard service when
+# SYNAPSE_DASHBOARD is truthy.
+#
+# The dashboard binds 0.0.0.0:9119 by default and its auth gate engages
+# automatically on non-loopback binds. For a public Railway deployment you
+# MUST provide a dashboard auth provider via the service variables below:
+#   - Basic Auth: SYNAPSE_DASHBOARD_BASIC_AUTH_USERNAME + _PASSWORD
+#   - OAuth:      SYNAPSE_DASHBOARD_OAUTH_CLIENT_ID (+ related vars)
+# Otherwise the dashboard fails closed and Railway healthchecks will fail.
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "/opt/synapse/docker/entrypoint-dispatch.sh"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
