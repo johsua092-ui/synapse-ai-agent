@@ -2454,7 +2454,18 @@ install_node_deps() {
         # Capture npm output so failures are diagnosable (#87340).
         local npm_log
         npm_log="$(mktemp)"
-        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm install --silent \
+        # When browser tools are skipped (--skip-browser), we still need
+        # node-pty for the TUI, but the heavy Electron/web workspaces
+        # (apps/desktop, web, ui-tui) are unnecessary and frequently OOM on
+        # memory-constrained machines. Install only the root workspace
+        # (node-pty + root deps) to stay lightweight, mirroring
+        # "npm run install:root"/"npm install --workspaces=false".
+        local npm_install_cmd=(npm install --silent)
+        if [ "$SKIP_BROWSER" = true ]; then
+            log_info "Browser tools skipped — installing only root Node deps (node-pty for TUI), skipping Electron/web workspaces..."
+            npm_install_cmd=(npm install --workspaces=false --silent)
+        fi
+        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" "${npm_install_cmd[@]}" \
                 >"$npm_log" 2>&1; then
             log_error "npm install failed or timed out; Node.js dependencies were not installed"
             if [ -s "$npm_log" ]; then
