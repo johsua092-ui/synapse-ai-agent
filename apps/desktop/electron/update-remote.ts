@@ -12,8 +12,8 @@
  * testable without booting Electron (main.ts requires('electron') at load).
  */
 
-const OFFICIAL_REPO_HTTPS_URL = 'https://github.com/johsua092-ui/synapse-agent.git'
-const OFFICIAL_REPO_CANONICAL = 'github.com/joshresearch/synapse-agent'
+const OFFICIAL_REPO_HTTPS_URL = 'https://github.com/johsua092-ui/synapse-ai-agent.git'
+const OFFICIAL_REPO_CANONICAL = 'github.com/johsua092-ui/synapse-ai-agent'
 
 // Normalize common GitHub remote URL forms to `host/owner/repo` (lowercased,
 // no trailing slash, no .git suffix) so SSH and HTTPS forms of the same repo

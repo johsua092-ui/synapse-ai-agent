@@ -23,7 +23,7 @@ function mkdtemp(prefix: string) {
 describe('resolvePluginGitUrl', () => {
   it('maps owner/repo shorthand to github git url', () => {
     expect(resolvePluginGitUrl('johsua092-ui/synapse-ai-agent-example-plugins')).toEqual({
-      gitUrl: 'https://github.com/johsua092-ui/synapse-example-plugins.git',
+      gitUrl: 'https://github.com/johsua092-ui/synapse-ai-agent-example-plugins.git',
       subdir: null
     })
   })

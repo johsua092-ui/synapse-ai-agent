@@ -261,22 +261,22 @@ test('compareApiUrl builds the GitHub compare URL for HTTPS origins', () => {
   assert.equal(
     compareApiUrl({
       currentSha: SHA_A,
-      originUrl: 'https://github.com/johsua092-ui/synapse-agent.git',
+      originUrl: 'https://github.com/johsua092-ui/synapse-ai-agent.git',
       targetSha: SHA_B
     }),
-    `https://api.github.com/repos/johsua092-ui/synapse-agent/compare/${SHA_A}...${SHA_B}`
+    `https://api.github.com/repos/johsua092-ui/synapse-ai-agent/compare/${SHA_A}...${SHA_B}`
   )
 })
 
 test('compareApiUrl handles SSH origin forms', () => {
   for (const originUrl of [
     'git@github.com:johsua092-ui/synapse-ai-agent.git',
-    'ssh://git@github.com/johsua092-ui/synapse-agent.git',
+    'ssh://git@github.com/johsua092-ui/synapse-ai-agent.git',
     'git@github.com:johsua092-ui/synapse-ai-agent'
   ]) {
     assert.equal(
       compareApiUrl({ currentSha: SHA_A, originUrl, targetSha: SHA_B }),
-      `https://api.github.com/repos/johsua092-ui/synapse-agent/compare/${SHA_A}...${SHA_B}`
+      `https://api.github.com/repos/johsua092-ui/synapse-ai-agent/compare/${SHA_A}...${SHA_B}`
     )
   }
 })
