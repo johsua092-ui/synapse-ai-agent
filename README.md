@@ -208,6 +208,39 @@ See `synapse claw migrate --help` for all options, or use the `openclaw-migratio
 
 ---
 
+
+## Google Drive
+
+Synapse can read and write the user's Google Drive through a bundled skill
+(`skills/google-drive`). It uses the Drive REST API with OAuth — no heavy
+Google SDK, just `requests` (already a core dependency).
+
+Set it up once by running the bundled helper:
+
+```bash
+python3 skills/google-drive/google-drive/scripts/gdrive.py setup
+```
+
+The wizard walks the user through the Google Cloud Console (enable the Drive
+API, create a Desktop OAuth client, download `credentials.json`), then opens a
+browser for consent and caches the token locally. Credential files
+(`credentials.json`, `token.json`) are git-ignored and never committed.
+
+Then the agent can drive the Drive on the user's behalf:
+
+```bash
+python3 skills/google-drive/google-drive/scripts/gdrive.py list
+python3 skills/google-drive/google-drive/scripts/gdrive.py search "annual report"
+python3 skills/google-drive/google-drive/scripts/gdrive.py upload notes.md
+python3 skills/google-drive/google-drive/scripts/gdrive.py download <file_id>
+```
+
+The same credentials work on Windows, Termux, a VPS, or Railway — copy
+`credentials.json` (and `token.json`) into the checkout and run `setup` again.
+See `skills/google-drive/google-drive/SKILL.md` for full details.
+
+---
+
 ## Contributing
 
 We welcome contributions! See the Contributing Guide for development setup, code style, and PR process.
