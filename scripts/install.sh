@@ -14,6 +14,7 @@
 # ============================================================================
 
 set -e
+set -o pipefail
 
 # Guard against environment leakage when the installer is launched from another
 # Python-driven tool session (e.g. Synapse terminal tool). A pre-set PYTHONPATH
@@ -44,7 +45,7 @@ BOLD='\033[1m'
 
 # Configuration
 REPO_URL_SSH="git@github.com:johsua092-ui/synapse-ai-agent.git"
-REPO_URL_HTTPS="https://github.com/johsua092-ui/synapse-agent.git"
+REPO_URL_HTTPS="https://github.com/johsua092-ui/synapse-ai-agent.git"
 SYNAPSE_HOME="${SYNAPSE_HOME:-$HOME/.synapse}"
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
@@ -1092,7 +1093,7 @@ check_network_prerequisites() {
 
     local url
     local failed=false
-    local checks=("https://pypi.org/simple/" "https://duckduckgo.com/")
+    local checks=("https://pypi.org/simple/" "https://astral.sh/")
 
     if ! command -v curl >/dev/null 2>&1; then
         log_warn "curl not found; skipping connectivity probes"
@@ -1136,7 +1137,7 @@ check_network_prerequisites() {
         log_warn "Termux network prerequisites may be incomplete."
         log_info "Try: pkg install -y ca-certificates curl && pkg update"
         log_info "If mirrors are stale: termux-change-repo"
-        log_info "Then test: curl -I https://pypi.org/simple/ && curl -I https://duckduckgo.com/"
+        log_info "Then test: curl -I https://pypi.org/simple/"
     else
         log_warn "Network checks failed. Synapse install may complete, but web search and dependency downloads can fail."
         log_info "Verify internet/DNS and retry if pip install fails."
@@ -1479,6 +1480,19 @@ EOF
 
     cd "$INSTALL_DIR"
 
+    # Guard: verify this checkout is actually the Synapse Agent repository.
+    # A wrong/cloned-elsewhere tree (e.g. an old repo at a stale URL) has no
+    # pyproject.toml, and install_deps would then silently "fall back" because
+    # uv.lock/pyproject.toml are missing — surfacing a confusing "command not
+    # found" later instead of a clear error now.
+    if [ ! -f "pyproject.toml" ]; then
+        log_error "Cloned repository at $INSTALL_DIR does not look like Synapse Agent."
+        log_error "Expected pyproject.toml but it is missing. Clone likely pulled the wrong repository."
+        log_info "Expected upstream: $REPO_URL_HTTPS"
+        log_info "Remove $INSTALL_DIR and re-run the installer."
+        exit 1
+    fi
+
     if [ -n "$INSTALL_COMMIT" ]; then
         # Validate the commit argument: must look like a hex SHA (full 40-char
         # or abbreviated 7-39 char). Reject anything else early so the user
@@ -1537,25 +1551,25 @@ setup_venv() {
     if [ "$DISTRO" = "termux" ]; then
         log_info "Creating virtual environment with Termux Python..."
 
-        if [ -d "venv" ]; then
+        if [ -d "$INSTALL_DIR/venv" ]; then
             log_info "Virtual environment already exists, recreating..."
-            rm -rf venv
+            rm -rf "$INSTALL_DIR/venv"
         fi
 
-        "$PYTHON_PATH" -m venv venv
-        log_success "Virtual environment ready ($(./venv/bin/python --version 2>/dev/null))"
+        "$PYTHON_PATH" -m venv "$INSTALL_DIR/venv"
+        log_success "Virtual environment ready ($("$INSTALL_DIR/venv/bin/python" --version 2>/dev/null))"
         return 0
     fi
 
     log_info "Creating virtual environment with Python $PYTHON_VERSION..."
 
-    if [ -d "venv" ]; then
+    if [ -d "$INSTALL_DIR/venv" ]; then
         log_info "Virtual environment already exists, recreating..."
-        rm -rf venv
+        rm -rf "$INSTALL_DIR/venv"
     fi
 
     # uv creates the venv and pins the Python version in one step
-    $UV_CMD venv venv --python "$PYTHON_VERSION"
+    $UV_CMD venv "$INSTALL_DIR/venv" --python "$PYTHON_VERSION"
 
     # Neutralize any inherited UV_PYTHON (e.g. UV_PYTHON=3.14 left in the
     # user's shell env). uv honours UV_PYTHON over an existing venv for the
@@ -1716,7 +1730,8 @@ install_deps() {
         fi
         log_warn "uv.lock sync failed (see uv output above), falling back to PyPI resolve..."
     else
-        log_info "uv.lock not found — falling back to PyPI resolve (no hash verification)"
+        log_warn "uv.lock not found in checkout — this usually means the repo was cloned incorrectly (missing files)."
+        log_info "  Continuing with an unverified PyPI resolve. If install fails, verify you cloned the Synapse Agent repo."
     fi
 
     # Multi-tier fallback. The point of the tiers is that ONE compromised
@@ -1783,29 +1798,43 @@ PY
         _SAFE_SPEC=".[$(IFS=,; echo "${_SAFE_EXTRAS[*]}")]"
     fi
 
-    ALL_INSTALL_LOG=$(mktemp)
     local _installed=false
     local _tier_name=""
 
     install_tier() {
         local name="$1"; local spec="$2"
         log_info "Trying tier: $name ..."
-        if $UV_CMD pip install -e "$spec" 2>"$ALL_INSTALL_LOG"; then
+        # Capture BOTH stdout and stderr so a failure is never lost. The old
+        # code sent only stderr to a temp file and showed a 5-line sliver, so a
+        # resolver error on stdout (uv prints the actionable "no solution" /
+        # "unknown package" block on stderr, but pip/setuptools failures and
+        # editable-build tracebacks can land on stdout) vanished entirely.
+        local _tier_log
+        _tier_log=$(mktemp)
+        if $UV_CMD pip install -e "$spec" >"$_tier_log" 2>&1; then
+            rm -f "$_tier_log"
             log_success "Main package installed ($name)"
             _installed=true
             _tier_name="$name"
             return 0
         fi
-        log_warn "Tier '$name' failed. Top of pip output:"
-        head -5 "$ALL_INSTALL_LOG" | sed 's/^/    /' >&2
+        local _rc=$?
+        log_warn "Tier '$name' failed (exit code $_rc)."
+        if [ -s "$_tier_log" ]; then
+            log_info "Full pip/uv output (last 40 lines):"
+            tail -40 "$_tier_log" | sed 's/^/    /' >&2
+        else
+            log_info "No output was captured. The command may have failed to launch:"
+            log_info "  command: $UV_CMD pip install -e \"$spec\""
+            log_info "  (is uv installed? run: $UV_CMD --version)"
+        fi
+        rm -f "$_tier_log"
         return 1
     }
 
     install_tier "all" ".[all]" \
         || install_tier "all minus known-broken (${_BROKEN_EXTRAS[*]:-none})" "$_SAFE_SPEC" \
         || install_tier "core only (no extras)" "."
-
-    rm -f "$ALL_INSTALL_LOG"
 
     if [ "$_installed" = false ]; then
         log_error "Package installation failed even with no extras."
