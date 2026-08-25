@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // — and blanks the transcript instead of degrading to the plain colored diff.
 vi.mock('./syntax-diff', () => {
   throw new Error(
-    'Failed to fetch dynamically imported module: file:///Hermes.app/Contents/Resources/app.asar/dist/assets/syntax-diff-Bo0962zh.js'
+    'Failed to fetch dynamically imported module: file:///Synapse.app/Contents/Resources/app.asar/dist/assets/syntax-diff-Bo0962zh.js'
   )
 })
 

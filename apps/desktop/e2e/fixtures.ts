@@ -509,13 +509,13 @@ providers:
  */
 function resolvePackagedBinaryPath(): string {
   if (process.platform === 'win32') {
-    return path.join(RELEASE_ROOT, 'win-unpacked', 'Hermes.exe')
+    return path.join(RELEASE_ROOT, 'win-unpacked', 'Synapse.exe')
   }
 
   if (process.platform === 'darwin') {
     const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
 
-    return path.join(RELEASE_ROOT, `mac-${arch}`, 'Hermes.app', 'Contents', 'MacOS', 'Synapse')
+    return path.join(RELEASE_ROOT, `mac-${arch}`, 'Synapse.app', 'Contents', 'MacOS', 'Synapse')
   }
 
   return path.join(RELEASE_ROOT, 'linux-unpacked', 'synapse')

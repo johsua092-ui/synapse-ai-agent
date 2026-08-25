@@ -85,9 +85,9 @@ def _make_packaged_executable(root: Path, monkeypatch) -> Path:
     """
     desktop_dir = root / "apps" / "desktop"
     if sys.platform == "darwin":
-        exe = desktop_dir / "release" / "mac-arm64" / "Hermes.app" / "Contents" / "MacOS" / "Synapse"
+        exe = desktop_dir / "release" / "mac-arm64" / "Synapse.app" / "Contents" / "MacOS" / "Synapse"
     elif sys.platform == "win32":
-        exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+        exe = desktop_dir / "release" / "win-unpacked" / "Synapse.exe"
     else:
         exe = desktop_dir / "release" / "linux-unpacked" / "synapse"
     exe.parent.mkdir(parents=True, exist_ok=True)
@@ -246,7 +246,7 @@ def test_gui_does_not_retry_after_packaged_executable_exists(tmp_path, monkeypat
     Electron-download problem the cache purge + mirror retries exist to repair.
 
     Regression for #40187: a late failure such as macOS code signing leaves
-    Hermes.app/Contents/MacOS/Synapse in place. Re-downloading Electron can't
+    Synapse.app/Contents/MacOS/Synapse in place. Re-downloading Electron can't
     repair a signing failure, so the destructive purge + slow mirror retry must
     be skipped — we fail directly instead of grinding through an identical retry.
     """
@@ -397,13 +397,13 @@ def _write_info_plist(bundle: Path, identifier: str) -> None:
 
 
 def _make_signable_app(desktop_dir: Path) -> Path:
-    """Build a fake packaged Hermes.app with the pieces the signer must find."""
+    """Build a fake packaged Synapse.app with the pieces the signer must find."""
     ent_dir = desktop_dir / "electron"
     ent_dir.mkdir(parents=True, exist_ok=True)
     (ent_dir / "entitlements.mac.plist").write_text("<plist/>", encoding="utf-8")
     (ent_dir / "entitlements.mac.inherit.plist").write_text("<plist/>", encoding="utf-8")
 
-    app = desktop_dir / "release" / "mac-arm64" / "Hermes.app"
+    app = desktop_dir / "release" / "mac-arm64" / "Synapse.app"
     _write_info_plist(app, "com.joshresearch.synapse")
     (app / "Contents" / "MacOS").mkdir(parents=True)
     (app / "Contents" / "MacOS" / "Synapse").write_text("", encoding="utf-8")
@@ -436,7 +436,7 @@ def test_desktop_macos_local_codesign_signs_native_binaries(tmp_path, monkeypatc
     """The standalone Mach-O pass must actually find files inside the bundle.
 
     Regression: an absolute-path parts check always matches the outer
-    Hermes.app component, silently skipping every .node/.dylib/crashpad
+    Synapse.app component, silently skipping every .node/.dylib/crashpad
     binary — codesign then rejects the outer signature (nested code unsigned).
     """
     desktop_dir = tmp_path / "apps" / "desktop"

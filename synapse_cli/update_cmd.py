@@ -1628,7 +1628,7 @@ def _update_via_zip(args, *, had_desktop_app_before_update: bool = False) -> boo
                 staged.append((_stage_replacement(src, dst), dst))
                 # #70337/#87331: the GitHub source ZIP contains only source —
                 # apps/desktop/release/ (the BUILT desktop app, win-unpacked/
-                # Hermes.exe) exists only in the LIVE tree. Swapping `apps`
+                # Synapse.exe) exists only in the LIVE tree. Swapping `apps`
                 # without it deletes the desktop build and breaks the
                 # shortcut. Graft the live release dir into the staged copy
                 # BEFORE the swap so the commit preserves it atomically.

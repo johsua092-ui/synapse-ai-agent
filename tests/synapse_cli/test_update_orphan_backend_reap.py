@@ -88,7 +88,7 @@ def test_orphan_backend_dead_parent_qualifies():
 
 
 def test_backend_with_live_parent_keeps_refusal():
-    parent = _proc(50, ["Hermes.exe"], create_time=10.0)
+    parent = _proc(50, ["Synapse.exe"], create_time=10.0)
     backend = _proc(200, _SERVE_ARGV, ppid=50, create_time=100.0)
     fake = _fake_psutil({50: parent, 200: backend})
     with patch.dict(sys.modules, {"psutil": fake}):

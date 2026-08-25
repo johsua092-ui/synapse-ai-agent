@@ -57,12 +57,12 @@ test('mode predicates classify what each mode removes', () => {
 
 test('resolveRemovableAppPath finds the .app bundle on macOS', () => {
   assert.equal(
-    resolveRemovableAppPath('/Applications/Hermes.app/Contents/MacOS/Synapse', 'darwin'),
-    '/Applications/Hermes.app'
+    resolveRemovableAppPath('/Applications/Synapse.app/Contents/MacOS/Synapse', 'darwin'),
+    '/Applications/Synapse.app'
   )
   assert.equal(
-    resolveRemovableAppPath('/Users/x/Applications/Hermes.app/Contents/MacOS/Synapse', 'darwin'),
-    '/Users/x/Applications/Hermes.app'
+    resolveRemovableAppPath('/Users/x/Applications/Synapse.app/Contents/MacOS/Synapse', 'darwin'),
+    '/Users/x/Applications/Synapse.app'
   )
 })
 
@@ -81,23 +81,23 @@ test('resolveRemovableAppPath: dev-run .app resolves (safety is shouldRemoveAppB
 
 test('resolveRemovableAppPath finds the install dir on Windows', () => {
   assert.equal(
-    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Synapse\\Hermes.exe', 'win32'),
+    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Synapse\\Synapse.exe', 'win32'),
     'C:\\Users\\x\\AppData\\Local\\Programs\\Synapse'
   )
   assert.equal(
-    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\synapse-desktop\\Hermes.exe', 'win32'),
+    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\synapse-desktop\\Synapse.exe', 'win32'),
     'C:\\Users\\x\\AppData\\Local\\synapse-desktop'
   )
 })
 
 test('resolveRemovableAppPath returns null for an unrecognized Windows dir', () => {
-  assert.equal(resolveRemovableAppPath('C:\\Temp\\foo\\Hermes.exe', 'win32'), null)
+  assert.equal(resolveRemovableAppPath('C:\\Temp\\foo\\Synapse.exe', 'win32'), null)
 })
 
 test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
   assert.equal(
-    resolveRemovableAppPath('/tmp/.mount_SynapseXXXX/synapse', 'linux', { APPIMAGE: '/home/x/Apps/Hermes.AppImage' }),
-    '/home/x/Apps/Hermes.AppImage'
+    resolveRemovableAppPath('/tmp/.mount_SynapseXXXX/synapse', 'linux', { APPIMAGE: '/home/x/Apps/Synapse.AppImage' }),
+    '/home/x/Apps/Synapse.AppImage'
   )
 })
 
@@ -115,8 +115,8 @@ test('resolveRemovableAppPath returns null for an empty exe path', () => {
 // --- shouldRemoveAppBundle ---
 
 test('shouldRemoveAppBundle requires packaged AND a resolved path', () => {
-  assert.equal(shouldRemoveAppBundle(true, '/Applications/Hermes.app'), true)
-  assert.equal(shouldRemoveAppBundle(false, '/Applications/Hermes.app'), false)
+  assert.equal(shouldRemoveAppBundle(true, '/Applications/Synapse.app'), true)
+  assert.equal(shouldRemoveAppBundle(false, '/Applications/Synapse.app'), false)
   assert.equal(shouldRemoveAppBundle(true, null), false)
   assert.equal(shouldRemoveAppBundle(false, null), false)
 })

@@ -12,7 +12,7 @@ mapped -- and Windows refuses to replace a file mapped as a running image
 does not have, so `uv pip install -e .` exits non-zero, the ZIP fallback repeats
 the same sequence, the desktop build stage is never reached, and the pre-build
 clean has already removed `apps/desktop/release` -- leaving an install whose
-Start Menu shortcut points at a `Hermes.exe` that no longer exists.
+Start Menu shortcut points at a `Synapse.exe` that no longer exists.
 
 Driving the update as `python.exe -m synapse_cli.main update` puts the inherited
 image handle on `python.exe`, which uv never has to replace, so the shim is an

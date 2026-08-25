@@ -22,7 +22,7 @@
 #     -InstallRoot <path>   repo checkout (SYNAPSE_HOME\synapse-agent)
 #     -Branch <ref>         branch to update against
 #     -DesktopPid <pid>     the Electron main process to wait out
-#     [-RelaunchExe <path>] Hermes.exe to start when done (omit = no relaunch)
+#     [-RelaunchExe <path>] Synapse.exe to start when done (omit = no relaunch)
 #     [-NoUi]               headless (tests); default shows a progress window
 #     [-NoMarkerCleanup]    leave .synapse-update-in-progress in place (tests)
 #
@@ -64,7 +64,7 @@ $ErrorActionPreference = "Continue"
 # WinForms window comes up backgrounded unless we explicitly claim focus --
 # and after the update we must hand focus TO the relaunched Desktop (a
 # WMI-spawned process starts unfocused). AllowSetForegroundWindow lets us
-# pass our foreground right on to the new Hermes.exe pid.
+# pass our foreground right on to the new Synapse.exe pid.
 try {
     Add-Type -Namespace SynapseHandoff -Name Win32 -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr hWnd);
@@ -544,7 +544,7 @@ function Start-DesktopRelaunch {
     # — the sibling truth contract to posix.sh's launch acceptance.
     if (-not $RelaunchExe) { return $false }
     # electron-builder replaces win-unpacked in place. After a successful
-    # update it can remove the old Hermes.exe before writing the replacement,
+    # update it can remove the old Synapse.exe before writing the replacement,
     # so a one-shot existence check races the rebuild and strands the user.
     $relaunchDeadline = (Get-Date).AddSeconds(120)
     while (-not (Test-Path -LiteralPath $RelaunchExe)) {
@@ -556,7 +556,7 @@ function Start-DesktopRelaunch {
         if ($script:Ui) { [System.Windows.Forms.Application]::DoEvents() }
     }
     Write-HandoffLog "relaunching desktop: $RelaunchExe"
-    # DO NOT spawn Hermes.exe as our child: Electron/Chromium calls
+    # DO NOT spawn Synapse.exe as our child: Electron/Chromium calls
     # AttachConsole(ATTACH_PARENT_PROCESS) at boot, so a Desktop launched
     # directly from this console PowerShell latches onto OUR console --
     # the console window then outlives the script (it can't close while
@@ -1092,7 +1092,7 @@ try {
     # When the rename loses that race there is no recovery: `uv pip install -e .`
     # exits 2 and the ZIP fallback repeats the identical sequence, so the desktop
     # build stage is never reached and apps/desktop/release is left missing -- an
-    # install whose Start Menu shortcut points at a Hermes.exe that no longer
+    # install whose Start Menu shortcut points at a Synapse.exe that no longer
     # exists. (A reboot-deferred rename was the old last resort here; it needed
     # elevation a Desktop-driven update does not have, and freed nothing for the
     # install already in flight.)

@@ -6607,7 +6607,7 @@ def _renderer_bundle_dir(desktop_dir: Path, *, source_mode: bool) -> Optional[Pa
     if executable is None:
         return None
 
-    # macOS: …/Hermes.app/Contents/MacOS/Synapse → …/Contents/Resources
+    # macOS: …/Synapse.app/Contents/MacOS/Synapse → …/Contents/Resources
     resources = (
         executable.parent.parent / "Resources"
         if sys.platform == "darwin"
@@ -6721,12 +6721,12 @@ def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
     """Return the current platform's unpacked Electron app executable."""
     release_dir = desktop_dir / "release"
     if sys.platform == "darwin":
-        candidates = list(release_dir.glob("mac*/Hermes.app/Contents/MacOS/Synapse"))
+        candidates = list(release_dir.glob("mac*/Synapse.app/Contents/MacOS/Synapse"))
     elif sys.platform == "win32":
         candidates = [
-            release_dir / "win-unpacked" / "Hermes.exe",
-            release_dir / "win-ia32-unpacked" / "Hermes.exe",
-            release_dir / "win-arm64-unpacked" / "Hermes.exe",
+            release_dir / "win-unpacked" / "Synapse.exe",
+            release_dir / "win-ia32-unpacked" / "Synapse.exe",
+            release_dir / "win-arm64-unpacked" / "Synapse.exe",
         ]
     else:
         candidates = [
@@ -6742,7 +6742,7 @@ def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
     if sys.platform == "win32" and len(existing) > 1:
         # Multiple unpacked trees can coexist (e.g. a stale win-arm64-unpacked
         # left behind by a cross-arch experiment next to the real win-unpacked).
-        # Picking purely by mtime can then hand a wrong-architecture Hermes.exe
+        # Picking purely by mtime can then hand a wrong-architecture Synapse.exe
         # to the launcher, which Windows rejects with "This app can't run on
         # your computer" (#69179). Prefer candidates whose PE machine field
         # matches the host; fall back to mtime when none can be parsed.
@@ -6757,14 +6757,14 @@ def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
 #
 # The desktop self-update chain (Desktop → synapse-setup --update →
 # `synapse update` → `synapse desktop --build-only` → relaunch) rebuilds
-# Hermes.exe on the end user's machine and used to verify only that the file
+# Synapse.exe on the end user's machine and used to verify only that the file
 # EXISTS before declaring success. A corrupt cached Electron zip whose
 # extraction produced a truncated electron.exe, an interrupted rcedit resource
 # rewrite, a disk-full pack, or a wrong-arch unpacked tree therefore shipped a
 # broken binary that Windows refuses to load ("This app can't run on your
 # computer" / 此应用无法在你的电脑上运行). These helpers parse the PE header —
 # no signature infrastructure required — so a structurally broken or
-# wrong-architecture Hermes.exe is caught BEFORE the updater replaces the
+# wrong-architecture Synapse.exe is caught BEFORE the updater replaces the
 # working app, and the previous build can be restored from the .bak tree that
 # apps/desktop/scripts/before-pack.mjs now preserves.
 
@@ -6798,7 +6798,7 @@ def _windows_native_machine_from_iswow64() -> Optional[str]:
     that makes ``IsWow64Process2`` fail with ``ERROR_INVALID_HANDLE`` (6),
     which is exactly the residual Windows-on-ARM failure after #71218: the
     gate fell through to ``PROCESSOR_ARCHITECTURE=AMD64`` (the emulated
-    process arch) and rejected a correctly-built ARM64 ``Hermes.exe``.
+    process arch) and rejected a correctly-built ARM64 ``Synapse.exe``.
     Binding ``restype``/``argtypes`` to ``wintypes.HANDLE`` keeps the full
     ``0xFFFFFFFFFFFFFFFF`` pseudo-handle.
     """
@@ -7064,7 +7064,7 @@ def _ensure_desktop_exe_launchable(
     if error is None:
         return packaged_executable, False
 
-    print(f"✗ The built Hermes.exe failed its integrity check: {error}")
+    print(f"✗ The built Synapse.exe failed its integrity check: {error}")
     print(f"    at: {packaged_executable}")
 
     # Self-heal setup for the retry: drop the (likely corrupt) cached Electron
@@ -7078,7 +7078,7 @@ def _ensure_desktop_exe_launchable(
 
     restored = _rollback_desktop_from_backup(packaged_executable)
     if restored is not None:
-        print("  ↩ Update aborted — restored the previous working Hermes.exe from backup.")
+        print("  ↩ Update aborted — restored the previous working Synapse.exe from backup.")
         print("    Your existing version was kept and still works. Run `synapse desktop`")
         print("    (or the in-app update) again to retry with a fresh Electron download.")
         return restored, True
@@ -7298,9 +7298,9 @@ def _stop_desktop_processes_locking_build(desktop_dir: Path) -> list[int]:
     """Terminate any running desktop app executing from this build's ``release``
     dir so a rebuild can replace its (otherwise locked) executable.
 
-    On Windows a running ``Hermes.exe`` keeps an exclusive lock on
-    ``release/win-unpacked/Hermes.exe``. electron-builder's pack then can't
-    delete the stale binary and dies with ``remove …\\Hermes.exe: Access is
+    On Windows a running ``Synapse.exe`` keeps an exclusive lock on
+    ``release/win-unpacked/Synapse.exe``. electron-builder's pack then can't
+    delete the stale binary and dies with ``remove …\\Synapse.exe: Access is
     denied`` / ``ERR_ELECTRON_BUILDER_CANNOT_EXECUTE`` (before-pack hits the same
     EPERM cleaning the dir). The retry path repeats the failure because the lock
     is still held. POSIX lets you unlink a running binary, so this is a no-op
@@ -7508,7 +7508,7 @@ def _desktop_macos_local_codesign(
 
     # 1) Standalone Mach-O files (native modules, dylibs, crashpad handler).
     #    Compare paths relative to the app root — the absolute path always
-    #    contains the outer Hermes.app component, so an absolute-parts check
+    #    contains the outer Synapse.app component, so an absolute-parts check
     #    would skip every file.
     contents = app / "Contents"
     standalone: list[Path] = []
@@ -7586,7 +7586,7 @@ def _desktop_macos_relaunchable_fixup(
     exe = _desktop_packaged_executable(desktop_dir)
     if exe is None:
         return True
-    # exe = .../Hermes.app/Contents/MacOS/Synapse  ->  app bundle = .../Hermes.app
+    # exe = .../Synapse.app/Contents/MacOS/Synapse  ->  app bundle = .../Synapse.app
     app = exe.parents[2]
     if not str(app).endswith(".app") or not app.is_dir():
         return True
@@ -7980,7 +7980,7 @@ def cmd_gui(args: argparse.Namespace):
             npm_build_env = _npm_lifecycle_env(env)
             if not source_mode:
                 # A running desktop instance launched from release/win-unpacked
-                # holds Hermes.exe locked on Windows, so the pack can't replace
+                # holds Synapse.exe locked on Windows, so the pack can't replace
                 # it ("Access is denied" / ERR_ELECTRON_BUILDER_CANNOT_EXECUTE).
                 # Stop it first so the rebuild — including the installer's
                 # headless --update rebuild — succeeds instead of failing cryptically.
@@ -8013,7 +8013,7 @@ def cmd_gui(args: argparse.Namespace):
                     print("  ⚠ Desktop build failed; refreshed the Electron download and retrying once...")
                     for p in purged:
                         print(f"    - {p}")
-                    # The purge can't remove a win-unpacked tree whose Hermes.exe
+                    # The purge can't remove a win-unpacked tree whose Synapse.exe
                     # is still locked by a running instance; stop it before retry.
                     _stop_desktop_processes_locking_build(desktop_dir)
                     build_result = subprocess.run(
@@ -8039,7 +8039,7 @@ def cmd_gui(args: argparse.Namespace):
                 print("✗ Desktop GUI build failed")
                 print(f"  Run manually:  cd apps/desktop && npm run {build_script}")
                 if sys.platform == "win32":
-                    print("  If this says \"Access is denied\" on Hermes.exe, close any")
+                    print("  If this says \"Access is denied\" on Synapse.exe, close any")
                     print("  running Synapse desktop window and retry.")
                 print("  If the log shows Electron download retries, rebuild via a mirror:")
                 print("    ELECTRON_MIRROR=<mirror-base-url> synapse desktop --force-build")
@@ -8052,7 +8052,7 @@ def cmd_gui(args: argparse.Namespace):
                 _desktop_macos_relaunchable_fixup(desktop_dir)
 
                 # Windows integrity gate (#69179): never declare the rebuild a
-                # success on a Hermes.exe Windows cannot load (truncated PE from
+                # success on a Synapse.exe Windows cannot load (truncated PE from
                 # a corrupt cached Electron zip, wrong-arch tree, interrupted
                 # rcedit rewrite). Roll back to the .bak tree preserved by
                 # before-pack.mjs when possible, then fail loudly so the

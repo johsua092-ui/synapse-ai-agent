@@ -216,13 +216,13 @@ pub(crate) fn resolve_synapse_desktop_exe(install_root: &std::path::Path) -> Opt
     let release_dir = install_root.join("apps").join("desktop").join("release");
     let candidates: &[(&str, &str)] = if cfg!(target_os = "windows") {
         &[
-            ("win-unpacked", "Hermes.exe"),
-            ("win-arm64-unpacked", "Hermes.exe"),
+            ("win-unpacked", "Synapse.exe"),
+            ("win-arm64-unpacked", "Synapse.exe"),
         ]
     } else if cfg!(target_os = "macos") {
         &[
-            ("mac/Hermes.app/Contents/MacOS", "Synapse"),
-            ("mac-arm64/Hermes.app/Contents/MacOS", "Synapse"),
+            ("mac/Synapse.app/Contents/MacOS", "Synapse"),
+            ("mac-arm64/Synapse.app/Contents/MacOS", "Synapse"),
         ]
     } else {
         &[("linux-unpacked", "synapse")]
@@ -240,7 +240,7 @@ pub(crate) fn resolve_synapse_desktop_app(install_root: &std::path::Path) -> Opt
     let exe = resolve_synapse_desktop_exe(install_root)?;
     #[cfg(target_os = "macos")]
     {
-        // .../Hermes.app/Contents/MacOS/Synapse -> .../Hermes.app
+        // .../Synapse.app/Contents/MacOS/Synapse -> .../Synapse.app
         let app = exe.parent()?.parent()?.parent()?.to_path_buf();
         if app.extension().and_then(|e| e.to_str()) == Some("app") && app.is_dir() {
             return Some(app);
@@ -1024,16 +1024,16 @@ mod tests {
         if cfg!(target_os = "macos") {
             let macos_dir = release
                 .join("mac-arm64")
-                .join("Hermes.app")
+                .join("Synapse.app")
                 .join("Contents")
                 .join("MacOS");
             std::fs::create_dir_all(&macos_dir).unwrap();
             std::fs::write(macos_dir.join("Synapse"), b"#!/bin/sh\n").unwrap();
-            macos_dir.parent().unwrap().parent().unwrap().to_path_buf() // .../Hermes.app
+            macos_dir.parent().unwrap().parent().unwrap().to_path_buf() // .../Synapse.app
         } else if cfg!(target_os = "windows") {
             let dir = release.join("win-unpacked");
             std::fs::create_dir_all(&dir).unwrap();
-            let exe = dir.join("Hermes.exe");
+            let exe = dir.join("Synapse.exe");
             std::fs::write(&exe, b"stub").unwrap();
             exe
         } else {
@@ -1047,7 +1047,7 @@ mod tests {
 
     // The relaunch / install target is derived from the rebuilt desktop app.
     // On macOS this MUST resolve to the .app bundle (what `open` relaunches and
-    // what the updater ditto's over /Applications/Hermes.app). A regression in
+    // what the updater ditto's over /Applications/Synapse.app). A regression in
     // this derivation breaks the post-update auto-relaunch, so guard it.
     #[test]
     fn resolve_synapse_desktop_app_finds_built_bundle() {

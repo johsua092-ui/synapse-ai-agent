@@ -182,7 +182,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --stage NAME   Run one desktop bootstrap stage"
             echo "  --json         Print a JSON result frame for --stage"
             echo "  --non-interactive  Skip stages that require user input"
-            echo "  --include-desktop  Also build the desktop app (apps/desktop -> Hermes.app)"
+            echo "  --include-desktop  Also build the desktop app (apps/desktop -> Synapse.app)"
             echo "  --dir PATH     Installation directory"
             echo "                   default (non-root):  ~/.synapse/synapse-agent"
             echo "                   default (root, Linux): /usr/local/lib/synapse-agent"
@@ -3346,8 +3346,8 @@ install_desktop() {
     else
         local cand
         for cand in \
-            "$desktop_dir/release/mac-arm64/Hermes.app" \
-            "$desktop_dir/release/mac/Hermes.app"; do
+            "$desktop_dir/release/mac-arm64/Synapse.app" \
+            "$desktop_dir/release/mac/Synapse.app"; do
             if [ -d "$cand" ]; then
                 app="$cand"
                 break

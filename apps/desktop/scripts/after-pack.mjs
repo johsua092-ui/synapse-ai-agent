@@ -1,7 +1,7 @@
 /**
  * after-pack.mjs — electron-builder afterPack hook.
  *
- * Stamps the Synapse icon + identity onto the packed Windows Hermes.exe via
+ * Stamps the Synapse icon + identity onto the packed Windows Synapse.exe via
  * rcedit (delegated to set-exe-identity.mjs). This runs for EVERY packed build
  * — first install, `synapse desktop`, the installer's --update rebuild, and a
  * dev's manual `npm run pack` — so the branded exe can never silently revert
@@ -36,6 +36,6 @@ export default async function afterPack(context) {
     await stampExeIdentity(exe, desktopRoot)
   } catch (err) {
     // Never fail the build over a cosmetic stamp.
-    console.warn(`[after-pack] exe identity stamp failed (${err.message}); Hermes.exe keeps the stock Electron icon`)
+    console.warn(`[after-pack] exe identity stamp failed (${err.message}); Synapse.exe keeps the stock Electron icon`)
   }
 }

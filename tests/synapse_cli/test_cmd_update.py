@@ -981,7 +981,7 @@ class TestNodeRuntimeNpmResolution:
         from synapse_cli import update_cmd
 
         desktop_dir = PROJECT_ROOT / "apps" / "desktop"
-        packaged_exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+        packaged_exe = desktop_dir / "release" / "win-unpacked" / "Synapse.exe"
         build_ok = subprocess.CompletedProcess([], 0, stdout="", stderr="")
 
         with (
@@ -1011,7 +1011,7 @@ class TestNodeRuntimeNpmResolution:
         """The Windows ZIP fallback keeps Desktop intact when replacing ``apps/``.
 
         Contract updated for the #70337/#87331 release-dir graft: the built
-        desktop app (release/win-unpacked/Hermes.exe) is preserved THROUGH
+        desktop app (release/win-unpacked/Synapse.exe) is preserved THROUGH
         the swap — previously this test pinned the old repair shape (exe
         deleted by the swap, then rebuilt from scratch). The rebuild hook
         still runs (mocked _desktop_build_needed=True), but it now finds
@@ -1025,7 +1025,7 @@ class TestNodeRuntimeNpmResolution:
         project_root = tmp_path / "synapse-agent"
         (project_root / ".git").mkdir(parents=True)
         desktop_dir = project_root / "apps" / "desktop"
-        packaged_exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+        packaged_exe = desktop_dir / "release" / "win-unpacked" / "Synapse.exe"
         packaged_exe.parent.mkdir(parents=True)
         packaged_exe.write_bytes(b"desktop")
 

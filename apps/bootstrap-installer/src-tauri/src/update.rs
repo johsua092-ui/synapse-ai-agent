@@ -657,13 +657,13 @@ pub(crate) async fn wait_for_install_locks_free(install_root: &Path, app: &AppHa
             return;
         }
         if Instant::now() >= deadline {
-            // Last resort: a backend synapse.exe (or the desktop Hermes.exe
+            // Last resort: a backend synapse.exe (or the desktop Synapse.exe
             // itself) is still holding one of the update-sensitive files. The
             // desktop should have reaped its tree before handing off, but
             // SIGTERM races / detached grandchildren / AV handles can leave a
             // straggler. Rather than "proceed anyway" straight into uv's
             // "Access is denied" or install.ps1's locked app.asar failure,
-            // force-kill every Hermes.exe except ourselves, then give the OS a
+            // force-kill every Synapse.exe except ourselves, then give the OS a
             // beat to unload the image.
             emit_log(
                 app,
@@ -716,8 +716,8 @@ fn desktop_app_payload_paths(install_root: &Path) -> Vec<PathBuf> {
         ]
     } else if cfg!(target_os = "macos") {
         vec![
-            release.join("mac").join("Hermes.app").join("Contents").join("Resources").join("app.asar"),
-            release.join("mac-arm64").join("Hermes.app").join("Contents").join("Resources").join("app.asar"),
+            release.join("mac").join("Synapse.app").join("Contents").join("Resources").join("app.asar"),
+            release.join("mac-arm64").join("Synapse.app").join("Contents").join("Resources").join("app.asar"),
         ]
     } else {
         vec![release.join("linux-unpacked").join("resources").join("app.asar")]
@@ -989,7 +989,7 @@ async fn install_macos_app_update(
 
     let rebuilt_app = crate::bootstrap::resolve_synapse_desktop_app(install_root).ok_or_else(|| {
         anyhow!(
-            "desktop rebuild succeeded but no Hermes.app was found under {}",
+            "desktop rebuild succeeded but no Synapse.app was found under {}",
             install_root.join("apps").join("desktop").join("release").display()
         )
     })?;
@@ -1540,8 +1540,8 @@ mod tests {
     #[test]
     fn parses_only_app_targets() {
         assert_eq!(
-            target_app_from_args(["--update", "--target-app", "/Applications/Hermes.app"]),
-            Some(PathBuf::from("/Applications/Hermes.app"))
+            target_app_from_args(["--update", "--target-app", "/Applications/Synapse.app"]),
+            Some(PathBuf::from("/Applications/Synapse.app"))
         );
         assert_eq!(target_app_from_args(["--target-app", "/tmp/not-an-app"]), None);
     }
@@ -1568,9 +1568,9 @@ mod tests {
     #[tokio::test]
     async fn swap_installs_new_bundle_and_cleans_up() {
         let base = unique_tmp_dir("ok");
-        let target = base.join("Hermes.app");
-        let tmp = base.join("Hermes.app.synapse-update-new");
-        let old = base.join("Hermes.app.synapse-update-old");
+        let target = base.join("Synapse.app");
+        let tmp = base.join("Synapse.app.synapse-update-new");
+        let old = base.join("Synapse.app.synapse-update-old");
         write_marker(&target, "OLD");
         write_marker(&tmp, "NEW");
 
@@ -1598,9 +1598,9 @@ mod tests {
         //  - `old` is a NON-EMPTY dir  -> rename(target, old) fails
         //  - `tmp` does not exist       -> rename(tmp, target) fails
         let base = unique_tmp_dir("fail");
-        let target = base.join("Hermes.app");
-        let tmp = base.join("Hermes.app.synapse-update-new"); // intentionally absent
-        let old = base.join("Hermes.app.synapse-update-old");
+        let target = base.join("Synapse.app");
+        let tmp = base.join("Synapse.app.synapse-update-new"); // intentionally absent
+        let old = base.join("Synapse.app.synapse-update-old");
         write_marker(&target, "OLD");
         write_marker(&old, "OCCUPIED"); // non-empty => rename(target,old) fails
 
@@ -1621,9 +1621,9 @@ mod tests {
         // Move-aside succeeds but installing the staged bundle fails (tmp
         // absent). The original must be rolled back from `old` to `target`.
         let base = unique_tmp_dir("rollback");
-        let target = base.join("Hermes.app");
-        let tmp = base.join("Hermes.app.synapse-update-new"); // absent
-        let old = base.join("Hermes.app.synapse-update-old");
+        let target = base.join("Synapse.app");
+        let tmp = base.join("Synapse.app.synapse-update-new"); // absent
+        let old = base.join("Synapse.app.synapse-update-old");
         write_marker(&target, "OLD");
 
         let result = swap_in_new_bundle(&tmp, &target, &old).await;

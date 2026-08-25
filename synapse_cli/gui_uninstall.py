@@ -17,7 +17,7 @@ the Python agent or the user's config/data:
   2. Packaged distributable (DMG / NSIS / AppImage / deb / rpm)
      Installed by the OS to a standard application location and carrying its
      own bundled Electron + a per-user Electron ``userData`` directory:
-       - macOS:   ``/Applications/Hermes.app`` or ``~/Applications/Hermes.app``
+       - macOS:   ``/Applications/Synapse.app`` or ``~/Applications/Synapse.app``
        - Windows: ``%LOCALAPPDATA%\\Programs\\Synapse`` (NSIS per-user)
        - Linux:   ``~/.local/share/applications`` .desktop entry + AppImage
 
@@ -119,8 +119,8 @@ def packaged_gui_app_paths() -> "list[Path]":
     paths: list[Path] = []
     if sys.platform == "darwin":
         paths += [
-            Path("/Applications/Hermes.app"),
-            home / "Applications" / "Hermes.app",
+            Path("/Applications/Synapse.app"),
+            home / "Applications" / "Synapse.app",
         ]
     elif sys.platform == "win32":
         local = os.environ.get("LOCALAPPDATA")

@@ -1,7 +1,7 @@
 """#70337/#87331: the ZIP swap must preserve apps/desktop/release/.
 
 The GitHub source ZIP carries only source; the BUILT desktop app
-(release/win-unpacked/Hermes.exe) exists only in the live tree. Swapping
+(release/win-unpacked/Synapse.exe) exists only in the live tree. Swapping
 `apps` without grafting the live release dir deletes the desktop build.
 """
 
@@ -19,11 +19,11 @@ def test_staged_apps_swap_preserves_live_release_dir(tmp_path, monkeypatch):
         _stage_replacement,
     )
 
-    # live tree: apps/desktop/release/win-unpacked/Hermes.exe + old source
+    # live tree: apps/desktop/release/win-unpacked/Synapse.exe + old source
     root = tmp_path / "install"
     live_apps = root / "apps" / "desktop"
     (live_apps / "release" / "win-unpacked").mkdir(parents=True)
-    (live_apps / "release" / "win-unpacked" / "Hermes.exe").write_bytes(b"MZbuilt")
+    (live_apps / "release" / "win-unpacked" / "Synapse.exe").write_bytes(b"MZbuilt")
     (live_apps / "electron").mkdir()
     (live_apps / "electron" / "main.ts").write_text("old source")
 
@@ -52,5 +52,5 @@ def test_staged_apps_swap_preserves_live_release_dir(tmp_path, monkeypatch):
     assert (root / "apps" / "desktop" / "electron" / "main.ts").read_text() == (
         "new source"
     )
-    exe = root / "apps" / "desktop" / "release" / "win-unpacked" / "Hermes.exe"
+    exe = root / "apps" / "desktop" / "release" / "win-unpacked" / "Synapse.exe"
     assert exe.exists() and exe.read_bytes() == b"MZbuilt"
