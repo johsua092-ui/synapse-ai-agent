@@ -18,7 +18,7 @@ Synapse discovers memory providers from four sources, in this precedence order:
 
 | Source | Location | Notes |
 |---|---|---|
-| Bundled | `plugins/memory/<name>/` | Ships with Synapse. Closed to new providers — see [CONTRIBUTING](https://github.com/johsua092-ui/synapse-agent/blob/main/CONTRIBUTING.md). |
+| Bundled | `plugins/memory/<name>/` | Ships with Synapse. Closed to new providers — see [CONTRIBUTING](https://github.com/johsua092-ui/synapse-ai-agent/blob/main/CONTRIBUTING.md). |
 | User | `$SYNAPSE_HOME/plugins/<name>/` | Dropped in by the user, per profile. |
 | Project | `./.synapse/plugins/<name>/` | Opt-in via `SYNAPSE_ENABLE_PROJECT_PLUGINS=1`. |
 | Package | `synapse_agent.memory_providers` entry point | `pip install`, nothing to copy. |

@@ -12,7 +12,7 @@ body:
         - Run `synapse debug share` and paste the links in the Debug Report section below
         - If you're in a chat session, you can use `/debug` instead — it does the same thing
         - Try `synapse update` to get the latest version
-        - Check the [README troubleshooting section](https://github.com/johsua092-ui/synapse-agent#troubleshooting)
+        - Check the [README troubleshooting section](https://github.com/johsua092-ui/synapse-ai-agent#troubleshooting)
         - For general questions, consider the [Josh Research Discord](https://discord.gg/Josh Research) for faster help
 
   - type: textarea

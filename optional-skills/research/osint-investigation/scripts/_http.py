@@ -13,7 +13,7 @@ import urllib.request
 
 DEFAULT_UA = (
     "synapse-osint-investigation/0.2 "
-    "(+https://github.com/johsua092-ui/synapse-agent; "
+    "(+https://github.com/johsua092-ui/synapse-ai-agent; "
     "set SYNAPSE_OSINT_UA env var to identify yourself per "
     "Wikimedia / SEC fair-use guidance)"
 )

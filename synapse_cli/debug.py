@@ -988,7 +988,7 @@ def _run_debug_share_nous(args, *, log_lines: int, redact: bool) -> None:
     )
     print(
         "\nPick up the discussion in:\n"
-        "  GitHub Issues        https://github.com/johsua092-ui/synapse-agent/issues\n"
+        "  GitHub Issues        https://github.com/johsua092-ui/synapse-ai-agent/issues\n"
         "  Nous Portal Support  https:///help\n"
         "  Discord              https://discord.gg/Josh Research"
     )

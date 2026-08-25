@@ -21,7 +21,7 @@ import {
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
 
-const RELEASE_NOTES_URL = 'https://github.com/johsua092-ui/synapse-agent/releases'
+const RELEASE_NOTES_URL = 'https://github.com/johsua092-ui/synapse-ai-agent/releases'
 const INSTALLER_URL = 'https:///'
 
 function relativeTime(ms: number | undefined, a: Translations['settings']['about']) {

@@ -198,7 +198,7 @@ You no longer need to wrap `synapse update` in `screen` or `tmux` to survive a t
 synapse --version
 ```
 
-Compare against the latest release at the [GitHub releases page](https://github.com/johsua092-ui/synapse-agent/releases).
+Compare against the latest release at the [GitHub releases page](https://github.com/johsua092-ui/synapse-ai-agent/releases).
 
 ### Updating from Messaging Platforms
 

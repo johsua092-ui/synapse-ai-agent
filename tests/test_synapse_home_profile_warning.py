@@ -1,6 +1,6 @@
 """Tests for get_synapse_home() profile-mode fallback warning.
 
-Regression test for https://github.com/johsua092-ui/synapse-agent/issues/18594.
+Regression test for https://github.com/johsua092-ui/synapse-ai-agent/issues/18594.
 
 When SYNAPSE_HOME is unset but an active_profile file indicates a non-default
 profile is active, get_synapse_home() should:

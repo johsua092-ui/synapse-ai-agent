@@ -39,7 +39,7 @@ See the full [Pluggable interfaces table](/user-guide/features/plugins#pluggable
 :::
 
 :::caution Third-party-product plugins ship standalone — not into the core tree
-Plugins that integrate **someone else's product or project** — observability/metrics backends, vendor SaaS connectors, analytics dashboards, paid-service tie-ins — are built and distributed as **standalone plugin repos**, not merged into `johsua092-ui/synapse-ai-agent`. Users install them into `~/.synapse/plugins/` or via a pip entry point; everything in this guide works the same way from a standalone repo. This is a coupling-and-maintenance decision (the core moves fast and we don't own your backend), not a quality bar — a plugin can be excellent and still belong in its own repo. Promote it in the Josh Research Discord `#plugins-skills-and-skins` channel. See [CONTRIBUTING.md](https://github.com/johsua092-ui/synapse-agent/blob/main/CONTRIBUTING.md) for the policy.
+Plugins that integrate **someone else's product or project** — observability/metrics backends, vendor SaaS connectors, analytics dashboards, paid-service tie-ins — are built and distributed as **standalone plugin repos**, not merged into `johsua092-ui/synapse-ai-agent`. Users install them into `~/.synapse/plugins/` or via a pip entry point; everything in this guide works the same way from a standalone repo. This is a coupling-and-maintenance decision (the core moves fast and we don't own your backend), not a quality bar — a plugin can be excellent and still belong in its own repo. Promote it in the Josh Research Discord `#plugins-skills-and-skins` channel. See [CONTRIBUTING.md](https://github.com/johsua092-ui/synapse-ai-agent/blob/main/CONTRIBUTING.md) for the policy.
 :::
 
 ## Portable Agent Plugins v1 packages
@@ -315,8 +315,8 @@ arbitrary packages into Synapse' shared venv is a conflict and supply-chain
 surface, so the install seam's isolation design (constraints-file installs
 against the host lock vs. per-plugin vendored dirs vs. conflict detection
 with refusal) is an explicitly deferred follow-up — see the round-2 review on
-[#64165](https://github.com/johsua092-ui/synapse-agent/issues/64165) and
-[#15220](https://github.com/johsua092-ui/synapse-agent/issues/15220). Plugin
+[#64165](https://github.com/johsua092-ui/synapse-ai-agent/issues/64165) and
+[#15220](https://github.com/johsua092-ui/synapse-ai-agent/issues/15220). Plugin
 packs (#64166) build on these v2 fields.
 :::
 

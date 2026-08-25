@@ -139,6 +139,6 @@ The implementation is covered with real temporary-Synapse-home tests for:
 
 ## Related
 
-- [Issue #64227](https://github.com/johsua092-ui/synapse-agent/issues/64227)
-- [RFC PR #58542](https://github.com/johsua092-ui/synapse-agent/pull/58542) by Topher Ross
+- [Issue #64227](https://github.com/johsua092-ui/synapse-ai-agent/issues/64227)
+- [RFC PR #58542](https://github.com/johsua092-ui/synapse-ai-agent/pull/58542) by Topher Ross
 - #67531 — standalone plugin settings namespace discussion

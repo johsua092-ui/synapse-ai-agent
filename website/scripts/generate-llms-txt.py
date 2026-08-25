@@ -311,7 +311,7 @@ def emit_llms_index() -> str:
         "(Linux, macOS, WSL2, Termux)"
     )
     lines.append("")
-    lines.append("Repo: https://github.com/johsua092-ui/synapse-agent")
+    lines.append("Repo: https://github.com/johsua092-ui/synapse-ai-agent")
     lines.append("")
 
     for section, items in SECTIONS:

@@ -263,7 +263,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   meta = with lib; {
     description = "AI agent with advanced tool-calling capabilities";
-    homepage = "https://github.com/johsua092-ui/synapse-agent";
+    homepage = "https://github.com/johsua092-ui/synapse-ai-agent";
     mainProgram = "synapse";
     license = licenses.mit;
     platforms = platforms.unix;

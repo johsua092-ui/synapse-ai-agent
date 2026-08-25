@@ -144,7 +144,7 @@ def _shallow_git(head_sha, fetch_head_sha):
         if cmd[:4] == ["git", "remote", "get-url", "origin"]:
             return MagicMock(
                 returncode=0,
-                stdout="https://github.com/johsua092-ui/synapse-agent.git\n",
+                stdout="https://github.com/johsua092-ui/synapse-ai-agent.git\n",
             )
         if cmd[:3] == ["git", "rev-parse", "--is-shallow-repository"]:
             return MagicMock(returncode=0, stdout="true\n")

@@ -100,7 +100,7 @@ def _discord_request(
         headers={
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
-            "User-Agent": "Synapse-Agent (https://github.com/johsua092-ui/synapse-agent)",
+            "User-Agent": "Synapse-Agent (https://github.com/johsua092-ui/synapse-ai-agent)",
         },
     )
 

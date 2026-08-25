@@ -147,7 +147,7 @@ async function locateSynapse(ssh, remoteSynapsePath) {
     //   - version checking: `<python> --version` printed "Python x.y.z" instead of
     //     the Synapse version, and
     //   - capability probing: `<python> serve --help` failed entirely.
-    // See https://github.com/johsua092-ui/synapse-agent/issues/74411
+    // See https://github.com/johsua092-ui/synapse-ai-agent/issues/74411
     return candidate
   }
 

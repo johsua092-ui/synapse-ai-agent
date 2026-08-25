@@ -13,7 +13,7 @@ required_credential_files:
 metadata:
   synapse:
     tags: [Google, Gmail, Calendar, Drive, Sheets, Docs, Contacts, Email, OAuth]
-    homepage: https://github.com/johsua092-ui/synapse-agent
+    homepage: https://github.com/johsua092-ui/synapse-ai-agent
     related_skills: [himalaya]
 ---
 

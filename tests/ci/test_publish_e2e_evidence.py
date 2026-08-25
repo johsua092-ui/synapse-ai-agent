@@ -169,7 +169,7 @@ def test_publish_marks_evidence_upload_failure_in_pr_comment(tmp_path, monkeypat
 
     assert updates == [
         (
-            "https://api.github.com/repos/johsua092-ui/synapse-agent/issues/comments/123",
+            "https://api.github.com/repos/johsua092-ui/synapse-ai-agent/issues/comments/123",
             "github-token",
             "PATCH",
             {

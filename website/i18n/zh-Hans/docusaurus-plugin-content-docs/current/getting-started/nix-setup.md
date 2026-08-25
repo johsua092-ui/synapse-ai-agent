@@ -50,7 +50,7 @@ synapse chat
 <summary><strong>从本地克隆构建</strong></summary>
 
 ```bash
-git clone https://github.com/johsua092-ui/synapse-agent.git
+git clone https://github.com/johsua092-ui/synapse-ai-agent.git
 cd synapse-agent
 nix build
 ./result/bin/synapse setup

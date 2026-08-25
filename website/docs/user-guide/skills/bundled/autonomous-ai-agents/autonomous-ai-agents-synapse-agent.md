@@ -55,7 +55,7 @@ Good verification targets:
 
 - CLI commands: `synapse --help`, `synapse <command> --help`, and `synapse_cli/main.py`
 - User documentation: https:///docs/
-- Source tree: https://github.com/johsua092-ui/synapse-agent
+- Source tree: https://github.com/johsua092-ui/synapse-ai-agent
 
 ## Quick Start
 

@@ -295,7 +295,7 @@ export default function UserStoriesCollage(): JSX.Element {
       <div className={styles.footer}>
         Built something with Synapse?{' '}
         <a
-          href="https://github.com/johsua092-ui/synapse-agent/edit/main/website/src/data/userStories.json"
+          href="https://github.com/johsua092-ui/synapse-ai-agent/edit/main/website/src/data/userStories.json"
           target="_blank"
           rel="noopener noreferrer"
         >

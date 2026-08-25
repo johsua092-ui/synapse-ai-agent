@@ -81,7 +81,7 @@ def _patch_update_deps(monkeypatch, tmp_path, run_side_effect):
     monkeypatch.setattr(synapse_main, "_is_windows", lambda: False)
     monkeypatch.setattr(
         synapse_main, "_get_origin_url",
-        lambda *a, **k: "https://github.com/johsua092-ui/synapse-agent.git",
+        lambda *a, **k: "https://github.com/johsua092-ui/synapse-ai-agent.git",
     )
     monkeypatch.setattr(synapse_main, "_is_fork", lambda *a, **k: False)
     monkeypatch.setattr(

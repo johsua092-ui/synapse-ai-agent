@@ -80,7 +80,7 @@ const config: Config = {
         docs: {
           routeBasePath: '/',  // Docs at the root of /docs/
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/johsua092-ui/synapse-agent/edit/main/website/',
+          editUrl: 'https://github.com/johsua092-ui/synapse-ai-agent/edit/main/website/',
         },
         blog: false,
         theme: {
@@ -149,7 +149,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/johsua092-ui/synapse-agent',
+          href: 'https://github.com/johsua092-ui/synapse-ai-agent',
           label: 'GitHub',
           position: 'right',
         },
@@ -176,7 +176,7 @@ const config: Config = {
           title: 'Community',
           items: [
             { label: 'Discord', href: 'https://discord.gg/Josh Research' },
-            { label: 'GitHub Issues', href: 'https://github.com/johsua092-ui/synapse-agent/issues' },
+            { label: 'GitHub Issues', href: 'https://github.com/johsua092-ui/synapse-ai-agent/issues' },
             { label: 'Skills Hub', href: 'https://agentskills.io' },
           ],
         },
@@ -184,7 +184,7 @@ const config: Config = {
           title: 'More',
           items: [
             { label: 'Desktop Download', href: 'https:///' },
-            { label: 'GitHub', href: 'https://github.com/johsua092-ui/synapse-agent' },
+            { label: 'GitHub', href: 'https://github.com/johsua092-ui/synapse-ai-agent' },
             { label: 'Josh Research', href: 'https://' },
           ],
         },

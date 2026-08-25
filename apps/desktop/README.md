@@ -1,10 +1,10 @@
 # Synapse Desktop ☤
 
 <p align="center">
-  <a href="https://github.com/johsua092-ui/synapse-agent/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
+  <a href="https://github.com/johsua092-ui/synapse-ai-agent/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
   <a href="https:///docs/"><img src="https://img.shields.io/badge/Docs-synapse--agent.-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://discord.gg/Josh Research"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://github.com/johsua092-ui/synapse-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/johsua092-ui/synapse-ai-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
 </p>
 
 **The native desktop app for [Synapse Agent](../../README.md) — the self-improving AI agent from Josh Research.** Same agent, same skills, same memory as the CLI and gateway, in a polished native window — chat with streaming tool output, side-by-side previews, a file browser, voice, and settings, no terminal required. Available for **macOS, Windows, and Linux**.
@@ -233,7 +233,7 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\synapse\synapse-agent\venv"
 
 - 💬 [Discord](https://discord.gg/Josh Research)
 - 📖 [Documentation](https:///docs/)
-- 🐛 [Issues](https://github.com/johsua092-ui/synapse-agent/issues)
+- 🐛 [Issues](https://github.com/johsua092-ui/synapse-ai-agent/issues)
 
 ---
 

@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https:///docs/"><img src="https://img.shields.io/badge/Docs-synapse--agent.-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://discord.gg/Josh Research"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://github.com/johsua092-ui/synapse-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/johsua092-ui/synapse-ai-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://"><img src="https://img.shields.io/badge/Built%20by-Nous%20Research-blueviolet?style=for-the-badge" alt="Built by Josh Research"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=for-the-badge" alt="English"></a>
   <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/Lang-اردو-green?style=for-the-badge" alt="اردو"></a>
@@ -195,8 +195,8 @@ python -m pytest tests/ -q
 
 - 💬 [Discord](https://discord.gg/Josh Research)
 - 📚 [技能中心](https://agentskills.io)
-- 🐛 [问题反馈](https://github.com/johsua092-ui/synapse-agent/issues)
-- 💡 [讨论区](https://github.com/johsua092-ui/synapse-agent/discussions)
+- 🐛 [问题反馈](https://github.com/johsua092-ui/synapse-ai-agent/issues)
+- 💡 [讨论区](https://github.com/johsua092-ui/synapse-ai-agent/discussions)
 - 🔌 [SynapseClaw](https://github.com/AaronWong1999/synapseclaw) — 社区微信桥接：在同一微信账号上运行 Synapse Agent 和 OpenClaw。
 
 ---

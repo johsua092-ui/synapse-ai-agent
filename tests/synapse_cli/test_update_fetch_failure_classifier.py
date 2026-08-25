@@ -15,7 +15,7 @@ RATE_LIMIT_STDERR = (
     "fatal: expected flush after ref listing"
 )
 CURL_429_STDERR = (
-    "fatal: unable to access 'https://github.com/johsua092-ui/synapse-agent.git/':"
+    "fatal: unable to access 'https://github.com/johsua092-ui/synapse-ai-agent.git/':"
     " The requested URL returned error: 429"
 )
 

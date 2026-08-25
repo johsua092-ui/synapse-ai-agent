@@ -2,7 +2,7 @@
 
 Renders any content as colored ASCII character video. Audio, video, images, text, or pure math in, MP4/GIF/PNG sequence out. Full RGB color per character cell, 1080p 24fps default. No GPU.
 
-Built for [Synapse Agent](https://github.com/johsua092-ui/synapse-agent). Usable in any coding agent. Canonical source lives here; synced to [`johsua092-ui/synapse-ai-agent/skills/creative/ascii-video`](https://github.com/johsua092-ui/synapse-agent/tree/main/skills/creative/ascii-video) via PR.
+Built for [Synapse Agent](https://github.com/johsua092-ui/synapse-ai-agent). Usable in any coding agent. Canonical source lives here; synced to [`johsua092-ui/synapse-ai-agent/skills/creative/ascii-video`](https://github.com/johsua092-ui/synapse-ai-agent/tree/main/skills/creative/ascii-video) via PR.
 
 ## What this is
 

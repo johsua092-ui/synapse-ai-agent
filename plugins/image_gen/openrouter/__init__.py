@@ -1264,7 +1264,7 @@ class OpenRouterCompatImageProvider(ImageGenProvider):
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             # OpenRouter attribution headers (harmless against Nous Portal).
-            "HTTP-Referer": "https://github.com/johsua092-ui/synapse-agent",
+            "HTTP-Referer": "https://github.com/johsua092-ui/synapse-ai-agent",
             "X-Title": "Synapse Agent",
         }
         last_error: Optional[Dict[str, Any]] = None

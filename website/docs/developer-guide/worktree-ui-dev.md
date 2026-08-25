@@ -141,5 +141,5 @@ A symlink to a divergent `node_modules` is worse than no install — the worktre
 - [Git Worktrees](../user-guide/git-worktrees.md) — the isolation model these helpers build on
 - [TUI](../user-guide/tui.md) — `synapse --tui --dev` and the `SYNAPSE_TUI_DIR` prebuild path
 - [Desktop App](../user-guide/desktop.md) — building from source and the backend resolution ladder
-- [`apps/desktop/README.md`](https://github.com/johsua092-ui/synapse-agent/blob/main/apps/desktop/README.md) — dev server, sandbox script, and packaging
+- [`apps/desktop/README.md`](https://github.com/johsua092-ui/synapse-ai-agent/blob/main/apps/desktop/README.md) — dev server, sandbox script, and packaging
 - [Environment Variables](../reference/environment-variables.md) — every `SYNAPSE_*` variable Synapse reads

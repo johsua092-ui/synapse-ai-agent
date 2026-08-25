@@ -127,7 +127,7 @@ def get_synapse_home() -> Path:
     callers that import this at load time.  Subprocess spawners are
     expected to propagate ``SYNAPSE_HOME`` explicitly (see the systemd
     template in ``synapse_cli/gateway.py`` and the kanban dispatcher in
-    ``synapse_cli/kanban_db.py``).  See https://github.com/johsua092-ui/synapse-agent/issues/18594.
+    ``synapse_cli/kanban_db.py``).  See https://github.com/johsua092-ui/synapse-ai-agent/issues/18594.
     """
     override = get_synapse_home_override()
     if override:
@@ -1022,7 +1022,7 @@ def secure_parent_dir(path: Path) -> None:
     prevent catastrophic host bricking when ``SYNAPSE_HOME`` or other path
     env vars resolve to an unexpected location.
 
-    See https://github.com/johsua092-ui/synapse-agent/issues/25821.
+    See https://github.com/johsua092-ui/synapse-ai-agent/issues/25821.
     """
     parent = path.parent.resolve()
     # Refuse root and its direct children (/usr, /home, /var, /tmp, …).

@@ -26,7 +26,7 @@ import { ExternalLink, Loader2Icon, Lock } from '@/lib/icons'
 import { $sendDiagnostics, confirmSendDiagnostics, dismissSendDiagnostics } from '@/store/send-diagnostics'
 
 const SUPPORT_LINKS = [
-  { key: 'github', url: 'https://github.com/johsua092-ui/synapse-agent/issues' },
+  { key: 'github', url: 'https://github.com/johsua092-ui/synapse-ai-agent/issues' },
   { key: 'portal', url: 'https:///help' },
   { key: 'discord', url: 'https://discord.gg/Josh Research' }
 ] as const

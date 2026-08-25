@@ -80,7 +80,7 @@ pkg install -y git python clang rust make pkg-config libffi openssl nodejs ripgr
 ### 2. 克隆 Synapse
 
 ```bash
-git clone https://github.com/johsua092-ui/synapse-agent.git
+git clone https://github.com/johsua092-ui/synapse-ai-agent.git
 cd synapse-agent
 ```
 

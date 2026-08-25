@@ -7,7 +7,7 @@
   "author": "Josh Research",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/johsua092-ui/synapse-agent.git"
+    "url": "git+https://github.com/johsua092-ui/synapse-ai-agent.git"
   },
   "type": "module",
   "main": "dist/electron-main.mjs",

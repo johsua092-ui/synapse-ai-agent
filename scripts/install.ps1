@@ -384,7 +384,7 @@ $script:ResolvedPathReport = @{
 # ============================================================================
 
 $RepoUrlSsh = "git@github.com:johsua092-ui/synapse-ai-agent.git"
-$RepoUrlHttps = "https://github.com/johsua092-ui/synapse-agent.git"
+$RepoUrlHttps = "https://github.com/johsua092-ui/synapse-ai-agent.git"
 $PythonVersion = "3.11"
 # Minor versions the installer accepts when the requested $PythonVersion isn't
 # available, in preference order.  uv discovers both uv-managed and system
@@ -2281,13 +2281,13 @@ function Install-Repository {
                 # for.  GitHub supports archive URLs for commits, tags, and
                 # branches; we honour Commit > Tag > Branch.
                 if ($Commit) {
-                    $zipUrl = "https://github.com/johsua092-ui/synapse-agent/archive/$Commit.zip"
+                    $zipUrl = "https://github.com/johsua092-ui/synapse-ai-agent/archive/$Commit.zip"
                     $zipLabel = $Commit
                 } elseif ($Tag) {
-                    $zipUrl = "https://github.com/johsua092-ui/synapse-agent/archive/refs/tags/$Tag.zip"
+                    $zipUrl = "https://github.com/johsua092-ui/synapse-ai-agent/archive/refs/tags/$Tag.zip"
                     $zipLabel = $Tag
                 } else {
-                    $zipUrl = "https://github.com/johsua092-ui/synapse-agent/archive/refs/heads/$Branch.zip"
+                    $zipUrl = "https://github.com/johsua092-ui/synapse-ai-agent/archive/refs/heads/$Branch.zip"
                     $zipLabel = $Branch
                 }
                 $zipPath = "$env:TEMP\synapse-agent-$zipLabel.zip"

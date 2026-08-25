@@ -27,7 +27,7 @@ A quick search before you build saves your time and keeps the PR queue clean —
   gh search issues --repo johsua092-ui/synapse-ai-agent "<your terms>"
   gh search prs --repo johsua092-ui/synapse-ai-agent --state all "<your terms>"
   ```
-  Or use the web UI: [issues](https://github.com/johsua092-ui/synapse-agent/issues?q=) · [PRs (all states)](https://github.com/johsua092-ui/synapse-agent/pulls?q=is%3Apr).
+  Or use the web UI: [issues](https://github.com/johsua092-ui/synapse-ai-agent/issues?q=) · [PRs (all states)](https://github.com/johsua092-ui/synapse-ai-agent/pulls?q=is%3Apr).
 - **The issue tracker can lag the code.** Many requested features are already implemented in-tree, so also search the source (`search_files`, or your editor's grep) for the capability before proposing it.
 - **If an open PR already addresses it**, consider reviewing or improving that one instead of opening a competing duplicate.
 - **For larger work**, comment on the issue to signal you're working on it, so others don't start the same thing.
@@ -156,7 +156,7 @@ which silently destroys the running runtime mid-session. Keeping it outside the
 tree means no relative path from the workspace resolves to it.
 
 ```bash
-git clone https://github.com/johsua092-ui/synapse-agent.git
+git clone https://github.com/johsua092-ui/synapse-ai-agent.git
 cd synapse-agent
 
 # Create venv with Python 3.11, OUTSIDE the source tree
@@ -972,7 +972,7 @@ test(tools): add unit tests for file_operations
 
 ## Reporting Issues
 
-- Use [GitHub Issues](https://github.com/johsua092-ui/synapse-agent/issues)
+- Use [GitHub Issues](https://github.com/johsua092-ui/synapse-ai-agent/issues)
 - Include: OS, Python version, Synapse version (`synapse --version`), full error traceback
 - Include steps to reproduce
 - Check existing issues before creating duplicates

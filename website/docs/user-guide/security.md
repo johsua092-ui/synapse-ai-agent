@@ -308,7 +308,7 @@ file bridge, background jobs with no human channel) fail closed. Private keys,
 
 When set, `write_file` and `patch` may only target paths inside the listed directory prefix(es). Anything outside is **hard-blocked** — not routed through dangerous-command approval.
 
-- Set automatically in the [official Docker image](https://github.com/johsua092-ui/synapse-agent) (`SYNAPSE_WRITE_SAFE_ROOT=/opt/data`)
+- Set automatically in the [official Docker image](https://github.com/johsua092-ui/synapse-ai-agent) (`SYNAPSE_WRITE_SAFE_ROOT=/opt/data`)
 - Supports multiple roots separated by `:` on Unix or `;` on Windows
 - **Do not add to `~/.synapse/.env` casually.** If you set it to a project directory, the agent cannot write to `~/.synapse/cron/jobs.json`, profile skills, or other Synapse state outside that prefix
 
@@ -443,7 +443,7 @@ docker exec -u synapse synapse-agent synapse pairing approve telegram ABC12DEF
 If you already ran the command as root and the user is still unauthorized,
 restart the container — the entrypoint will fix ownership on the next start.
 
-[i10270]: https://github.com/johsua092-ui/synapse-agent/issues/10270
+[i10270]: https://github.com/johsua092-ui/synapse-ai-agent/issues/10270
 :::
 
 **Storage:** Pairing data is stored in `~/.synapse/pairing/` with per-platform JSON files:

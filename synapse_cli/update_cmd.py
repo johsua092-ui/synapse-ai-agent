@@ -1534,7 +1534,7 @@ def _update_via_zip(args, *, had_desktop_app_before_update: bool = False) -> boo
         _m().sys.exit(1)
     _abort_zip_update_if_dirty_tree()
     zip_url = (
-        f"https://github.com/johsua092-ui/synapse-agent/archive/refs/heads/{branch}.zip"
+        f"https://github.com/johsua092-ui/synapse-ai-agent/archive/refs/heads/{branch}.zip"
     )
 
     print("→ Downloading latest version...")
@@ -2278,13 +2278,13 @@ def _discard_stashed_changes(
     return True
 
 OFFICIAL_REPO_URLS = {
-    "https://github.com/johsua092-ui/synapse-agent.git",
+    "https://github.com/johsua092-ui/synapse-ai-agent.git",
     "git@github.com:johsua092-ui/synapse-ai-agent.git",
-    "https://github.com/johsua092-ui/synapse-agent",
+    "https://github.com/johsua092-ui/synapse-ai-agent",
     "git@github.com:johsua092-ui/synapse-ai-agent",
 }
 
-OFFICIAL_REPO_URL = "https://github.com/johsua092-ui/synapse-agent.git"
+OFFICIAL_REPO_URL = "https://github.com/johsua092-ui/synapse-ai-agent.git"
 
 SKIP_UPSTREAM_PROMPT_FILE = ".skip_upstream_prompt"
 
@@ -2424,7 +2424,7 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
             print("→ Adding upstream remote...")
             if _add_upstream_remote(git_cmd, cwd):
                 print(
-                    "  ✓ Added upstream: https://github.com/johsua092-ui/synapse-agent.git"
+                    "  ✓ Added upstream: https://github.com/johsua092-ui/synapse-ai-agent.git"
                 )
                 has_upstream = True
             else:
@@ -2432,7 +2432,7 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
                 return
         else:
             print(
-                "  Skipped. Run 'git remote add upstream https://github.com/johsua092-ui/synapse-agent.git' to add later."
+                "  Skipped. Run 'git remote add upstream https://github.com/johsua092-ui/synapse-ai-agent.git' to add later."
             )
             _mark_skip_upstream_prompt()
             return

@@ -20,7 +20,7 @@ curl -fsSL https:///install.sh | bash
 
 ### Windows（原生，PowerShell）
 
-原生 Windows 无需 WSL 即可运行 Synapse——CLI、gateway、TUI 和工具均可原生运行。（原生安装与 WSL2 安装可干净共存；唯一仅限 WSL2 的功能见下方功能说明。）遇到 bug 请[提交 issue](https://github.com/johsua092-ui/synapse-agent/issues)。
+原生 Windows 无需 WSL 即可运行 Synapse——CLI、gateway、TUI 和工具均可原生运行。（原生安装与 WSL2 安装可干净共存；唯一仅限 WSL2 的功能见下方功能说明。）遇到 bug 请[提交 issue](https://github.com/johsua092-ui/synapse-ai-agent/issues)。
 
 打开 PowerShell 并运行：
 

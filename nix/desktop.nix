@@ -209,7 +209,7 @@ stdenv.mkDerivation {
 
   meta = with lib; {
     description = "Native Electron desktop shell for Synapse Agent";
-    homepage = "https://github.com/johsua092-ui/synapse-agent";
+    homepage = "https://github.com/johsua092-ui/synapse-ai-agent";
     license = licenses.mit;
     platforms = platforms.unix;
     mainProgram = "synapse-desktop";

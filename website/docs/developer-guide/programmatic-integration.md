@@ -78,7 +78,7 @@ On a successful truncating submit against a durable session, the `prompt.submit`
 
 ### Pi-style RPC mapping
 
-Every command in the Pi-mono RPC spec ([issue #360](https://github.com/johsua092-ui/synapse-agent/issues/360)) has a TUI-gateway equivalent:
+Every command in the Pi-mono RPC spec ([issue #360](https://github.com/johsua092-ui/synapse-ai-agent/issues/360)) has a TUI-gateway equivalent:
 
 | Pi command | Synapse equivalent |
 |------------|-------------------|

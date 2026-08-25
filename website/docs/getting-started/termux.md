@@ -119,7 +119,7 @@ Why these packages?
 ### 2. Clone Synapse
 
 ```bash
-git clone https://github.com/johsua092-ui/synapse-agent.git
+git clone https://github.com/johsua092-ui/synapse-ai-agent.git
 cd synapse-agent
 ```
 

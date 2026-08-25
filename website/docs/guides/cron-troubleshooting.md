@@ -216,7 +216,7 @@ If you've worked through this guide and the issue persists:
 
 1. Run the job with `synapse cron run <job_id>` (fires on next gateway tick) and watch for errors in the chat output
 2. Check `~/.synapse/logs/agent.log` for scheduler messages and `~/.synapse/logs/errors.log` for warnings
-3. Open an issue at [github.com/johsua092-ui/synapse-agent](https://github.com/johsua092-ui/synapse-agent) with:
+3. Open an issue at [github.com/johsua092-ui/synapse-ai-agent](https://github.com/johsua092-ui/synapse-ai-agent) with:
    - The job ID and schedule
    - The delivery target
    - What you expected vs. what happened

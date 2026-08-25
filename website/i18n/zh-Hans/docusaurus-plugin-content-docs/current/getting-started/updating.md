@@ -123,7 +123,7 @@ tail -f ~/.synapse/logs/update.log
 synapse --version
 ```
 
-与 [GitHub releases 页面](https://github.com/johsua092-ui/synapse-agent/releases) 上的最新版本进行比较。
+与 [GitHub releases 页面](https://github.com/johsua092-ui/synapse-ai-agent/releases) 上的最新版本进行比较。
 
 ### 从消息平台更新
 

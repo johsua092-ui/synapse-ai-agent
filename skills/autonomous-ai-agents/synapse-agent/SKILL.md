@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   synapse:
     tags: [synapse, setup, configuration, multi-agent, spawning, cli, gateway, bots, bot-mode, features, themes, skins, desktop-plugins, tui-widgets, petdex, development]
-    homepage: https://github.com/johsua092-ui/synapse-agent
+    homepage: https://github.com/johsua092-ui/synapse-ai-agent
     related_skills: [claude-code, codex, opencode]
 ---
 
@@ -38,7 +38,7 @@ Good verification targets, cheapest first:
 
 - **Every shipped feature, one line each: https:///docs/llms.txt.** Start here for any "can Synapse do X?" or "how do I do X?" — it indexes the entire documentation set with a link to the page that answers. It is generated from the docs tree on every build, so it is never behind the product. Fetch it with `web_extract`, or `curl -s https:///docs/llms.txt` when web tools are off. The whole documentation set in one file is at `/docs/llms-full.txt`.
 - CLI commands: `synapse --help`, `synapse <command> --help`, and `synapse_cli/main.py`
-- Source tree: https://github.com/johsua092-ui/synapse-agent
+- Source tree: https://github.com/johsua092-ui/synapse-ai-agent
 
 Never answer "Synapse can't do that" from memory. Synapse ships far more than this skill body describes, and the index exists so a negative answer is always checkable.
 

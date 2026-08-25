@@ -703,7 +703,7 @@ EOF
 
 ### 调解冲突的 worker 分支
 
-在工程流水线（使用 worktree 的 P1/P2）中，两个 worker 的分支合并时可能发生冲突。不要让任一 worker 自行裁决 —— 发生冲突的 agent 缺乏对方的上下文，往往会覆盖对方的改动或放弃自己的改动。正确做法是：创建一张调解卡片，指派给**第三个中立配置文件**，并把**两张**冲突卡片都链接为其父任务：父任务链接会把双方的完成摘要带入调解者的上下文，使其同时获得双方的 diff *和*双方的意图。内置的 [`merge-reconciler` 技能](https://github.com/johsua092-ui/synapse-agent/blob/main/skills/autonomous-ai-agents/merge-reconciler/SKILL.md) 为该 worker 提供完整流程：对每个冲突块分类、公正地解决、验证，并在交回摘要中说明每一项决定。
+在工程流水线（使用 worktree 的 P1/P2）中，两个 worker 的分支合并时可能发生冲突。不要让任一 worker 自行裁决 —— 发生冲突的 agent 缺乏对方的上下文，往往会覆盖对方的改动或放弃自己的改动。正确做法是：创建一张调解卡片，指派给**第三个中立配置文件**，并把**两张**冲突卡片都链接为其父任务：父任务链接会把双方的完成摘要带入调解者的上下文，使其同时获得双方的 diff *和*双方的意图。内置的 [`merge-reconciler` 技能](https://github.com/johsua092-ui/synapse-ai-agent/blob/main/skills/autonomous-ai-agents/merge-reconciler/SKILL.md) 为该 worker 提供完整流程：对每个冲突块分类、公正地解决、验证，并在交回摘要中说明每一项决定。
 
 ### 并行战役中的碰撞热点（Collision hotspots）
 
@@ -747,7 +747,7 @@ synapse kanban notify-unsubscribe t_abcd \
 ### 多 profile 部署：投递按 profile 归属
 
 在每个 profile 一个 gateway 的部署中（单一调度器，`writer`、`admin` 等各自
-运行独立的 gateway 进程 —— 参见[多 gateway 指南](https://github.com/johsua092-ui/synapse-agent/blob/main/docs/kanban/multi-gateway.md)），
+运行独立的 gateway 进程 —— 参见[多 gateway 指南](https://github.com/johsua092-ui/synapse-ai-agent/blob/main/docs/kanban/multi-gateway.md)），
 调度与投递的归属是分开的：
 
 - **调度保持单一所有者。** 只有一个 gateway 保持
