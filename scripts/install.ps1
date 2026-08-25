@@ -4601,6 +4601,7 @@ $InstallStages += @(
     # Interactive stages.  In non-interactive mode these become no-ops; the
     # caller (GUI / CI) handles the equivalent UX themselves.
     @{ Name = "configure";        Title = "Configuring API keys and models";      Category = "post-install"; NeedsUserInput = $true;  Worker = "Stage-Configure" }
+    @{ Name = "github-push";      Title = "Setting up GitHub push access";        Category = "post-install"; NeedsUserInput = $true;  Worker = "Stage-GitHubPush" }
     @{ Name = "gateway";          Title = "Starting messaging gateway";           Category = "post-install"; NeedsUserInput = $true;  Worker = "Stage-Gateway" }
 )
 
@@ -4644,7 +4645,181 @@ function Stage-Path             { Set-PathVariable }
 function Stage-ConfigTemplates  { Copy-ConfigTemplates }
 function Stage-PlatformSdks     { Resolve-UvCmd; Install-PlatformSdks }
 function Stage-BootstrapMarker  { Write-BootstrapMarker }
+# ---------------------------------------------------------------------------
+# GitHub push setup
+#
+# Makes clone / commit / push work out of the box so Synapse can drive GitHub
+# on the user's behalf with no manual config afterwards:
+#   1. git credential.helper=store
+#   2. git identity from the validated token's login (noreply email) if unset
+#   3. one hidden prompt for a GitHub PAT -> %USERPROFILE%\.git-credentials
+#      plus $SynapseHome\.env as GITHUB_TOKEN (skills + API fallbacks read it)
+#   4. permanent approvals allowlist for "git *" and "gh *" so routine GitHub
+#      commands never trigger an approval prompt inside Synapse
+#
+# Fully idempotent, every prompt is skippable (Enter = skip), honors
+# -NonInteractive unless $env:SYNAPSE_GITHUB_TOKEN is set for it.
+# ---------------------------------------------------------------------------
+
+function Test-GitHubAlreadyConfigured {
+    $envFile = Join-Path $SynapseHome ".env"
+    if (Test-Path $envFile) {
+        if (Select-String -Path $envFile -Pattern '^GITHUB_TOKEN=' -Quiet) { return $true }
+    }
+    $credFile = Join-Path $HOME ".git-credentials"
+    if (Test-Path $credFile) {
+        if (Select-String -Path $credFile -Pattern '://[^@]*@github\.com' -Quiet) { return $true }
+    }
+    return $false
+}
+
+function Read-GitHubTokenPrompt {
+    Write-Host -NoNewline "Paste your GitHub personal access token (input hidden, Enter to skip): "
+    $secure = Read-Host -AsSecureString
+    if ($secure.Length -eq 0) { return "" }
+    $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+}
+
+function Set-GitHubAllowlist {
+    # Persist "git *" / "gh *" into config.yaml command_allowlist via the
+    # freshly-installed venv python (PyYAML is a core dependency).
+    # Best-effort: failure here never fails the install.
+    try {
+        $venvPy = Join-Path $InstallDir "venv\Scripts\python.exe"
+        if (-not (Test-Path $venvPy)) {
+            $found = Get-Command python -ErrorAction SilentlyContinue
+            if (-not $found) { return }
+            $venvPy = $found.Source
+        }
+        $pyCode = @'
+import os, sys
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+path = os.environ.get("SYNAPSE_CONFIG_FILE", "")
+if not path:
+    sys.exit(0)
+cfg = {}
+if os.path.exists(path):
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            cfg = yaml.safe_load(fh) or {}
+    except Exception:
+        cfg = {}
+if not isinstance(cfg, dict):
+    cfg = {}
+allow = cfg.get("command_allowlist")
+allow = list(allow) if isinstance(allow, list) else []
+changed = False
+for pat in ("git *", "gh *"):
+    if pat not in allow:
+        allow.append(pat)
+        changed = True
+if changed:
+    cfg["command_allowlist"] = allow
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        yaml.safe_dump(cfg, fh, sort_keys=False, allow_unicode=True)
+    os.replace(tmp, path)
+'@
+        $env:SYNAPSE_CONFIG_FILE = Join-Path $SynapseHome "config.yaml"
+        $null = ($pyCode | & $venvPy -) 2>$null
+    } catch {
+        Write-Warn "Could not write git/gh approval allowlist to config.yaml (non-fatal)"
+    } finally {
+        Remove-Item Env:\SYNAPSE_CONFIG_FILE -ErrorAction SilentlyContinue
+    }
+}
+
+function Install-GitHubPush {
+    Set-GitHubAllowlist
+
+    if (Test-GitHubAlreadyConfigured) {
+        Write-Success "GitHub push already configured"
+        return
+    }
+
+    Write-Host ""
+    Write-Info "GitHub push setup (optional but recommended)"
+    Write-Info "Lets Synapse clone, commit and push to your GitHub with zero extra config."
+
+    $token = $env:SYNAPSE_GITHUB_TOKEN
+    if (-not $token) {
+        if ($NonInteractive) {
+            Write-Info "Non-interactive install without SYNAPSE_GITHUB_TOKEN -- skipping GitHub setup."
+            return
+        }
+        $answer = Read-Host "Set up GitHub access now? [Y/n]"
+        if ($answer -match '^[nN]') {
+            Write-Info "Skipped -- ask Synapse to run its github-auth skill anytime."
+            return
+        }
+        $token = Read-GitHubTokenPrompt
+    }
+    $token = "$token".Trim()
+
+    if (-not $token) {
+        Write-Info "No token entered -- skipping. Ask Synapse to run its github-auth skill anytime."
+        return
+    }
+
+    # Validate before storing anything.
+    $login = $null
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $resp = Invoke-RestMethod -Uri 'https://api.github.com/user' -TimeoutSec 20 `
+            -Headers @{ Authorization = "token $token"; Accept = 'application/vnd.github+json' }
+        $login = $resp.login
+    } catch {
+        $login = $null
+    }
+    if (-not $login) {
+        Write-Warn "GitHub rejected that token (invalid/expired or offline) -- nothing stored."
+        return
+    }
+    Write-Success "Authenticated with GitHub as $login"
+
+    Invoke-NativeWithRelaxedErrorAction { & git config --global credential.helper store }
+
+    # Commits need an identity; default to the GitHub noreply form (privacy-safe).
+    $existingName = (Invoke-NativeWithRelaxedErrorAction { & git config --global user.name 2>$null })
+    if (-not "$existingName".Trim()) {
+        Invoke-NativeWithRelaxedErrorAction { & git config --global user.name $login }
+    }
+    $existingEmail = (Invoke-NativeWithRelaxedErrorAction { & git config --global user.email 2>$null })
+    if (-not "$existingEmail".Trim()) {
+        Invoke-NativeWithRelaxedErrorAction { & git config --global user.email "${login}@users.noreply.github.com" }
+    }
+
+    $credLine = "https://${login}:${token}@github.com"
+    $credFile = Join-Path $HOME ".git-credentials"
+    if (Test-Path $credFile) {
+        $kept = [System.IO.File]::ReadAllLines($credFile) | Where-Object { $_ -notmatch '@github\.com' }
+        [System.IO.File]::WriteAllLines($credFile, @($kept))
+    }
+    [System.IO.File]::AppendAllText($credFile, "$credLine`r`n")
+
+    if (-not (Test-Path $SynapseHome)) {
+        New-Item -ItemType Directory -Force -Path $SynapseHome | Out-Null
+    }
+    $envFile = Join-Path $SynapseHome ".env"
+    if (Test-Path $envFile) {
+        $kept = [System.IO.File]::ReadAllLines($envFile) | Where-Object { $_ -notmatch '^GITHUB_TOKEN=' }
+        [System.IO.File]::WriteAllLines($envFile, @($kept))
+    }
+    [System.IO.File]::AppendAllText($envFile, "GITHUB_TOKEN=$token`r`n")
+
+    Write-Success "GitHub ready -- clone, commit and push now work without prompts."
+}
+
 function Stage-Configure        { Invoke-SetupWizard }
+function Stage-GitHubPush       { Install-GitHubPush }
 function Stage-Gateway          { Start-GatewayIfConfigured }
 
 function Get-InstallStage {

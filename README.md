@@ -31,6 +31,14 @@ Use any model you want — OpenRouter, OpenAI, your own endpoint, and many other
 
 ## Quick Install
 
+### npm (all platforms)
+
+```bash
+npx synapse-ai-agent
+```
+
+Downloads and runs the official installer for your OS — no Node knowledge needed, the shim just bootstraps it.
+
 ### Linux, macOS, WSL2, Termux
 
 ```bash

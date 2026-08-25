@@ -329,13 +329,13 @@ emit_manifest() {
     if [ "$INCLUDE_DESKTOP" = true ]; then
         desktop_stage='{"name":"desktop","title":"Build desktop app","category":"runtime","needs_user_input":false},'
     fi
-    printf '%s' '{"protocol_version":1,"stages":[{"name":"prerequisites","title":"System prerequisites","category":"runtime","needs_user_input":false},{"name":"repository","title":"Download Synapse Agent","category":"runtime","needs_user_input":false},{"name":"venv","title":"Create Python virtual environment","category":"runtime","needs_user_input":false},{"name":"python-deps","title":"Install Python dependencies","category":"runtime","needs_user_input":false},{"name":"node-deps","title":"Install browser-tool dependencies","category":"runtime","needs_user_input":false},{"name":"path","title":"Install synapse command","category":"runtime","needs_user_input":false},{"name":"config","title":"Prepare config and skills","category":"configuration","needs_user_input":false},{"name":"setup","title":"Configure API keys and settings","category":"configuration","needs_user_input":true},{"name":"gateway","title":"Configure gateway service","category":"configuration","needs_user_input":true},'"$desktop_stage"'{"name":"complete","title":"Finish install","category":"runtime","needs_user_input":false}]}'
+    printf '%s' '{"protocol_version":1,"stages":[{"name":"prerequisites","title":"System prerequisites","category":"runtime","needs_user_input":false},{"name":"repository","title":"Download Synapse Agent","category":"runtime","needs_user_input":false},{"name":"venv","title":"Create Python virtual environment","category":"runtime","needs_user_input":false},{"name":"python-deps","title":"Install Python dependencies","category":"runtime","needs_user_input":false},{"name":"node-deps","title":"Install browser-tool dependencies","category":"runtime","needs_user_input":false},{"name":"path","title":"Install synapse command","category":"runtime","needs_user_input":false},{"name":"config","title":"Prepare config and skills","category":"configuration","needs_user_input":false},{"name":"setup","title":"Configure API keys and settings","category":"configuration","needs_user_input":true},{"name":"github-push","title":"Set up GitHub push access","category":"configuration","needs_user_input":true},{"name":"gateway","title":"Configure gateway service","category":"configuration","needs_user_input":true},'"$desktop_stage"'{"name":"complete","title":"Finish install","category":"runtime","needs_user_input":false}]}'
     printf '\n'
 }
 
 stage_needs_user_input() {
     case "$1" in
-        setup|gateway) return 0 ;;
+        setup|github-push|gateway) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -3560,6 +3560,12 @@ run_stage_body() {
             require_install_dir
             run_setup_wizard
             ;;
+        github-push)
+            detect_os
+            resolve_install_layout
+            require_install_dir
+            setup_github_push
+            ;;
         gateway)
             detect_os
             resolve_install_layout
@@ -3637,6 +3643,173 @@ run_stage_protocol() {
 }
 
 # ============================================================================
+# GitHub push setup
+# ============================================================================
+# Makes clone / commit / push work out of the box so Synapse can drive GitHub
+# on the user's behalf with no manual config afterwards:
+#
+#   1. git credential.helper=store
+#   2. git identity from the validated token's login (noreply email) if unset
+#   3. one hidden prompt for a GitHub PAT -> ~/.git-credentials (git push)
+#      plus $SYNAPSE_HOME/.env as GITHUB_TOKEN (skills + API fallbacks read it)
+#   4. permanent approvals allowlist for "git *" and "gh *" so routine GitHub
+#      commands never trigger an approval prompt inside Synapse
+#
+# Fully idempotent, every prompt is skippable (Enter = skip), honors
+# --non-interactive unless SYNAPSE_GITHUB_TOKEN is exported for it.
+
+GITHUB_CREDENTIALS_FILE="$HOME/.git-credentials"
+
+github_push_already_configured() {
+    # Done when either store knows github.com — re-running must not re-prompt.
+    if [ -f "$SYNAPSE_HOME/.env" ] && grep -q "^GITHUB_TOKEN=" "$SYNAPSE_HOME/.env" 2>/dev/null; then
+        return 0
+    fi
+    if [ -f "$GITHUB_CREDENTIALS_FILE" ] && grep -q "://[^@]*@github\.com" "$GITHUB_CREDENTIALS_FILE" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+upsert_secret_line() {
+    # upsert_secret_line <file> <egrep-pattern-to-replace> <new-line>
+    local file="$1" pattern="$2" line="$3"
+    touch "$file" 2>/dev/null || return 1
+    if grep -q "$pattern" "$file" 2>/dev/null; then
+        grep -v "$pattern" "$file" > "$file.tmp" 2>/dev/null || true
+        mv "$file.tmp" "$file"
+    fi
+    printf '%s\n' "$line" >> "$file"
+}
+
+validate_github_token() {
+    # validate_github_token <token> -> prints the login on success, empty on failure.
+    local token="$1"
+    curl -fsS --max-time 20 \
+        -H "Authorization: token $token" \
+        -H "Accept: application/vnd.github+json" \
+        https://api.github.com/user 2>/dev/null \
+        | sed -n 's/.*"login"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        | head -n 1 || true
+}
+
+configure_github_allowlist() {
+    # Persist "git *" / "gh *" into $SYNAPSE_HOME/config.yaml command_allowlist
+    # via the freshly-installed venv python (PyYAML is a core dependency).
+    # Best-effort: failure here never fails the install.
+    local config_python="$INSTALL_DIR/venv/bin/python"
+    [ -x "$config_python" ] || config_python="$(command -v python3 2>/dev/null || true)"
+    [ -n "$config_python" ] || return 0
+    SYNAPSE_CONFIG_FILE="$SYNAPSE_HOME/config.yaml" "$config_python" - <<'PYEOF' >/dev/null 2>&1 || \
+        log_warn "Could not write git/gh approval allowlist to config.yaml (non-fatal)"
+import os, sys
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+path = os.environ.get("SYNAPSE_CONFIG_FILE", "")
+if not path:
+    sys.exit(0)
+cfg = {}
+if os.path.exists(path):
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            cfg = yaml.safe_load(fh) or {}
+    except Exception:
+        cfg = {}
+if not isinstance(cfg, dict):
+    cfg = {}
+allow = cfg.get("command_allowlist")
+allow = list(allow) if isinstance(allow, list) else []
+changed = False
+for pat in ("git *", "gh *"):
+    if pat not in allow:
+        allow.append(pat)
+        changed = True
+if changed:
+    cfg["command_allowlist"] = allow
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        yaml.safe_dump(cfg, fh, sort_keys=False, allow_unicode=True)
+    os.replace(tmp, path)
+PYEOF
+}
+
+read_github_token_prompt() {
+    # Hidden single-line read, preferring the controlling terminal.
+    local token=""
+    if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+        printf "%s" "Paste your GitHub personal access token (input hidden, Enter to skip): " > /dev/tty
+        IFS= read -rs token < /dev/tty || token=""
+        printf "\n" > /dev/tty
+    else
+        printf "%s" "Paste your GitHub personal access token (input hidden, Enter to skip): "
+        IFS= read -rs token || token=""
+        printf "\n"
+    fi
+    token="${token//[[:space:]]/}"
+    printf '%s' "$token"
+}
+
+setup_github_push() {
+    configure_github_allowlist
+
+    if github_push_already_configured; then
+        log_success "GitHub push already configured"
+        return 0
+    fi
+
+    echo ""
+    log_info "GitHub push setup (optional but recommended)"
+    log_info "Lets Synapse clone, commit and push to your GitHub with zero extra config."
+
+    local token="${SYNAPSE_GITHUB_TOKEN:-}"
+    if [ -z "$token" ]; then
+        if [ "$NON_INTERACTIVE" = true ]; then
+            log_info "Non-interactive install without SYNAPSE_GITHUB_TOKEN — skipping GitHub setup."
+            return 0
+        fi
+        prompt_yes_no "Set up GitHub access now?" yes || { log_info "Skipped — ask Synapse to run its github-auth skill anytime."; return 0; }
+        token="$(read_github_token_prompt)"
+    fi
+
+    if [ -z "$token" ]; then
+        log_info "No token entered — skipping. Ask Synapse to run its github-auth skill anytime."
+        return 0
+    fi
+
+    local login
+    login="$(validate_github_token "$token")"
+    if [ -z "$login" ]; then
+        log_warn "GitHub rejected that token (invalid/expired or offline) — nothing stored."
+        return 0
+    fi
+    log_success "Authenticated with GitHub as ${login}"
+
+    git config --global credential.helper store
+
+    # Commits need an identity; default to the GitHub noreply form (privacy-safe).
+    if [ -z "$(git config --global user.name 2>/dev/null || true)" ]; then
+        git config --global user.name "$login"
+    fi
+    if [ -z "$(git config --global user.email 2>/dev/null || true)" ]; then
+        git config --global user.email "${login}@users.noreply.github.com"
+    fi
+
+    upsert_secret_line "$GITHUB_CREDENTIALS_FILE" "@github\.com" "https://${login}:${token}@github.com"
+    chmod 600 "$GITHUB_CREDENTIALS_FILE" 2>/dev/null || true
+
+    mkdir -p "$SYNAPSE_HOME"
+    upsert_secret_line "$SYNAPSE_HOME/.env" "^GITHUB_TOKEN=" "GITHUB_TOKEN=${token}"
+    chmod 600 "$SYNAPSE_HOME/.env" 2>/dev/null || true
+
+    log_success "GitHub ready — clone, commit and push now work without prompts."
+}
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -3662,6 +3835,7 @@ main() {
     setup_path
     copy_config_templates
     run_setup_wizard
+    setup_github_push
     maybe_start_gateway
 
     if [ "$INCLUDE_DESKTOP" = true ]; then

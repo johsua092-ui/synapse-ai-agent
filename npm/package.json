@@ -1,0 +1,40 @@
+{
+  "name": "synapse-ai-agent",
+  "version": "1.0.0",
+  "description": "One-command installer for Synapse Agent - the self-improving AI agent with terminal access, GitHub integration, and a messaging gateway. Bootstraps the official Python install.",
+  "license": "MIT",
+  "author": "johsua092-ui",
+  "homepage": "https://github.com/johsua092-ui/synapse-ai-agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johsua092-ui/synapse-ai-agent.git",
+    "directory": "npm"
+  },
+  "bugs": {
+    "url": "https://github.com/johsua092-ui/synapse-ai-agent/issues"
+  },
+  "bin": {
+    "synapse-ai-agent": "bin/cli.js",
+    "create-synapse": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "ai-agent",
+    "synapse",
+    "cli",
+    "terminal",
+    "github",
+    "automation",
+    "llm",
+    "assistant"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "preferGlobal": true
+}
