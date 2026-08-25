@@ -3414,7 +3414,9 @@ def _blank_slate_minimal_toolsets(config: dict):
        quirks. The user re-enables any of them later via ``synapse tools`` (which
        rewrites ``platform_toolsets``) or by editing ``agent.disabled_toolsets``.
     """
-    keep = {"file", "terminal"}
+    # Starter pack: keep file, terminal AND skills so a blank install still
+    # ships the bundled skill catalog (skills tools: skills_list/skill_view/skill_manage).
+    keep = {"file", "terminal", "skills"}
     config.setdefault("platform_toolsets", {})["cli"] = sorted(keep)
 
     try:
@@ -3528,18 +3530,21 @@ def _run_blank_slate_setup(config: dict, synapse_home, is_existing: bool):
 
     if path == 0:
         save_config(config)
-        # Blank Slate means no bundled skills; record the opt-out so future
-        # `synapse update` runs don't re-inject them.
+        # Starter-pack default: keep bundled skills seeded. Even the most
+        # minimal "finish now" path ships the bundled skill catalog so every
+        # fresh install starts with a useful starter pack. Users can still
+        # prune later with `synapse skills opt-out`.
         try:
-            from tools.skills_sync import set_bundled_skills_opt_out
-            set_bundled_skills_opt_out(True)
+            from tools.skills_sync import set_bundled_skills_opt_out, sync_skills
+            set_bundled_skills_opt_out(False)
+            sync_skills(quiet=True)
         except Exception as exc:
-            logger.debug("blank-slate skill opt-out error: %s", exc)
+            logger.debug("blank-slate skill seed error: %s", exc)
         print()
-        print_success("Blank Slate setup complete — minimal agent ready.")
+        print_success("Blank Slate setup complete — minimal agent ready (skills seeded).")
         print_info("Enable anything later, on demand:")
         print_info("  Enable tools:        synapse tools")
-        print_info("  Seed skills:         synapse skills opt-in --sync")
+        print_info("  Manage skills:       synapse skills")
         print_info("  Add MCP servers:     synapse mcp add")
         print_info("  Enable plugins:      synapse plugins")
         print_info("  Tune agent settings: synapse setup agent")
@@ -3558,10 +3563,10 @@ def _blank_slate_walkthrough(config: dict, synapse_home):
     # ── Bundled skills — default to NONE, offer to seed all ──
     print()
     print_header("Bundled Skills")
-    print_info("Blank Slate ships with NO bundled skills by default.")
+    print_info("Starter-pack default: ship the full bundled skill catalog.")
     seed_skills = prompt_yes_no(
         "Seed the full bundled skill catalog? (No = start with zero skills)",
-        default=False,
+        default=True,
     )
     try:
         from tools.skills_sync import set_bundled_skills_opt_out, sync_skills

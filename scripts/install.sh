@@ -2147,6 +2147,19 @@ SOUL_EOF
                 log_success "Skills copied to ~/.synapse/skills/"
             fi
         fi
+
+        # ── Starter pack: also seed optional-skills (official extended catalog) ──
+        # The bundled skills/ directory is the default; optional-skills/ is the
+        # larger opt-in catalog. A fresh install ships BOTH so users get a full
+        # starter pack out of the box. The copy is additive (cp -rn) — it never
+        # overwrites skills the user already has — and only runs when a source
+        # exists, so it degrades gracefully on older checkouts.
+        if [ -d "$INSTALL_DIR/optional-skills" ]; then
+            mkdir -p "$SYNAPSE_HOME/skills"
+            log_info "Seeding optional skills (starter pack) ..."
+            cp -rn "$INSTALL_DIR/optional-skills/." "$SYNAPSE_HOME/skills/" 2>/dev/null || true
+            log_success "Optional skills seeded to ~/.synapse/skills/"
+        fi
     fi
 }
 
