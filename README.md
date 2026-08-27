@@ -143,6 +143,7 @@ See `docker-compose.yml` and the `docker/` directory for the full supervised set
 ```bash
 synapse              # Interactive CLI — start a conversation
 synapse model        # Choose your LLM provider and model
+synapse dashboard    # Open the admin panel in your browser (port 9119)
 synapse tools        # Configure which tools are enabled
 synapse config set   # Set individual config values
 synapse config get   # Print individual config values
@@ -152,6 +153,25 @@ synapse claw migrate # Migrate from OpenClaw (if coming from OpenClaw)
 synapse update       # Update to the latest version
 synapse doctor       # Diagnose any issues
 ```
+
+### Admin Panel
+
+The `synapse dashboard` command starts a local web admin panel at `http://127.0.0.1:9119`. It provides a browser-based UI for configuring providers, managing channels, viewing logs, and monitoring your agent.
+
+```bash
+synapse dashboard                        # Open in browser, port 9119
+synapse dashboard --port 8080            # Custom port
+synapse dashboard --host 0.0.0.0         # Bind to all interfaces (for remote access)
+synapse dashboard --no-open              # Don't auto-open browser
+synapse dashboard --skip-build           # Skip React build, use pre-built admin HTML
+```
+
+Features:
+- **Setup** — Configure LLM providers, API keys, and messaging channels
+- **Status** — Monitor gateway state, uptime, and active sessions
+- **Logs** — View real-time agent logs
+- **Users** — Manage pairing requests and approved users
+- **Backup & Restore** — Download/upload deployment snapshots
 
 📖 **Full documentation is provided in the docs below.**
 
@@ -171,6 +191,7 @@ Synapse has two entry points: start the terminal UI with `synapse`, or run the g
 
 | Action                         | CLI                                           | Messaging platforms                                                              |
 | Start chatting                 | `synapse`                                      | Run `synapse gateway setup` + `synapse gateway start`, then send the bot a message |
+| Open admin panel               | `synapse dashboard`                            | —                                                                                |
 | Start fresh conversation       | `/new` or `/reset`                            | `/new` or `/reset`                                                               |
 | Change model                   | `/model [provider:model]`                     | `/model [provider:model]`                                                        |
 | Set a personality              | `/personality [name]`                         | `/personality [name]`                                                            |
