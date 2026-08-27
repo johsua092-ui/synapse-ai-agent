@@ -31,6 +31,8 @@ import {
   Pencil,
   Check,
   Archive,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatSessionPruneResult } from "@/lib/session-prune";
@@ -473,7 +475,9 @@ function SessionRow({
   onDelete,
   onRename,
   onExport,
+  onPin,
   resumeInChatEnabled,
+  displayNumber,
 }: SessionRowProps) {
   const [messages, setMessages] = useState<SessionMessage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -575,6 +579,24 @@ function SessionRow({
         }}
       >
         <Download />
+      </Button>
+
+      <Button
+        ghost
+        size="icon"
+        className={
+          session.pinned
+            ? "text-amber-500 hover:text-amber-600"
+            : "text-muted-foreground hover:text-foreground"
+        }
+        aria-label={session.pinned ? "Unpin chat" : "Pin chat"}
+        title={session.pinned ? "Unpin chat" : "Pin chat"}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPin(session.id, !session.pinned);
+        }}
+      >
+        {session.pinned ? <PinOff /> : <Pin />}
       </Button>
 
       <Button
@@ -682,15 +704,22 @@ function SessionRow({
                     </Button>
                   </div>
                 ) : (
-                  <span
-                    className={`font-mondwest normal-case min-w-0 flex-1 truncate text-sm ${hasTitle ? "font-medium" : "text-muted-foreground italic"}`}
-                  >
-                    {hasTitle
-                      ? session.title
-                      : session.preview
-                        ? session.preview.slice(0, 60)
-                        : t.sessions.untitledSession}
-                  </span>
+                  <>
+                    {typeof displayNumber === "number" && (
+                      <span className="w-6 shrink-0 text-right font-mondwest text-xs tabular-nums text-muted-foreground">
+                        {displayNumber}
+                      </span>
+                    )}
+                    <span
+                      className={`font-mondwest normal-case min-w-0 flex-1 truncate text-sm ${hasTitle ? "font-medium" : "text-muted-foreground italic"}`}
+                    >
+                      {hasTitle
+                        ? session.title
+                        : session.preview
+                          ? session.preview.slice(0, 60)
+                          : t.sessions.untitledSession}
+                    </span>
+                  </>
                 )}
                 {session.is_active && (
                   <Badge tone="success" className="shrink-0 text-xs">
@@ -1465,6 +1494,25 @@ export default function SessionsPage() {
     [showToast, loadStats],
   );
 
+  const handleTogglePin = useCallback(
+    async (id: string, pinned: boolean) => {
+      try {
+        await api.setSessionPinned(id, pinned);
+        setSessions((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, pinned } : s)),
+        );
+        setOverviewSessions((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, pinned } : s)),
+        );
+        showToast(pinned ? "Chat pinned" : "Chat unpinned", "success");
+        loadStats();
+      } catch {
+        showToast("Failed to update pin", "error");
+      }
+    },
+    [showToast, loadStats],
+  );
+
   const handleExport = useCallback(
     async (id: string) => {
       try {
@@ -1525,7 +1573,13 @@ export default function SessionsPage() {
     }
   }
 
-  const filtered = searchResults ?? sessions;
+  const filtered = (searchResults ?? sessions).slice().sort((a, b) => {
+    // Pinned chats always float to the top; within the same pin state the
+    // existing server order is preserved (stable sort). There is no limit on
+    // the number of pinned chats.
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return 0;
+  });
 
   const platformEntries = status
     ? Object.entries(status.gateway_platforms ?? {})
@@ -2087,8 +2141,10 @@ export default function SessionsPage() {
                   }
                   onDelete={() => sessionDelete.requestDelete(s.id)}
                   onRename={handleRename}
+                  onPin={handleTogglePin}
                   onExport={handleExport}
                   resumeInChatEnabled={resumeInChatEnabled}
+                  displayNumber={PAGE_SIZE * page + index + 1}
                 />
               ))}
             </div>
@@ -2180,6 +2236,7 @@ interface SessionRowProps {
   isSelected: boolean;
   onDelete: () => void;
   onExport: (id: string) => void;
+  onPin: (id: string, pinned: boolean) => void;
   onRename: (id: string, title: string) => Promise<void>;
   onSelectClick: (event: React.MouseEvent) => void;
   onToggle: () => void;
@@ -2187,6 +2244,7 @@ interface SessionRowProps {
   searchQuery?: string;
   session: SessionInfo;
   snippet?: string;
+  displayNumber?: number;
 }
 
 interface SessionsPaginationProps {

@@ -434,6 +434,19 @@ export const api = {
         body: JSON.stringify({ title, profile: profile || undefined }),
       },
     ),
+  setSessionPinned: (
+    id: string,
+    pinned: boolean,
+    profile = getManagementProfile(),
+  ) =>
+    fetchJSON<{ ok: boolean; pinned: boolean }>(
+      `/api/sessions/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned, profile: profile || undefined }),
+      },
+    ),
   getSessionStats: (profile = getManagementProfile()) =>
     fetchJSON<SessionStoreStats>(appendProfileParam("/api/sessions/stats", profile)),
   exportSessionUrl: (id: string, profile = getManagementProfile()) =>
@@ -1944,6 +1957,7 @@ export interface SessionInfo {
   output_tokens: number;
   preview: string | null;
   parent_session_id?: string | null;
+  pinned?: boolean;
 }
 
 export interface SessionLatestDescendantResponse {
