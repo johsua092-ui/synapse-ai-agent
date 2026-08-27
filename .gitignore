@@ -80,8 +80,8 @@ ignored/
 .worktrees/
 environments/benchmarks/evals/
 
-# Web UI build output
-synapse_cli/web_dist/
+# Web UI build output (admin panel HTML is committed here)
+# synapse_cli/web_dist/
 # Cross-process web UI build lock (flock target, always empty)
 .web_ui_build.lock
 apps/desktop/build/
