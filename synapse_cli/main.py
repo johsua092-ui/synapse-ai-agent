@@ -14057,6 +14057,53 @@ def main():
     sessions_parser.set_defaults(func=_dispatch_sessions)
 
     # =========================================================================
+    # session command (singular) — focused session management surface
+    # =========================================================================
+    session_parser = subparsers.add_parser(
+        "session",
+        help="Manage sessions (list, delete)",
+        description="Manage Synapse sessions (list and delete) using the shared session store",
+    )
+    session_subparsers = session_parser.add_subparsers(dest="session_action")
+
+    session_list = session_subparsers.add_parser(
+        "list", help="List recent sessions (ID, title, updated)"
+    )
+    session_list.add_argument(
+        "--source", help="Filter by source (cli, telegram, discord, etc.)"
+    )
+    session_list.add_argument(
+        "--limit", type=int, default=100, help="Max sessions to show"
+    )
+
+    session_delete = session_subparsers.add_parser(
+        "delete", help="Delete one session or all sessions"
+    )
+    session_delete.add_argument(
+        "session_id",
+        nargs="?",
+        default=None,
+        help="Session ID to delete (omit and use --all to delete every session)",
+    )
+    session_delete.add_argument(
+        "--all",
+        action="store_true",
+        help="Delete ALL sessions (requires strict confirmation unless --yes)",
+    )
+    session_delete.add_argument(
+        "--yes", "-y", action="store_true", help="Skip confirmation"
+    )
+
+    # cmd_session lives in synapse_cli/session_cmd.py (lazy import so the
+    # module stays import-light until the subcommand actually runs).
+    def _dispatch_session(_args):
+        from synapse_cli.session_cmd import cmd_session
+
+        return cmd_session(_args)
+
+    session_parser.set_defaults(func=_dispatch_session)
+
+    # =========================================================================
     # insights command  (parser built in synapse_cli/subcommands/insights.py)
     # =========================================================================
     build_insights_parser(subparsers, cmd_insights=cmd_insights)

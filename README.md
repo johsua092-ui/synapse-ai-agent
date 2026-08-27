@@ -177,6 +177,32 @@ Features:
 
 ---
 
+## Session Management
+
+Synapse keeps a conversation history for every session. The `synapse session` command lets you list and delete sessions from the CLI, and `/delete` does it from inside a conversation. It reuses the same SessionDB backend as the dashboard, so there's a single delete implementation across the CLI, the dashboard, and the chat platforms.
+
+```bash
+synapse session list                    # List all persisted sessions
+synapse session delete <session-id>     # Permanently delete one session
+synapse session delete --all            # Delete every session (warns first)
+synapse session delete <session-id> -y  # Skip the confirmation prompt
+synapse session --help                  # Full usage
+```
+
+`delete` always verifies that the session exists and prints a not-found error if it doesn't. Single deletes show the session info and ask for confirmation before doing anything destructive; `delete --all` requires an even stricter confirmation (or `--yes`).
+
+Inside a conversation, `/delete` (or `/delete -y`) permanently deletes the current active session and starts a fresh one.
+
+The dashboard's Sessions page offers the same operations with a delete button, confirmation dialog, refresh after deletion, and error/empty states — backed by the same SessionDB.
+
+## Bundled Skills
+
+Synapse ships with a set of bundled skills that are synced into `~/.synapse/skills/` on install and update (see `tools/skills_sync.py`). It also bundles the [Superpowers](https://github.com/obra/superpowers) development workflow skills under `skills/superpowers/` — including `brainstorming`, `writing-plans`, `executing-plans`, `systematic-debugging` (via the existing software-development bundle), `test-driven-development`, and more. They ride the same bundled-skill sync, so they're available in any fresh profile automatically.
+
+For skills that share a name with an existing bundled skill (e.g. `systematic-debugging`, `test-driven-development`, `requesting-code-review`), Synapse keeps the existing bundled copy — this avoids a duplicate-name collision in the sync manifest.
+
+---
+
 ## Provider-agnostic by design
 
 Synapse works with whatever provider you want — that's not changing. Bring any OpenRouter, OpenAI, or custom endpoint and wire it up once. Switch with `synapse model` — no code changes, no lock-in.
@@ -198,6 +224,9 @@ Synapse has two entry points: start the terminal UI with `synapse`, or run the g
 | Retry or undo the last turn    | `/retry`, `/undo`                             | `/retry`, `/undo`                                                                |
 | Compress context / check usage | `/compress`, `/usage`, `/insights [--days N]` | `/compress`, `/usage`, `/insights [days]`                                        |
 | Browse skills                  | `/skills` or `/<skill-name>`                  | `/<skill-name>`                                                                  |
+| List sessions                  | `synapse session list`                        | —                                                                                |
+| Delete current session         | `/delete`                                     | —                                                                                |
+| Delete a session / all         | `synapse session delete <id>` / `--all`       | —                                                                                |
 | Interrupt current work         | `Ctrl+C` or send a new message                | `/stop` or send a new message                                                    |
 | Platform-specific status       | `/platforms`                                  | `/status`, `/sethome`                                                            |
 

@@ -12204,6 +12204,27 @@ class SynapseCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._handle_resume_command(cmd_original)
         elif canonical == "sessions":
             self._handle_sessions_command(cmd_original)
+        elif canonical == "delete":
+            # Delete the current active session permanently, then start fresh.
+            # Only touches session data — never config, credentials, or skills.
+            if self._confirm_destructive_slash(
+                "delete",
+                "This permanently deletes the current session and all its "
+                "messages.\nA new session will be started.",
+                cmd_original=cmd_original,
+            ) is None:
+                return True  # confirmation cancelled — command handled, keep REPL alive
+            _cur_id = self.session_id
+            if self._session_db and _cur_id:
+                try:
+                    _sessions_dir = get_synapse_home() / "sessions"
+                    self._session_db.delete_session(_cur_id, sessions_dir=_sessions_dir)
+                    _cprint(f"  {_DIM}✓ Deleted session {_cur_id}{_RST}")
+                except Exception as _exc:
+                    _cprint(f"  {_DIM}✗ Could not delete session: {_exc}{_RST}")
+                    return True
+            self.new_session(silent=True)
+            _cprint(f"  {_DIM}Started a new session.{_RST}")
         elif canonical == "model":
             self._handle_model_switch(cmd_original)
         elif canonical == "codex-runtime":
