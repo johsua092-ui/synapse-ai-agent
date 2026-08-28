@@ -739,3 +739,42 @@ class _PluginProvidersPutBody(BaseModel):
 class _PluginVisibilityBody(BaseModel):
     hidden: bool
 
+
+# --- Agents dashboard (native subagent / Agent Team feature) ---
+
+class AgentCreate(BaseModel):
+    name: str
+    model: Optional[str] = None
+    skills: Optional[List[str]] = None
+    toolsets: Optional[List[str]] = None
+    task: Optional[str] = None
+    timeout: Optional[int] = None
+    profile: Optional[str] = None
+
+
+class AgentUpdate(BaseModel):
+    model: Optional[str] = None
+    skills: Optional[List[str]] = None
+    toolsets: Optional[List[str]] = None
+    task: Optional[str] = None
+    timeout: Optional[int] = None
+    profile: Optional[str] = None
+
+
+class AgentTeamCreate(BaseModel):
+    name: str
+    max_parallel: Optional[int] = None
+    agents: Optional[List[str]] = None
+    profile: Optional[str] = None
+
+
+class AgentTeamUpdate(BaseModel):
+    max_parallel: Optional[int] = None
+    agents: Optional[List[str]] = None
+    profile: Optional[str] = None
+
+
+class AgentTeamRun(BaseModel):
+    goal: Optional[str] = None
+    profile: Optional[str] = None
+

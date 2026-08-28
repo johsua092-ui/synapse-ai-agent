@@ -784,6 +784,91 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, content, profile: profile || undefined }),
     }),
+
+  // Subagents & Agent Teams
+  // Declarative subagent definitions + Agent Teams, managed on the Agents page
+  // via the same ``~/.synapse/agents`` YAML store the CLI uses.
+  getAgents: (profile?: string) =>
+    fetchJSON<{ agents: AgentInfo[] }>(`/api/agents${profileQuery(profile)}`),
+  createAgent: (
+    agent: {
+      name: string;
+      model?: string;
+      skills?: string[];
+      toolsets?: string[];
+      task?: string;
+      timeout?: number;
+    },
+    profile?: string,
+  ) =>
+    fetchJSON<AgentInfo>("/api/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...agent, profile: profile || undefined }),
+    }),
+  updateAgent: (
+    name: string,
+    agent: {
+      model?: string;
+      skills?: string[];
+      toolsets?: string[];
+      task?: string;
+      timeout?: number;
+    },
+    profile?: string,
+  ) =>
+    fetchJSON<AgentInfo>(`/api/agents/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...agent, profile: profile || undefined }),
+    }),
+  deleteAgent: (name: string, profile?: string) =>
+    fetchJSON<{ ok: boolean }>(
+      `/api/agents/${encodeURIComponent(name)}${profileQuery(profile)}`,
+      { method: "DELETE" },
+    ),
+  getActiveSubagents: () =>
+    fetchJSON<{ active: ActiveSubagent[] }>("/api/agents/active"),
+  getTeams: (profile?: string) =>
+    fetchJSON<{ teams: AgentTeamInfo[] }>(`/api/agents/teams${profileQuery(profile)}`),
+  createTeam: (
+    team: { name: string; max_parallel?: number; agents?: string[] },
+    profile?: string,
+  ) =>
+    fetchJSON<AgentTeamInfo>("/api/agents/teams", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...team, profile: profile || undefined }),
+    }),
+  updateTeam: (
+    name: string,
+    team: { max_parallel?: number; agents?: string[] },
+    profile?: string,
+  ) =>
+    fetchJSON<AgentTeamInfo>(`/api/agents/teams/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...team, profile: profile || undefined }),
+    }),
+  deleteTeam: (name: string, profile?: string) =>
+    fetchJSON<{ ok: boolean }>(
+      `/api/agents/teams/${encodeURIComponent(name)}${profileQuery(profile)}`,
+      { method: "DELETE" },
+    ),
+  runTeam: (
+    name: string,
+    goal?: string,
+    profile?: string,
+  ) =>
+    fetchJSON<{ team: string; tasks: AgentTeamTask[] }>(
+      `/api/agents/teams/${encodeURIComponent(name)}/run`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal: goal || undefined, profile: profile || undefined }),
+      },
+    ),
+
   getToolsets: (profile?: string) =>
     fetchJSON<ToolsetInfo[]>(`/api/tools/toolsets${profileQuery(profile)}`),
   toggleToolset: (name: string, enabled: boolean, profile?: string) =>
@@ -2341,6 +2426,39 @@ export interface SkillWriteResult {
   message?: string;
   path?: string;
   error?: string;
+}
+
+export interface AgentInfo {
+  name: string;
+  model: string;
+  skills: string[];
+  toolsets: string[];
+  task: string;
+}
+
+export interface ActiveSubagent {
+  subagent_id: string;
+  parent_id?: string;
+  depth?: number;
+  goal?: string;
+  model?: string;
+  started_at?: string | number;
+  status?: string;
+}
+
+export interface AgentTeamInfo {
+  name: string;
+  max_parallel?: number | null;
+  agents: string[];
+}
+
+export interface AgentTeamTask {
+  agent?: string;
+  goal?: string;
+  skills?: string[];
+  toolsets?: string[];
+  model?: string;
+  error?: string | null;
 }
 
 export interface ToolsetInfo {

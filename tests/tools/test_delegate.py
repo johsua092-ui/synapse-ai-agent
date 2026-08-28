@@ -65,11 +65,13 @@ class TestDelegateRequirements(unittest.TestCase):
         self.assertIn("goal", props)
         self.assertIn("tasks", props)
         self.assertIn("context", props)
-        # toolsets is intentionally NOT exposed to the model — subagents always
-        # inherit the parent's toolsets. Letting the model name toolsets was a
-        # capability-selection surface the model should not control.
-        self.assertNotIn("toolsets", props)
-        self.assertNotIn("toolsets", props["tasks"]["items"]["properties"])
+        # Per-call subagent customization: skills (force-load skills), toolsets
+        # (narrow the child to selected toolsets, intersected with the parent),
+        # and model (per-call model override) are all exposed to the model at
+        # both the top level and per-task.
+        for key in ("skills", "toolsets", "model"):
+            self.assertIn(key, props)
+            self.assertIn(key, props["tasks"]["items"]["properties"])
         # max_iterations is intentionally NOT exposed to the model — it's
         # config-authoritative via delegation.max_iterations so users get
         # predictable budgets.

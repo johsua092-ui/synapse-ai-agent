@@ -15267,6 +15267,11 @@ from synapse_cli.web_routers.skills import (  # noqa: E402,F401 — legacy re-ex
 )
 
 
+from synapse_cli.web_routers import agents as _agents_routes  # noqa: E402
+
+app.include_router(_agents_routes.router)
+
+
 
 
 def _clear_skills_prompt_cache() -> None:

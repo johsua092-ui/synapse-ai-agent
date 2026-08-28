@@ -116,8 +116,10 @@ def _get_subagent_approval_callback():
     return _subagent_auto_deny
 
 # NOTE: nested delegation is granted by role='orchestrator' (which re-adds the
-# "delegation" toolset in _build_child_agent), NOT by the model naming toolsets
-# — the model has no toolsets argument. Subagents inherit the parent's toolsets.
+# "delegation" toolset in _build_child_agent). The model MAY narrow a child's
+# toolsets via the per-call/per-task 'toolsets' argument (intersected with the
+# parent's available tools) and assign skills ('skills') or a model ('model').
+# When toolsets are not given, subagents inherit the parent's toolsets.
 
 _DEFAULT_MAX_CONCURRENT_CHILDREN = 10
 # One-shot guard: the high-concurrency cost advisory is emitted at most once
@@ -1178,8 +1180,15 @@ def _build_child_system_prompt(
     role: str = "leaf",
     max_spawn_depth: int = 2,
     child_depth: int = 1,
+    skills: Optional[List[str]] = None,
 ) -> str:
     """Build a focused system prompt for a child agent.
+
+    ``skills`` (optional) names skills the caller wants force-loaded into the
+    child. They are embedded through the SAME loader the parent uses
+    (``build_preloaded_skills_prompt``), so bundled skills (incl. Superpowers),
+    project skills, and external skills all resolve identically. Missing or
+    disabled identifiers are ignored best-effort; the prompt is still built.
 
     When role='orchestrator', appends a delegation-capability block
     modeled on OpenClaw's buildSubagentSystemPrompt (canSpawn branch at
@@ -1228,6 +1237,30 @@ def _build_child_system_prompt(
                 "below. Their conventions and invariants are binding for "
                 "your work in this workspace.\n\n" + _ctx_files.strip()
             )
+    if skills:
+        # Force-load the selected skills into the child through the same
+        # loader the parent uses (bundled Superpowers, project, external).
+        # Best-effort: a missing/disabled/erroring skill never blocks the
+        # spawn — the child simply proceeds with the skills that did load,
+        # matching the workspace context-files block above.
+        try:
+            from agent.skill_commands import build_preloaded_skills_prompt
+
+            _skill_text, _loaded, _missing = build_preloaded_skills_prompt(list(skills))
+            if _missing:
+                logger.debug(
+                    "subagent: skills not preloaded (missing/disabled): %s", _missing
+                )
+            if _skill_text and _skill_text.strip():
+                parts.append(
+                    "\nPREDLOADED SKILLS\n"
+                    "The following skill(s) are available for this task. "
+                    "Read and apply them as instructed by the skill content.\n\n"
+                    + _skill_text.strip()
+                )
+        except Exception:
+            logger.debug("subagent: skills preload failed", exc_info=True)
+
     parts.append(
         "\nComplete this task using the tools available to you. "
         "When finished, provide a clear, concise summary of:\n"
@@ -1612,6 +1645,9 @@ def _build_child_agent(
     max_iterations: int,
     task_count: int,
     parent_agent,
+    # Skills force-loaded into the child prompt (best-effort, via the same
+    # loader the parent uses — bundled Superpowers, project, external).
+    skills: Optional[List[str]] = None,
     # Credential overrides from delegation config (provider:model resolution)
     override_provider: Optional[str] = None,
     override_base_url: Optional[str] = None,
@@ -1735,6 +1771,7 @@ def _build_child_agent(
         role=effective_role,
         max_spawn_depth=max_spawn,
         child_depth=child_depth,
+        skills=skills,
     )
     # Extract parent's API key so subagents inherit auth (e.g. Nous Portal).
     parent_api_key = getattr(parent_agent, "api_key", None)
@@ -3633,6 +3670,12 @@ def delegate_task(
     action: Optional[str] = None,
     subagent_id: Optional[str] = None,
     message: Optional[str] = None,
+    # Per-call subagent customization (model-facing). Each is optional and
+    # applies to every child spawned by this call; per-task values in the
+    # ``tasks`` array override the top-level value for that task.
+    skills: Optional[List[str]] = None,
+    toolsets: Optional[List[str]] = None,
+    model: Optional[str] = None,
     parent_agent=None,
     credentials_cfg: Optional[Dict[str, Any]] = None,
 ) -> str:
@@ -3767,7 +3810,14 @@ def delegate_task(
             )
         task_list = tasks
     elif goal and isinstance(goal, str) and goal.strip():
-        single_task: Dict[str, Any] = {"goal": goal, "context": context, "role": top_role}
+        single_task: Dict[str, Any] = {
+            "goal": goal,
+            "context": context,
+            "role": top_role,
+            "skills": skills,
+            "toolsets": toolsets,
+            "model": model,
+        }
         if output_schema is not None:
             single_task["output_schema"] = output_schema
         task_list = [single_task]
@@ -3875,17 +3925,25 @@ def delegate_task(
 
             _child_context = append_output_contract(_child_context, _task_schema)
         try:
+            # Per-call/per-task customization. Top-level ``skills``/``toolsets``/
+            # ``model`` were folded into the single-task dict above; in batch
+            # mode each task may carry its own. Per-task values win.
+            _task_skills = t.get("skills") or None
+            _task_toolsets = t.get("toolsets") or None
+            _task_model = t.get("model") or creds["model"]
             child = _build_child_preserving_parent_tools(
                 task_index=i,
                 goal=t["goal"],
                 context=_child_context,
-                # Subagents always inherit the parent's toolsets; the model
-                # cannot choose or narrow them (no model-facing toolsets arg).
-                toolsets=None,
-                model=creds["model"],
+                # When the caller narrowed toolsets, intersect with the parent
+                # (child can never gain tools the parent lacks); otherwise
+                # inherit the parent's toolsets (the historical default).
+                toolsets=_task_toolsets,
+                model=_task_model,
                 max_iterations=effective_max_iter,
                 task_count=n_tasks,
                 parent_agent=parent_agent,
+                skills=_task_skills,
                 override_provider=creds["provider"],
                 override_base_url=creds["base_url"],
                 override_api_key=creds["api_key"],
@@ -4826,6 +4884,20 @@ DELEGATE_TASK_SCHEMA = {
                                 "require only fields you will actually read."
                             ),
                         },
+                        "skills": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Per-task skills override (see top-level 'skills').",
+                        },
+                        "toolsets": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Per-task toolsets override (see top-level 'toolsets').",
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": "Per-task model override (see top-level 'model').",
+                        },
                     },
                     "required": ["goal"],
                 },
@@ -4889,6 +4961,40 @@ DELEGATE_TASK_SCHEMA = {
                     "and specific — the child sees it appended to its next "
                     "tool result mid-run (e.g. \"Stop exploring X; focus on Y "
                     "and return early results\")."
+                ),
+            },
+            "skills": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "Optional skill names to force-load into every subagent "
+                    "spawned by this call (e.g. 'design', 'security', or a "
+                    "bundled Superpowers skill). Uses the same loader as your "
+                    "own session, so bundled, project, and external skills all "
+                    "resolve. Missing or disabled skills are skipped "
+                    "best-effort. Per-task 'skills' in the tasks array "
+                    "overrides this for that task."
+                ),
+            },
+            "toolsets": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "Optional. Narrow every subagent spawned by this call to "
+                    "only these toolsets (intersected with what the parent "
+                    "already has — a child never gains a tool you lack). "
+                    "Omit to let the child inherit the parent's toolsets. "
+                    "Per-task 'toolsets' in the tasks array overrides this "
+                    "for that task."
+                ),
+            },
+            "model": {
+                "type": "string",
+                "description": (
+                    "Optional. Model override for every subagent spawned by "
+                    "this call (e.g. an Anthropic/OpenAI model id). Omit to "
+                    "use the resolved delegation model. Per-task 'model' in "
+                    "the tasks array overrides this for that task."
                 ),
             },
         },
@@ -4955,6 +5061,9 @@ registry.register(
         action=args.get("action"),
         subagent_id=args.get("subagent_id"),
         message=args.get("message"),
+        skills=args.get("skills"),
+        toolsets=args.get("toolsets"),
+        model=args.get("model"),
         parent_agent=kw.get("parent_agent"),
     ),
     check_fn=check_delegate_requirements,

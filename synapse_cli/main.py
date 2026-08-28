@@ -14104,6 +14104,85 @@ def main():
     session_parser.set_defaults(func=_dispatch_session)
 
     # =========================================================================
+    # subagents command  (cmd_subagents lives in synapse_cli/subagents_cmd.py)
+    # =========================================================================
+    subagents_parser = subparsers.add_parser(
+        "subagents",
+        help="Manage subagent definitions and Agent Teams",
+        description=(
+            "Manage saved subagent definitions and Agent Teams (list, show, "
+            "create, edit, delete, run, run-team, active)."
+        ),
+    )
+    subagents_subparsers = subagents_parser.add_subparsers(dest="subagents_action")
+
+    def _dispatch_subagents(_args):
+        from synapse_cli.subagents_cmd import cmd_subagents
+
+        return cmd_subagents(_args)
+
+    subagents_list = subagents_subparsers.add_parser(
+        "list", help="List saved subagents and teams"
+    )
+    subagents_list.set_defaults(func=_dispatch_subagents)
+
+    subagents_show = subagents_subparsers.add_parser(
+        "show", help="Show one subagent definition"
+    )
+    subagents_show.add_argument("name", help="Subagent name")
+    subagents_show.set_defaults(func=_dispatch_subagents)
+
+    subagents_create = subagents_subparsers.add_parser(
+        "create", help="Create a subagent definition"
+    )
+    subagents_create.add_argument("name", help="Subagent name")
+    subagents_create.add_argument(
+        "--skill", "-s", action="append", default=None, help="Skill to assign (repeatable)"
+    )
+    subagents_create.add_argument(
+        "--tool", "-t", action="append", default=None, help="Toolset to allow (repeatable)"
+    )
+    subagents_create.add_argument("--model", "-m", default=None, help="Model to use")
+    subagents_create.add_argument("--task", default=None, help="Default task text")
+    subagents_create.set_defaults(func=_dispatch_subagents)
+
+    subagents_edit = subagents_subparsers.add_parser(
+        "edit", help="Update a subagent definition"
+    )
+    subagents_edit.add_argument("name", help="Subagent name")
+    subagents_edit.add_argument("--skill", "-s", action="append", default=None)
+    subagents_edit.add_argument("--tool", "-t", action="append", default=None)
+    subagents_edit.add_argument("--model", "-m", default=None)
+    subagents_edit.add_argument("--task", default=None)
+    subagents_edit.set_defaults(func=_dispatch_subagents)
+
+    subagents_delete = subagents_subparsers.add_parser(
+        "delete", help="Delete a subagent definition"
+    )
+    subagents_delete.add_argument("name", help="Subagent name")
+    subagents_delete.set_defaults(func=_dispatch_subagents)
+
+    subagents_run = subagents_subparsers.add_parser(
+        "run", help="Resolve one subagent definition"
+    )
+    subagents_run.add_argument("name", help="Subagent name")
+    subagents_run.add_argument("--goal", default=None, help="Override the task text")
+    subagents_run.set_defaults(func=_dispatch_subagents)
+
+    subagents_run_team = subagents_subparsers.add_parser(
+        "run-team", help="Assemble + resolve an Agent Team"
+    )
+    subagents_run_team.add_argument("name", help="Agent Team name")
+    subagents_run_team.add_argument("--goal", default=None, help="Override per-member goals")
+    subagents_run_team.set_defaults(func=_dispatch_subagents)
+
+    subagents_active = subagents_subparsers.add_parser(
+        "active", help="List currently running subagents"
+    )
+    subagents_active.set_defaults(func=_dispatch_subagents)
+
+
+    # =========================================================================
     # insights command  (parser built in synapse_cli/subcommands/insights.py)
     # =========================================================================
     build_insights_parser(subparsers, cmd_insights=cmd_insights)
