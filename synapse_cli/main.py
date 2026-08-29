@@ -14121,6 +14121,7 @@ def main():
     # =========================================================================
     subagents_parser = subparsers.add_parser(
         "subagents",
+        aliases=["subagent"],
         help="Manage subagent definitions and Agent Teams",
         description=(
             "Manage saved subagent definitions and Agent Teams (list, show, "
