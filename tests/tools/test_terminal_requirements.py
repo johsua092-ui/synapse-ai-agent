@@ -59,6 +59,29 @@ def test_docker_probe_timeout_is_not_usable(monkeypatch):
     assert terminal_tool_module.check_terminal_requirements() is False
 
 
+def test_windows_local_without_bash_is_not_ready(monkeypatch):
+    _clear_terminal_env(monkeypatch)
+    monkeypatch.setenv("TERMINAL_ENV", "local")
+
+    def raising_find_bash():
+        raise RuntimeError("Git Bash not found")
+
+    import os as _real_os
+
+    class FakeOs:
+        name = "nt"
+
+        def __getattr__(self, name):
+            return getattr(_real_os, name)
+
+    monkeypatch.setattr(terminal_tool_module, "os", FakeOs())
+
+    import tools.environments.local as local_env
+
+    monkeypatch.setattr(local_env, "_find_bash", raising_find_bash)
+    assert terminal_tool_module.check_terminal_requirements() is False
+
+
 def test_docker_probe_uses_bounded_probe_run(monkeypatch):
     import tools.environments.docker as docker_mod
     import synapse_cli._subprocess_compat as compat

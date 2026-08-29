@@ -3799,6 +3799,17 @@ def check_terminal_requirements() -> bool:
         env_type = config["env_type"]
 
         if env_type == "local":
+            if os.name == "nt":
+                try:
+                    from tools.environments.local import _find_bash
+
+                    _find_bash()
+                except Exception:
+                    logger.warning(
+                        "local terminal on Windows requires Git Bash; it was not found "
+                        "(_find_bash failed). The terminal/file tools will be disabled."
+                    )
+                    return False
             return True
 
         elif env_type == "docker":
