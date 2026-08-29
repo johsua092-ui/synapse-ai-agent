@@ -3808,14 +3808,22 @@ def check_terminal_requirements() -> bool:
             if not docker:
                 logger.error("Docker executable not found in PATH or common install locations")
                 return False
-            result = bounded_probe_run([docker, "version"], timeout=5)
+            try:
+                result = bounded_probe_run([docker, "version"], timeout=5)
+            except (subprocess.TimeoutExpired, OSError) as e:
+                logger.error("Terminal %r probe failed: %s", env_type, e)
+                return False
             return result is not None and result.returncode == 0
 
         elif env_type == "singularity":
             from synapse_cli._subprocess_compat import bounded_probe_run
             executable = shutil.which("apptainer") or shutil.which("singularity")
             if executable:
-                result = bounded_probe_run([executable, "--version"], timeout=5)
+                try:
+                    result = bounded_probe_run([executable, "--version"], timeout=5)
+                except (subprocess.TimeoutExpired, OSError) as e:
+                    logger.error("Terminal %r probe failed: %s", env_type, e)
+                    return False
                 return result is not None and result.returncode == 0
             return False
 

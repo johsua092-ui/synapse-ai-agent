@@ -41,6 +41,24 @@ def _clear_terminal_env(monkeypatch):
     monkeypatch.setattr(_tbh, "managed_nous_tools_enabled", lambda: False)
 
 
+def test_docker_probe_timeout_is_not_usable(monkeypatch):
+    import tools.environments.docker as docker_mod
+    import subprocess as sp
+    import synapse_cli._subprocess_compat as compat
+
+    def fake_find_docker():
+        return "/usr/bin/docker"
+
+    def raising_probe(argv, **kw):
+        raise sp.TimeoutExpired(argv[0], kw.get("timeout", 5))
+
+    monkeypatch.setattr(docker_mod, "find_docker", fake_find_docker)
+    monkeypatch.setattr(compat, "bounded_probe_run", raising_probe)
+    _clear_terminal_env(monkeypatch)
+    monkeypatch.setenv("TERMINAL_ENV", "docker")
+    assert terminal_tool_module.check_terminal_requirements() is False
+
+
 def test_docker_probe_uses_bounded_probe_run(monkeypatch):
     import tools.environments.docker as docker_mod
     import synapse_cli._subprocess_compat as compat
