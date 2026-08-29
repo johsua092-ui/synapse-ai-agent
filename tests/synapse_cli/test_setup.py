@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import types
+import subprocess as subprocess_module
 
 
 from synapse_cli.config import load_config, save_config
@@ -390,6 +391,54 @@ def test_ssh_setup_skips_dead_key_path(tmp_path, monkeypatch):
     assert "TERMINAL_SSH_KEY" not in os.environ
     env_path = tmp_path / ".env"
     assert "TERMINAL_SSH_KEY=" not in env_path.read_text(encoding="utf-8")
+
+
+def test_ssh_connection_test_skips_dead_key_in_ssh_command(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_SSH_KEY", raising=False)
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    config = load_config()
+
+    monkeypatch.setattr("synapse_cli.setup.prompt_choice", lambda q, choices, default=0: 3)
+
+    dead_key = str(tmp_path / "missing.pem")
+    prompt_values = iter(["myhost", "alice", "", dead_key, "y"])
+    monkeypatch.setattr("synapse_cli.setup.prompt", lambda *a, **kw: next(prompt_values))
+    monkeypatch.setattr("synapse_cli.setup.prompt_yes_no", lambda *a, **kw: True)
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = list(cmd)
+        return types.SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr(subprocess_module, "run", fake_run)
+
+    from synapse_cli.setup import setup_terminal_backend
+
+    setup_terminal_backend(config)
+
+    assert dead_key not in captured["cmd"]
+
+
+def test_env_mirror_uses_sanitized_backend_value(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    config = load_config()
+
+    monkeypatch.setattr("synapse_cli.setup.prompt_choice", lambda q, choices, default=0: 1)
+    monkeypatch.setattr("synapse_cli.setup.prompt_yes_no", lambda *a, **kw: False)
+    monkeypatch.setattr(
+        "synapse_cli.setup._sanitize_backend_for_write",
+        lambda selected: (selected or "").strip().upper() or None,
+    )
+
+    from synapse_cli.setup import setup_terminal_backend
+
+    setup_terminal_backend(config)
+
+    env_path = tmp_path / ".env"
+    assert "TERMINAL_ENV=DOCKER" in env_path.read_text(encoding="utf-8")
 
 
 def test_ssh_setup_persists_existing_key_path(tmp_path, monkeypatch):

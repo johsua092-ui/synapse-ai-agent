@@ -7987,7 +7987,7 @@ async def update_config(body: ConfigUpdate, profile: Optional[str] = None):
                 # key collision. Only approvals.mode feeds session.info, so
                 # it is the honest trigger.
                 approvals_mode_changed = _approval_mode_of(merged) != _approval_mode_of(existing)
-                _validate_terminal_section(merged)
+                _validate_terminal_section(merged, existing=existing, incoming=incoming)
                 save_config(merged)
         # REST saves bypass the config.set RPC (which re-emits itself), so
         # refresh live sessions' cached approval/YOLO indicators after a mode
@@ -8006,16 +8006,37 @@ async def update_config(body: ConfigUpdate, profile: Optional[str] = None):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-def _validate_terminal_section(config: Dict[str, Any]) -> None:
-    """Reject a ``terminal.backend`` the picker whitelist would never offer."""
-    terminal = config.get("terminal")
-    if not isinstance(terminal, dict):
-        return
-    backend = terminal.get("backend")
-    if backend is None or not str(backend).strip():
+def _validate_terminal_section(
+    config: Dict[str, Any],
+    *,
+    existing: Optional[Dict[str, Any]] = None,
+    incoming: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Reject a ``terminal.backend`` the picker whitelist would never offer.
+
+    Only the *incoming* request is checked, and only when it actually changes
+    ``terminal.backend`` away from the value already on disk.  A legacy
+    on-disk ``terminal.backend`` (e.g. ``vercel_sandbox`` set by the wizard or
+    ``config set``) is legitimate state the flat form cannot represent; it must
+    not make every unrelated Settings save 400, since the merged document it
+    propagates into is not something the user picked just now.
+    """
+    existing_terminal = existing.get("terminal") if isinstance(existing, dict) else None
+    existing_backend = (
+        str(existing_terminal.get("backend")).strip().lower()
+        if isinstance(existing_terminal, dict)
+        else ""
+    )
+    incoming_terminal = incoming.get("terminal") if isinstance(incoming, dict) else None
+    incoming_backend = (
+        str(incoming_terminal.get("backend")).strip().lower()
+        if isinstance(incoming_terminal, dict)
+        else ""
+    )
+    if not incoming_backend or incoming_backend == existing_backend:
         return
     try:
-        validate_terminal_backend(str(backend), platform=sys.platform)
+        validate_terminal_backend(incoming_backend, platform=sys.platform)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -15481,8 +15502,8 @@ def _terminal_backend_options() -> List[str]:
 # above, before ``_TERMINAL_BACKENDS`` exists, so patch the terminal.backend
 # options in now that both are available.
 _flat_terminal_backend_options = _terminal_backend_options()
-_SCHEMA_OVERRIDES["terminal.backend"]["options"] = _flat_terminal_backend_options
-CONFIG_SCHEMA["terminal.backend"]["options"] = _flat_terminal_backend_options
+_SCHEMA_OVERRIDES.setdefault("terminal.backend", {})["options"] = _flat_terminal_backend_options
+CONFIG_SCHEMA.setdefault("terminal.backend", {})["options"] = _flat_terminal_backend_options
 
 
 def _terminal_cfg_value(terminal_cfg: dict, key: str, env_var: str) -> str:

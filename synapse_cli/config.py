@@ -5498,7 +5498,7 @@ def set_config_value(key: str, value: str, force: bool = False):
     # and file toolsets for longer than this process. Validate against the
     # runtime's own known set, imported by value.
     if key.strip().lower() == "terminal.backend":
-        _validate_terminal_backend_value(value)
+        value = _validate_terminal_backend_value(value)
 
     # Otherwise it goes to config.yaml
     # Read the raw user config (not merged with defaults) to avoid

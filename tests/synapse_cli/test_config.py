@@ -85,6 +85,27 @@ class TestSetConfigValue:
         env_text = (home / ".env").read_text(encoding="utf-8")
         assert "TERMINAL_ENV=vercel_sandbox" in env_text
 
+    def test_set_terminal_backend_persists_normalized_value_uppercase_with_whitespace(
+        self, tmp_path, monkeypatch
+    ):
+        home = self._home(tmp_path, monkeypatch)
+        set_config_value("terminal.backend", " SSH ")
+        raw = read_raw_config()
+        assert raw["terminal"]["backend"] == "ssh"
+        env_text = (home / ".env").read_text(encoding="utf-8")
+        assert "TERMINAL_ENV=ssh" in env_text
+        assert "TERMINAL_ENV= SSH " not in env_text
+
+    def test_set_terminal_backend_persists_normalized_vercel_sandbox(
+        self, tmp_path, monkeypatch
+    ):
+        home = self._home(tmp_path, monkeypatch)
+        set_config_value("terminal.backend", "Vercel_Sandbox")
+        raw = read_raw_config()
+        assert raw["terminal"]["backend"] == "vercel_sandbox"
+        env_text = (home / ".env").read_text(encoding="utf-8")
+        assert "TERMINAL_ENV=vercel_sandbox" in env_text
+
 
 class TestEnsureSynapseHome:
 

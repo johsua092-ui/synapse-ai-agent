@@ -1755,8 +1755,8 @@ def setup_terminal_backend(config: dict):
             import subprocess
 
             ssh_cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
-            if ssh_key:
-                ssh_cmd.extend(["-i", ssh_key])
+            if sink.get("TERMINAL_SSH_KEY"):
+                ssh_cmd.extend(["-i", sink["TERMINAL_SSH_KEY"]])
             if port and port != "22":
                 ssh_cmd.extend(["-p", port])
             ssh_cmd.append(f"{user}@{host}" if user else host)
@@ -1770,13 +1770,13 @@ def setup_terminal_backend(config: dict):
 
     # Sync terminal backend to .env so terminal_tool picks it up directly.
     # config.yaml is the source of truth, but terminal_tool reads TERMINAL_ENV.
-    if _sanitize_backend_for_write(selected_backend) is None:
+    if config_backend is None:
         print_warning(
             f"  Skipping TERMINAL_ENV mirror — unrecognized backend "
             f"{selected_backend!r}."
         )
     else:
-        save_env_value("TERMINAL_ENV", selected_backend)
+        save_env_value("TERMINAL_ENV", config_backend)
     if selected_backend == "modal":
         save_env_value("TERMINAL_MODAL_MODE", config["terminal"].get("modal_mode", "auto"))
     save_config(config)

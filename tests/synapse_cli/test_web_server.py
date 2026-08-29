@@ -2485,6 +2485,29 @@ class TestConfigRoundTrip:
         reloaded = self.client.get("/api/config").json()
         assert reloaded["terminal"]["font_family"] == "MesloLGS NF"
 
+    def test_put_unrelated_setting_succeeds_with_legacy_ondisk_backend(self):
+        from synapse_cli.config import save_config
+
+        save_config(
+            {
+                "terminal": {"backend": "vercel_sandbox"},
+                "display": {"theme": "dark"},
+            }
+        )
+        resp = self.client.put("/api/config", json={"config": {"display": {"theme": "dark"}}})
+        assert resp.status_code == 200
+
+    def test_put_changing_backend_to_vercel_sandbox_still_400s(self):
+        from synapse_cli.config import save_config
+
+        save_config({"terminal": {"backend": "local"}})
+        resp = self.client.put(
+            "/api/config",
+            json={"config": {"terminal": {"backend": "vercel_sandbox"}}},
+        )
+        assert resp.status_code == 400
+        assert "terminal.backend" in resp.json().get("detail", "")
+
 
 # ---------------------------------------------------------------------------
 # New feature endpoint tests

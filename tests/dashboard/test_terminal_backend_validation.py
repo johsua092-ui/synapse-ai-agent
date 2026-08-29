@@ -39,14 +39,31 @@ def test_flat_settings_options_match_the_picker_whitelist():
         assert web_server.validate_terminal_backend(name, platform=sys.platform) == name
 
 
-def test_put_save_validation_rejects_unknown_backend():
+def test_put_save_validation_rejects_changing_backend_to_unknown():
     _validate = web_server._validate_terminal_section
-    _validate({"terminal": {"backend": "local"}})
-    _validate({})
-    _validate({"terminal": {}})
-    _validate({"terminal": {"backend": ""}})
+    merged = {"terminal": {"backend": "vercel_sandbox"}}
     with pytest.raises(Exception) as excinfo:
-        _validate({"terminal": {"backend": "vercel_sandbox"}})
+        _validate(
+            merged,
+            existing={"terminal": {"backend": "local"}},
+            incoming={"terminal": {"backend": "vercel_sandbox"}},
+        )
     detail = str(excinfo.value)
     assert "terminal.backend" in detail
     assert "local" in detail
+
+
+def test_put_save_legacy_ondisk_backend_does_not_block_unrelated_save():
+    _validate = web_server._validate_terminal_section
+    existing = {"terminal": {"backend": "vercel_sandbox"}, "approvals": {"mode": "suggest"}}
+    incoming = {"approvals": {"mode": "suggest"}}
+    merged = {"terminal": {"backend": "vercel_sandbox"}, "approvals": {"mode": "suggest"}}
+    _validate(merged, existing=existing, incoming=incoming)
+
+
+def test_put_save_passes_when_incoming_backend_equals_existing():
+    _validate = web_server._validate_terminal_section
+    existing = {"terminal": {"backend": "vercel_sandbox"}}
+    incoming = {"terminal": {"backend": "vercel_sandbox"}}
+    merged = {"terminal": {"backend": "vercel_sandbox"}}
+    _validate(merged, existing=existing, incoming=incoming)
