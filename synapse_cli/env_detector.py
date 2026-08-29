@@ -13,10 +13,12 @@ Design
   shell *is* the terminal.  The remote backends (``ssh``, ``modal``,
   ``daytona``, ``vercel_sandbox``, ``singularity``) are always explicit user
   choices and are never overridden here.
-* Repair is conservative too: an explicitly configured valid backend is left
-  alone; only a missing or unrecognized value is replaced with the detected
-  one.  This keeps existing setups untouched while fixing the case that broke
-  the terminal toolset.
+* Repair is conservative too: an explicitly configured *usable* backend is
+  left alone; only a missing, unrecognized, or unusable-on-this-machine value
+  is replaced with the detected one.  A backend that is merely *known* but
+  cannot run here (e.g. ``vercel_sandbox`` left behind by a stale backfill)
+  used to strip the whole terminal/file toolset at boot, so it is repaired
+  rather than respected.
 * Runs in library context (startup / post-update), so it must not print to
   stdout or call ``sys.exit``.  It writes config.yaml via the raw read +
   ``atomic_yaml_write`` round-trip (preserving user structure) and mirrors
@@ -136,6 +138,43 @@ def _persist_backend(backend: str) -> bool:
     return True
 
 
+def _explicit_backend_usable(backend: str) -> bool:
+    """Return True when an explicitly configured *backend* can actually run.
+
+    Uses the SAME check the runtime uses (``tools.terminal_tool.
+    check_terminal_requirements``) so a backend that is merely *known* but not
+    usable on this machine (e.g. ``vercel_sandbox`` left behind by a stale
+    backfill with no Vercel auth, or ``ssh``/``docker`` without working
+    credentials) is repaired at startup instead of silently stripping the
+    terminal + file + execute_code toolsets ("Tool terminal does not exist").
+    ``local`` is always usable.  The import is deferred so this module stays
+    importable from startup paths that must stay light.
+    """
+    if backend == "local":
+        return True
+    try:
+        # Probe against the CURRENT config.yaml on disk.  terminal_tool bridges
+        # config -> env only ONCE per process (`_terminal_config_bridge_attempted`),
+        # so in a long-lived daemon the check could otherwise see a stale env
+        # (e.g. "local") from an earlier run and mis-report this backend as
+        # usable.  Temporarily clear the flag, probe, then restore it.
+        import tools.terminal_tool as _terminal_tool
+
+        _prev_bridged = _terminal_tool._terminal_config_bridge_attempted
+        _terminal_tool._terminal_config_bridge_attempted = False
+        try:
+            return bool(_terminal_tool.check_terminal_requirements())
+        finally:
+            _terminal_tool._terminal_config_bridge_attempted = _prev_bridged
+    except Exception:
+        logger.warning(
+            "env_detector: could not verify backend %r; treating as unusable",
+            backend,
+            exc_info=True,
+        )
+        return False
+
+
 def ensure_terminal_env_configured(*, persist: bool = True, log_notice: bool = True) -> Dict[str, Any]:
     """Repair a missing / invalid terminal backend for this machine.
 
@@ -144,11 +183,15 @@ def ensure_terminal_env_configured(*, persist: bool = True, log_notice: bool = T
         {"detected": "docker"|"local",
          "current":  <effective backend or None>,
          "fixed":    bool,          # True when a value was written
-         "reason":   "missing" | "invalid" | "mismatch" | "ok"}
+         "reason":   "missing" | "invalid" | "unusable" | "mismatch" | "ok"}
 
     * ``current`` invalid (not in KNOWN_BACKENDS) or missing → detected value
       is written (missing is written so the configured truth is explicit).
-    * ``current`` valid but differs from detected → left alone unless it is
+    * ``current`` valid but unusable on this machine (the runtime requirements
+      check fails — e.g. ``vercel_sandbox`` with no auth, ``ssh`` without
+      host/user) → repaired to the detected value; a broken backend would
+      otherwise strip the terminal + file + execute_code toolsets at boot.
+    * ``current`` usable but differs from detected → left alone unless it is
       the docker-in-container case (a fresh container deployment has no reason
       to run the local backend); everything else stays untouched.
     * ``current`` == detected → no-op.
@@ -178,14 +221,20 @@ def ensure_terminal_env_configured(*, persist: bool = True, log_notice: bool = T
         # only mismatch that can round-trip is local↔docker by design.)
         reason = "mismatch"
     else:
-        # Valid explicit backend that differs from our auto-detect — respect
-        # the user's configured choice (e.g. an ssh/modal backend).
-        return {
-            "detected": detected,
-            "current": current,
-            "fixed": False,
-            "reason": "ok",
-        }
+        # Valid explicit backend that differs from our auto-detect: respect the
+        # user's configured choice ONLY when it actually works on this machine
+        # (e.g. a real ssh/modal/vercel setup).  A known-but-broken backend —
+        # stale backfill, lost credentials — would otherwise strip the whole
+        # terminal + file + execute_code toolset at boot, so repair it to the
+        # detected backend instead.
+        if _explicit_backend_usable(current):
+            return {
+                "detected": detected,
+                "current": current,
+                "fixed": False,
+                "reason": "ok",
+            }
+        reason = "unusable"
 
     if persist:
         fixed = _persist_backend(detected)

@@ -80,7 +80,35 @@ class TestEnsureTerminalEnvConfigured:
         assert result["fixed"] is True
         assert env_detector.current_effective_backend() == "local"
 
-    def test_valid_different_explicit_backend_is_respected(self, _isolate_home):
+    def test_explicit_backend_unusable_is_repaired(self, _isolate_home):
+        # ssh without TERMINAL_SSH_HOST/USER cannot run on this machine — the
+        # requirements check fails, so the terminal/file toolsets get stripped
+        # at boot ("Tool terminal does not exist"). Repair to the detected
+        # local backend instead of blindly respecting the stale value.
+        write_config(_isolate_home, "ssh")
+        result = env_detector.ensure_terminal_env_configured()
+        assert result["reason"] == "unusable"
+        assert result["fixed"] is True
+        assert env_detector.current_effective_backend() == "local"
+
+    def test_vercel_sandbox_without_auth_is_repaired(self, _isolate_home, monkeypatch):
+        # Mirrors the reported real-world break: a Windows box whose config
+        # ended up with terminal.backend=vercel_sandbox (bad backfill) and no
+        # Vercel auth/SDK -> all six terminal/file/execute_code tools vanish.
+        import tools.terminal_tool as terminal_tool_module
+
+        monkeypatch.setattr(
+            terminal_tool_module.importlib.util, "find_spec", lambda _name: None
+        )
+        write_config(_isolate_home, "vercel_sandbox")
+        result = env_detector.ensure_terminal_env_configured()
+        assert result["reason"] == "unusable"
+        assert result["fixed"] is True
+        assert env_detector.current_effective_backend() == "local"
+
+    def test_explicit_backend_usable_is_respected(self, _isolate_home, monkeypatch):
+        monkeypatch.setenv("TERMINAL_SSH_HOST", "example.com")
+        monkeypatch.setenv("TERMINAL_SSH_USER", "root")
         write_config(_isolate_home, "ssh")
         result = env_detector.ensure_terminal_env_configured()
         assert result["fixed"] is False
