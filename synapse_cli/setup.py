@@ -147,6 +147,8 @@ from synapse_cli.config import (
     get_config_path,
     get_env_path,
     load_config,
+    load_env,
+    read_raw_config,
     save_config,
     save_env_value,
     remove_env_value,
@@ -1442,6 +1444,7 @@ def setup_terminal_backend(config: dict):
 
     if terminal_idx == keep_current_idx:
         print_info(f"Keeping current backend: {current_backend}")
+        reconcile_env_only_terminal_env()
         return
 
     config.setdefault("terminal", {})["backend"] = selected_backend
@@ -1728,6 +1731,34 @@ def setup_terminal_backend(config: dict):
     save_config(config)
     print()
     print_success(f"Terminal backend set to: {selected_backend}")
+
+
+def reconcile_env_only_terminal_env() -> bool:
+    """Drop a stale remote TERMINAL_ENV from .env when config.yaml has no terminal section.
+
+    The keep-current branch of the wizard never rewrites ``TERMINAL_ENV``, so
+    a stale remote value left in .env (e.g. ``vercel_sandbox`` from a bad
+    backfill) survives forever and desktop/gateway processes stay stuck on the
+    broken backend. config.yaml's ``terminal`` section is authoritative — when
+    it exists, nothing here is stale. An env-only ``local`` is preserved (it
+    matches the default and is always usable).
+
+    Returns True when a value was removed.
+    """
+    try:
+        raw = read_raw_config()
+        if isinstance(raw.get("terminal"), dict):
+            return False
+        env_path = get_env_path()
+        if not env_path.exists():
+            return False
+        env_map = load_env()
+        backend = (env_map.get("TERMINAL_ENV") or "").strip().lower()
+        if not backend or backend == "local":
+            return False
+        return remove_env_value("TERMINAL_ENV")
+    except Exception:
+        return False
 
 
 # =============================================================================

@@ -30658,6 +30658,24 @@ def _looks_like_profile_conflict_from_cmdline(command: str, our_home) -> bool:
     return False
 
 
+def _auto_repair_terminal_env() -> None:
+    """Auto-repair a broken/unusable terminal backend at gateway startup.
+
+    The config→env bridge above exports ``TERMINAL_ENV`` verbatim; a stale or
+    unusable value (bad backfill, lost credentials, missing SDK) would
+    otherwise strip the terminal/file/execute_code toolsets for the whole
+    gateway process ("Tool terminal does not exist"). The repair is the same
+    one the CLI chat path uses, and is intentionally fire-and-forget: a probe
+    failure must never break gateway startup.
+    """
+    try:
+        from synapse_cli.env_detector import ensure_terminal_env_configured
+
+        ensure_terminal_env_configured(persist=True, log_notice=False)
+    except Exception:
+        logger.debug("terminal env auto-repair skipped", exc_info=True)
+
+
 
 async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = False, verbosity: Optional[int] = 0) -> bool:
     """
@@ -30677,6 +30695,8 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # platforms. Set here (not at module import) so incidental imports of
     # gateway.run from CLI/tool code do not poison SYNAPSE_EXEC_ASK.
     os.environ["SYNAPSE_EXEC_ASK"] = "1"
+
+    _auto_repair_terminal_env()
 
     from synapse_cli.resource_limits import apply_nofile_soft_limit
 

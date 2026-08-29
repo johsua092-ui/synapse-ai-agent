@@ -250,3 +250,55 @@ def test_vercel_setup_prefills_project_and_team_from_link_file(tmp_path, monkeyp
     assert os.environ["VERCEL_TEAM_ID"] == "linked-team"
     assert defaults["    Vercel project ID"] == "linked-project"
     assert defaults["    Vercel team ID"] == "linked-team"
+
+
+def test_reconcile_env_only_terminal_env_removes_stale_backend(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    env_path = tmp_path / ".env"
+    env_path.write_text("TERMINAL_ENV=vercel_sandbox\n", encoding="utf-8")
+
+    assert setup_mod.reconcile_env_only_terminal_env() is True
+    assert "TERMINAL_ENV=vercel_sandbox" not in env_path.read_text(encoding="utf-8")
+
+
+def test_reconcile_env_only_terminal_env_keeps_config_driven_backend(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    env_path = tmp_path / ".env"
+    env_path.write_text("TERMINAL_ENV=ssh\n", encoding="utf-8")
+    cfg = load_config()
+    cfg.setdefault("terminal", {})["backend"] = "ssh"
+    save_config(cfg)
+
+    assert setup_mod.reconcile_env_only_terminal_env() is False
+    assert "TERMINAL_ENV=ssh" in env_path.read_text(encoding="utf-8")
+
+
+def test_reconcile_env_only_terminal_env_preserves_local(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    env_path = tmp_path / ".env"
+    env_path.write_text("TERMINAL_ENV=local\n", encoding="utf-8")
+
+    assert setup_mod.reconcile_env_only_terminal_env() is False
+    assert "TERMINAL_ENV=local" in env_path.read_text(encoding="utf-8")
+
+
+def test_keep_current_reconciles_stale_env_only_backend(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    env_path = tmp_path / ".env"
+    env_path.write_text("TERMINAL_ENV=vercel_sandbox\n", encoding="utf-8")
+    config = load_config()
+
+    def keep_current(question, choices, default=0):
+        return next(i for i, c in enumerate(choices) if str(c).startswith("Keep current"))
+
+    monkeypatch.setattr("synapse_cli.setup.prompt_choice", keep_current)
+
+    from synapse_cli.setup import setup_terminal_backend
+
+    setup_terminal_backend(config)
+
+    assert "TERMINAL_ENV=vercel_sandbox" not in env_path.read_text(encoding="utf-8")
