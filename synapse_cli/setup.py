@@ -857,12 +857,18 @@ def _prompt_vercel_sandbox_settings(config: dict):
 
     current_runtime = terminal.get("vercel_runtime") or "node24"
     supported_label = ", ".join(_SUPPORTED_VERCEL_RUNTIMES)
-    runtime = prompt(f"  Runtime ({supported_label})", current_runtime).strip() or current_runtime
+    provided = prompt(f"  Runtime ({supported_label})", current_runtime)
+    runtime = provided.strip() or current_runtime
     if runtime not in _SUPPORTED_VERCEL_RUNTIMES:
         print_warning(f"Unsupported Vercel runtime '{runtime}', keeping {current_runtime}.")
         runtime = current_runtime if current_runtime in _SUPPORTED_VERCEL_RUNTIMES else "node24"
     terminal["vercel_runtime"] = runtime
-    save_env_value("TERMINAL_VERCEL_RUNTIME", runtime)
+    if provided.strip():
+        # Only mirror to .env when the user explicitly typed a runtime.
+        # Accepting the default (Enter) means "use config.yaml" — an
+        # unconditional mirror here would freeze a default the user never
+        # chose, exactly what the stale-TERMINAL_ENV bug class did.
+        save_env_value("TERMINAL_VERCEL_RUNTIME", runtime)
 
     current_persist = terminal.get("container_persistent", True)
     persist_label = "yes" if current_persist else "no"
@@ -1416,6 +1422,23 @@ def _sanitize_backend_for_write(selected: Optional[str]) -> Optional[str]:
     return None
 
 
+def _write_ssh_key_if_present(path: str, sink: Dict[str, str]) -> None:
+    """Persist an SSH key path into *sink* only when the file actually exists.
+
+    A dead or mistyped path persisted as TERMINAL_SSH_KEY breaks SSH at
+    runtime with a confusing failure. Expand ``~`` and verify the file exists
+    before letting it reach the sink; otherwise hint and skip.
+    """
+    expanded = os.path.expanduser(path)
+    if os.path.exists(expanded):
+        sink["TERMINAL_SSH_KEY"] = expanded
+    else:
+        print_warning(
+            f"  SSH key not found at '{path}' — skipping; SSH will fall back "
+            "to agent authentication / default keys."
+        )
+
+
 def setup_terminal_backend(config: dict):
     """Configure the terminal execution backend."""
     import platform as _platform
@@ -1720,8 +1743,11 @@ def setup_terminal_backend(config: dict):
         current_key = get_env_value("TERMINAL_SSH_KEY") or ""
         default_key = str(Path.home() / ".ssh" / "id_rsa")
         ssh_key = prompt("  SSH private key path", current_key or default_key)
+        sink: Dict[str, str] = {}
         if ssh_key:
-            save_env_value("TERMINAL_SSH_KEY", ssh_key)
+            _write_ssh_key_if_present(ssh_key, sink)
+        for env_key, env_value in sink.items():
+            save_env_value(env_key, env_value)
 
         # Test connection
         if host and prompt_yes_no("  Test SSH connection?", True):
@@ -1753,8 +1779,6 @@ def setup_terminal_backend(config: dict):
         save_env_value("TERMINAL_ENV", selected_backend)
     if selected_backend == "modal":
         save_env_value("TERMINAL_MODAL_MODE", config["terminal"].get("modal_mode", "auto"))
-    if selected_backend == "vercel_sandbox":
-        save_env_value("TERMINAL_VERCEL_RUNTIME", config["terminal"].get("vercel_runtime", "node24"))
     save_config(config)
     print()
     print_success(f"Terminal backend set to: {selected_backend}")

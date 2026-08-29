@@ -339,3 +339,103 @@ def test_unknown_selection_writes_neither_config_nor_env(tmp_path, monkeypatch):
     env_path = tmp_path / ".env"
     if env_path.exists():
         assert "TERMINAL_ENV=" not in env_path.read_text(encoding="utf-8")
+
+
+def test_write_ssh_key_if_present_skips_missing_path(tmp_path):
+    from synapse_cli.setup import _write_ssh_key_if_present
+
+    sink = {}
+    _write_ssh_key_if_present(str(tmp_path / "does-not-exist.pem"), sink)
+    assert sink == {}
+
+
+def test_write_ssh_key_if_present_writes_existing_path(tmp_path):
+    from synapse_cli.setup import _write_ssh_key_if_present
+
+    key_file = tmp_path / "key.pem"
+    key_file.write_text("PRIVATE-KEY", encoding="utf-8")
+    sink = {}
+    _write_ssh_key_if_present(str(key_file), sink)
+    assert sink == {"TERMINAL_SSH_KEY": str(key_file)}
+
+
+def test_write_ssh_key_if_present_expands_tilde(tmp_path, monkeypatch):
+    from synapse_cli.setup import _write_ssh_key_if_present
+
+    key_file = tmp_path / "id_ed25519"
+    key_file.write_text("PRIVATE-KEY", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    sink = {}
+    _write_ssh_key_if_present("~/id_ed25519", sink)
+    assert sink == {"TERMINAL_SSH_KEY": str(key_file)}
+
+
+def test_ssh_setup_skips_dead_key_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_SSH_KEY", raising=False)
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    config = load_config()
+
+    monkeypatch.setattr("synapse_cli.setup.prompt_choice", lambda q, choices, default=0: 3)
+
+    dead_key = str(tmp_path / "missing.pem")
+    prompt_values = iter(["", "", "", dead_key])
+    monkeypatch.setattr("synapse_cli.setup.prompt", lambda *a, **kw: next(prompt_values))
+
+    from synapse_cli.setup import setup_terminal_backend
+
+    setup_terminal_backend(config)
+
+    assert config["terminal"]["backend"] == "ssh"
+    assert "TERMINAL_SSH_KEY" not in os.environ
+    env_path = tmp_path / ".env"
+    assert "TERMINAL_SSH_KEY=" not in env_path.read_text(encoding="utf-8")
+
+
+def test_ssh_setup_persists_existing_key_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_SSH_KEY", raising=False)
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    config = load_config()
+    key_file = tmp_path / "key.pem"
+    key_file.write_text("PRIVATE-KEY", encoding="utf-8")
+
+    monkeypatch.setattr("synapse_cli.setup.prompt_choice", lambda q, choices, default=0: 3)
+
+    key_path = str(key_file)
+    prompt_values = iter(["", "", "", key_path])
+    monkeypatch.setattr("synapse_cli.setup.prompt", lambda *a, **kw: next(prompt_values))
+
+    from synapse_cli.setup import setup_terminal_backend
+
+    setup_terminal_backend(config)
+
+    env_path = tmp_path / ".env"
+    assert f"TERMINAL_SSH_KEY={key_path}" in env_path.read_text(encoding="utf-8")
+
+
+def test_vercel_default_accept_does_not_mirror_runtime(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    _clear_vercel_env(monkeypatch)
+    monkeypatch.setitem(sys.modules, "vercel", types.ModuleType("vercel"))
+    config = load_config()
+
+    def fake_prompt_choice(question, choices, default=0):
+        if question == "Select terminal backend:":
+            return 5
+        raise AssertionError(f"Unexpected prompt_choice call: {question}")
+
+    prompt_values = iter(["", "no", "1", "5120", "token", "", ""])
+
+    monkeypatch.setattr("synapse_cli.setup.prompt_choice", fake_prompt_choice)
+    monkeypatch.setattr("synapse_cli.setup.prompt", lambda *a, **kw: next(prompt_values))
+
+    from synapse_cli.setup import setup_terminal_backend
+
+    setup_terminal_backend(config)
+
+    assert config["terminal"]["backend"] == "vercel_sandbox"
+    assert config["terminal"]["vercel_runtime"] == "node24"
+    assert "TERMINAL_VERCEL_RUNTIME" not in os.environ
+    env_path = tmp_path / ".env"
+    assert "TERMINAL_VERCEL_RUNTIME=" not in env_path.read_text(encoding="utf-8")
