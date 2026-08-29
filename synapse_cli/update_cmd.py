@@ -8399,6 +8399,18 @@ def _cmd_update_impl(args, gateway_mode: bool):
             # automation / operators do not treat the fleet as healthy.
             sys.exit(1)
 
+        # Post-update terminal-environment auto-detect: a fresh install on a
+        # new machine (or a config.yaml that lost/never had a valid
+        # terminal.backend) should immediately get the correct backend so the
+        # terminal + file toolsets are not silently stripped on next launch
+        # ("Tool terminal does not exist"). Safe by construction — only logs.
+        try:
+            from synapse_cli.env_detector import ensure_terminal_env_configured
+
+            ensure_terminal_env_configured()
+        except Exception:
+            pass
+
     except _shim_quarantine_error_type() as e:
         # Fail-closed shim contention (#87331): strict quarantine refused
         # BEFORE any installer ran — defer via marker, exit 2, no ZIP.

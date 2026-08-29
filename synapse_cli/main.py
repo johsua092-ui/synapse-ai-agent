@@ -2952,6 +2952,19 @@ def cmd_chat(args):
 
     _apply_safe_mode(args)
 
+    # Terminal-environment auto-detect: repair a missing / invalid
+    # TERMINAL_ENV / terminal.backend before the tool registry snapshot is
+    # taken, so the terminal + file toolsets are never silently stripped at
+    # runtime ("Tool terminal does not exist"). Safe by construction — only
+    # logs, never prints to stdout, never raises. Runs before the TUI spawn
+    # and before cli.py (which re-bridges TERMINAL_ENV from config at load).
+    try:
+        from synapse_cli.env_detector import ensure_terminal_env_configured
+
+        ensure_terminal_env_configured()
+    except Exception:
+        pass
+
     # --in DIR: run in DIR. Must happen before any session resolution so the
     # workspace-scoped "latest"/-c lookups key off DIR, and it pins the
     # session there — an explicit --in wins over a resumed session's
