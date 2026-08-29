@@ -5400,6 +5400,31 @@ def _coerce_float(value: str):
     return f
 
 
+def _validate_terminal_backend_value(value: str) -> str:
+    """Validate a terminal.backend value for ``synapse config set``.
+
+    Returns the normalized (stripped/lower-cased) value, or exits with an
+    actionable message naming the accepted backends. The known set is imported
+    by value from ``tools.terminal_tool`` so it can never drift.
+    """
+    normalized = str(value).strip().lower()
+    from tools.terminal_tool import _KNOWN_TERMINAL_ENVS
+
+    if normalized not in _KNOWN_TERMINAL_ENVS:
+        allowed = ", ".join(sorted(_KNOWN_TERMINAL_ENVS))
+        print(
+            f"✗ terminal.backend must be one of: {allowed}",
+            file=sys.stderr,
+        )
+        print(
+            f"  Got '{value or '<empty>'}' — this value is not recognized and "
+            "would strip the terminal and file toolsets at runtime.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return normalized
+
+
 def set_config_value(key: str, value: str, force: bool = False):
     """Set a configuration value.
 
@@ -5466,6 +5491,14 @@ def set_config_value(key: str, value: str, force: bool = False):
     # Warn after the write so the user gets immediate feedback plus a
     # "did you mean" hint, without blocking legitimate unknown keys.
     is_known, suggestion = _validate_config_key(key)
+
+    # C4: terminal.backend is an enum in every surface that drives it; a
+    # legacy alias or typo (e.g. ``vercel-sandbox``) must never land in
+    # config.yaml AND be mirrored to .env, where it would strip the terminal
+    # and file toolsets for longer than this process. Validate against the
+    # runtime's own known set, imported by value.
+    if key.strip().lower() == "terminal.backend":
+        _validate_terminal_backend_value(value)
 
     # Otherwise it goes to config.yaml
     # Read the raw user config (not merged with defaults) to avoid

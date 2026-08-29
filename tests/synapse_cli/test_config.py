@@ -39,6 +39,53 @@ class TestGetSynapseHome:
             assert home == Path.home() / ".synapse"
 
 
+class TestSetConfigValue:
+    def _home(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+        monkeypatch.delenv("TERMINAL_ENV", raising=False)
+        return tmp_path
+
+    def test_set_terminal_backend_accepts_known_value(self, tmp_path, monkeypatch):
+        home = self._home(tmp_path, monkeypatch)
+        set_config_value("terminal.backend", "ssh")
+        raw = read_raw_config()
+        assert raw["terminal"]["backend"] == "ssh"
+        env_text = (home / ".env").read_text(encoding="utf-8")
+        assert "TERMINAL_ENV=ssh" in env_text
+
+    def test_config_set_terminal_backend_rejects_unknown(self, tmp_path, monkeypatch, capsys):
+        self._home(tmp_path, monkeypatch)
+        with pytest.raises(SystemExit) as exc:
+            set_config_value("terminal.backend", "vercel-sandbox")
+        assert exc.value.code == 1
+        err = capsys.readouterr().err
+        assert "terminal.backend must be one of" in err
+        assert "local" in err and "docker" in err
+
+    def test_config_set_terminal_backend_rejects_garbage(self, tmp_path, monkeypatch, capsys):
+        self._home(tmp_path, monkeypatch)
+        with pytest.raises(SystemExit) as exc:
+            set_config_value("terminal.backend", "not-a-backend")
+        assert exc.value.code == 1
+        err = capsys.readouterr().err
+        assert "terminal.backend must be one of" in err
+        assert "vercel_sandbox" in err and "ssh" in err
+
+    def test_rejected_terminal_backend_is_not_mirrored_to_env(self, tmp_path, monkeypatch, capsys):
+        home = self._home(tmp_path, monkeypatch)
+        with pytest.raises(SystemExit):
+            set_config_value("terminal.backend", "vercel-sandbox")
+        assert not (home / ".env").exists()
+
+    def test_set_terminal_backend_accepts_vercel_sandbox(self, tmp_path, monkeypatch):
+        home = self._home(tmp_path, monkeypatch)
+        set_config_value("terminal.backend", "vercel_sandbox")
+        raw = read_raw_config()
+        assert raw["terminal"]["backend"] == "vercel_sandbox"
+        env_text = (home / ".env").read_text(encoding="utf-8")
+        assert "TERMINAL_ENV=vercel_sandbox" in env_text
+
+
 class TestEnsureSynapseHome:
 
     def test_creates_default_soul_md_if_missing(self, tmp_path):
