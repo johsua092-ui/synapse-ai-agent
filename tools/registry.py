@@ -418,11 +418,22 @@ def _check_fn_cached(fn: Callable) -> bool:
 
 
 def invalidate_check_fn_cache() -> None:
-    """Drop all cached ``check_fn`` results. Call after config changes that
-    affect tool availability (e.g. ``synapse tools enable``)."""
+    """Drop all cached ``check_fn`` results and the memoized tool-definitions
+    cache. Call after config changes that affect tool availability (e.g.
+    ``synapse tools enable``)."""
     with _check_fn_cache_lock:
         _check_fn_cache.clear()
         _check_fn_last_good.clear()
+    # The defs cache key embeds registry._generation, so bump it to force a
+    # rebuild of any memoized definitions list built under the old verdicts.
+    registry._generation += 1
+    # Deferred import avoids the circular-import edge model_tools <-> registry.
+    try:
+        from model_tools import _clear_tool_defs_cache
+
+        _clear_tool_defs_cache()
+    except Exception:
+        logger.debug("could not clear tool-defs cache from registry", exc_info=True)
 
 
 def get_cached_check_fn_result(fn: Callable) -> Optional[bool]:

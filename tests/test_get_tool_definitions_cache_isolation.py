@@ -57,6 +57,27 @@ class TestQuietModeCacheIsolation:
 
 
 
+    def test_defs_cache_evicted_when_check_fn_verdict_invalidated(self):
+        """B1: invalidation must evict the memoized defs cache so the next
+        definitions call is rebuilt under a fresh verdict, not served from the
+        pre-invalidation entry (which may have stripped tools on a transient
+        check_fn failure baked into a long-lived quiet daemon)."""
+        from tools import registry
+
+        model_tools.get_tool_definitions(quiet_mode=True)
+        assert len(model_tools._tool_defs_cache) == 1
+        before_key = next(iter(model_tools._tool_defs_cache))
+
+        registry.invalidate_check_fn_cache()
+
+        model_tools.get_tool_definitions(quiet_mode=True)
+        assert len(model_tools._tool_defs_cache) == 1
+        after_key = next(iter(model_tools._tool_defs_cache))
+        assert after_key != before_key, (
+            "issue B1: next definitions call was served from the "
+            "pre-invalidation cache entry instead of being rebuilt"
+        )
+
     def test_cache_bounded_by_eviction(self):
         """The cache evicts the oldest entry when it reaches the cap,
         keeping the cache bounded instead of growing unbounded over a
