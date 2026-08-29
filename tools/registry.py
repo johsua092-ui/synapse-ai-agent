@@ -29,6 +29,12 @@ from synapse_constants import synapse_home_key
 
 logger = logging.getLogger(__name__)
 
+# Modules that raised during a discovery pass. A transient import failure
+# (e.g. a missing dependency during cold startup) would otherwise lose that
+# module's tools for the whole process; these are re-attempted on the retry
+# path.
+_failed_discovery_modules: Set[str] = set()
+
 # Cap on a tool error body; only trims runaway interpolated exceptions (static msgs are ~115 chars).
 _MAX_TOOL_ERROR_CHARS = 2048
 _TOOL_ERROR_TRUNCATION_MARKER = "… [truncated]"
@@ -108,7 +114,10 @@ def _module_registers_tools(module_path: Path) -> bool:
     return any(_is_registry_register_call(stmt) for stmt in tree.body)
 
 
-def discover_builtin_tools(tools_dir: Optional[Path] = None) -> List[str]:
+def discover_builtin_tools(
+    tools_dir: Optional[Path] = None,
+    retry_failed: bool = False,
+) -> List[str]:
     """Import built-in self-registering tool modules and return their module names.
 
     The per-file AST scan (:func:`_module_registers_tools`) costs ~145 ms over
@@ -117,7 +126,33 @@ def discover_builtin_tools(tools_dir: Optional[Path] = None) -> List[str]:
     trusted without re-reading; any mismatch (or a corrupt/missing cache file)
     falls back to a fresh scan for that file. The cache write is best-effort
     and atomic, so concurrent processes can race harmlessly.
+
+    When *retry_failed* is True, *tools_dir* is ignored and only modules that
+    raised during a previous discovery pass (:data:`_failed_discovery_modules`)
+    are re-imported, each removed from the set on success. This lets a
+    transient import failure (e.g. a missing dependency at cold startup)
+    recover on a later invocation without re-scanning the filesystem.
     """
+    if not retry_failed:
+        return _discover_and_import(tools_dir)
+
+    imported: List[str] = []
+    for mod_name in sorted(_failed_discovery_modules):
+        try:
+            importlib.import_module(mod_name)
+        except Exception as e:
+            logger.error(
+                "Could not import tool module %s (retry): %s", mod_name, e
+            )
+            continue
+        imported.append(mod_name)
+        _failed_discovery_modules.discard(mod_name)
+    return imported
+
+
+def _discover_and_import(tools_dir: Optional[Path]) -> List[str]:
+    """Fresh full-pass tool-module discovery and import (see
+    :func:`discover_builtin_tools`)."""
     tools_path = Path(tools_dir) if tools_dir is not None else Path(__file__).resolve().parent
 
     cache = _load_discovery_cache()
@@ -158,7 +193,8 @@ def discover_builtin_tools(tools_dir: Optional[Path] = None) -> List[str]:
             importlib.import_module(mod_name)
             imported.append(mod_name)
         except Exception as e:
-            logger.warning("Could not import tool module %s: %s", mod_name, e)
+            _failed_discovery_modules.add(mod_name)
+            logger.error("Could not import tool module %s: %s", mod_name, e)
     return imported
 
 

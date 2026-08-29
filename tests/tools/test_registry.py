@@ -15,7 +15,6 @@ from tools.registry import (
     tool_error,
 )
 
-
 def _dummy_handler(args, **kwargs):
     return json.dumps({"ok": True})
 
@@ -364,6 +363,57 @@ class TestBuiltinDiscovery:
 
         assert imported == ["tools.alpha"]
         mock_import.assert_called_once_with("tools.alpha")
+
+
+    def test_failed_discovery_module_is_retried(self, monkeypatch, tmp_path):
+        """B2: a module that raises on first import must be re-attempted on the
+        retry path so its tools land in the registry (otherwise a transient
+        cold-start dependency failure loses them for the whole process)."""
+        import importlib
+
+        from tools import registry as registry_mod
+
+        tools_dir = tmp_path / "tools"
+        tools_dir.mkdir()
+        (tools_dir / "__init__.py").write_text("", encoding="utf-8")
+        (tools_dir / "dummy.py").write_text(
+            "from tools.registry import registry\n"
+            "registry.register(name='DummyTool', toolset='x', schema={}, "
+            "handler=lambda *_a, **_k: '{}')\n",
+            encoding="utf-8",
+        )
+
+        registry_mod.registry.deregister("DummyTool")
+        real_import = importlib.import_module
+        attempts = {"n": 0}
+
+        def flaky_import(name, **kwargs):
+            if name == "tools.dummy":
+                attempts["n"] += 1
+                if attempts["n"] == 1:
+                    raise ImportError("transient")
+                registry_mod.registry.register(
+                    name="DummyTool",
+                    toolset="x",
+                    schema={},
+                    handler=lambda *_a, **_k: "{}",
+                )
+                return type("DummyModule", (), {})()
+            return real_import(name, **kwargs)
+
+        monkeypatch.setattr(registry_mod, "_failed_discovery_modules", set())
+        monkeypatch.setattr("tools.registry.importlib.import_module", flaky_import)
+
+        try:
+            discover_builtin_tools(tools_dir)
+            assert "tools.dummy" in registry_mod._failed_discovery_modules
+            assert "DummyTool" not in registry_mod.registry.get_all_tool_names()
+
+            discover_builtin_tools(tools_dir, retry_failed=True)
+            assert "DummyTool" in registry_mod.registry.get_all_tool_names()
+            assert "tools.dummy" not in registry_mod._failed_discovery_modules
+        finally:
+            registry_mod.registry.deregister("DummyTool")
 
 
 class TestEmojiMetadata:
