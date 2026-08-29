@@ -302,3 +302,40 @@ def test_keep_current_reconciles_stale_env_only_backend(tmp_path, monkeypatch):
     setup_terminal_backend(config)
 
     assert "TERMINAL_ENV=vercel_sandbox" not in env_path.read_text(encoding="utf-8")
+
+
+def test_sanitize_backend_for_write_allows_real_backends():
+    from synapse_cli.setup import _sanitize_backend_for_write
+
+    assert _sanitize_backend_for_write("docker") == "docker"
+    assert _sanitize_backend_for_write("vercel_sandbox") == "vercel_sandbox"
+    assert _sanitize_backend_for_write("local") == "local"
+    assert _sanitize_backend_for_write("singularity") == "singularity"
+
+
+def test_sanitize_backend_for_write_rejects_unknown_and_none():
+    from synapse_cli.setup import _sanitize_backend_for_write
+
+    assert _sanitize_backend_for_write(None) is None
+    assert _sanitize_backend_for_write("vercel-sandbox") is None
+    assert _sanitize_backend_for_write("garbage") is None
+
+
+def test_unknown_selection_writes_neither_config_nor_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    config = load_config()
+
+    monkeypatch.setattr(
+        "synapse_cli.setup.prompt_choice",
+        lambda q, choices, default=0: 99999,
+    )
+
+    from synapse_cli.setup import setup_terminal_backend
+
+    setup_terminal_backend(config)
+
+    assert config["terminal"]["backend"] == "local"
+    env_path = tmp_path / ".env"
+    if env_path.exists():
+        assert "TERMINAL_ENV=" not in env_path.read_text(encoding="utf-8")

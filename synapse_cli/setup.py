@@ -1400,6 +1400,22 @@ def setup_tts(config: dict):
 # =============================================================================
 
 
+def _sanitize_backend_for_write(selected: Optional[str]) -> Optional[str]:
+    """Return *selected* only when it is a real wizard backend.
+
+    ``terminal_idx -> selected_backend`` is a dict lookup that can silently
+    miss (programmer error or future list/dict drift), and both write sites —
+    config.yaml ("terminal.backend") and the TERMINAL_ENV mirror — would
+    otherwise persist ``None`` or a bogus name that strips the toolsets.
+    Returns the validated backend, or ``None`` to signal "leave everything
+    untouched".
+    """
+    allowed = {"local", "docker", "modal", "ssh", "daytona", "vercel_sandbox", "singularity"}
+    if selected in allowed:
+        return selected
+    return None
+
+
 def setup_terminal_backend(config: dict):
     """Configure the terminal execution backend."""
     import platform as _platform
@@ -1422,13 +1438,11 @@ def setup_terminal_backend(config: dict):
         "Vercel Sandbox - cloud microVM with snapshot filesystem persistence",
     ]
     idx_to_backend = {0: "local", 1: "docker", 2: "modal", 3: "ssh", 4: "daytona", 5: "vercel_sandbox"}
-    backend_to_idx = {"local": 0, "docker": 1, "modal": 2, "ssh": 3, "daytona": 4, "vercel_sandbox": 5}
 
     next_idx = 6
     if is_linux:
         terminal_choices.append("Singularity/Apptainer - HPC-friendly container")
         idx_to_backend[next_idx] = "singularity"
-        backend_to_idx["singularity"] = next_idx
         next_idx += 1
 
     # Add keep current option
@@ -1447,7 +1461,14 @@ def setup_terminal_backend(config: dict):
         reconcile_env_only_terminal_env()
         return
 
-    config.setdefault("terminal", {})["backend"] = selected_backend
+    config_backend = _sanitize_backend_for_write(selected_backend)
+    if config_backend is None:
+        print_warning(
+            f"  Unrecognized terminal backend {selected_backend!r} — leaving "
+            "config.yaml untouched."
+        )
+    else:
+        config.setdefault("terminal", {})["backend"] = config_backend
 
     if selected_backend == "local":
         print_success("Terminal backend: Local")
@@ -1723,7 +1744,13 @@ def setup_terminal_backend(config: dict):
 
     # Sync terminal backend to .env so terminal_tool picks it up directly.
     # config.yaml is the source of truth, but terminal_tool reads TERMINAL_ENV.
-    save_env_value("TERMINAL_ENV", selected_backend)
+    if _sanitize_backend_for_write(selected_backend) is None:
+        print_warning(
+            f"  Skipping TERMINAL_ENV mirror — unrecognized backend "
+            f"{selected_backend!r}."
+        )
+    else:
+        save_env_value("TERMINAL_ENV", selected_backend)
     if selected_backend == "modal":
         save_env_value("TERMINAL_MODAL_MODE", config["terminal"].get("modal_mode", "auto"))
     if selected_backend == "vercel_sandbox":
