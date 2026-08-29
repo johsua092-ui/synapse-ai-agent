@@ -143,6 +143,17 @@ class TestEnsureTerminalEnvConfigured:
         assert result["reason"] == "ok"
         assert env_detector.current_effective_backend() == "docker"
 
+    def test_probe_exception_keeps_explicit_backend_untouched(self, _isolate_home, monkeypatch):
+        def exploding_probe(_backend):
+            raise RuntimeError("import exploded")
+
+        monkeypatch.setattr(env_detector, "_explicit_backend_usable", exploding_probe)
+        monkeypatch.setenv("TERMINAL_ENV", "modal")  # env-only remote backend, no config section
+        result = env_detector.ensure_terminal_env_configured()
+        assert result["fixed"] is False
+        assert result["reason"] == "unverified"
+        assert env_detector.current_effective_backend() == "modal"
+
     def test_explicit_backend_usable_is_respected(self, _isolate_home, monkeypatch):
         monkeypatch.setenv("TERMINAL_SSH_HOST", "example.com")
         monkeypatch.setenv("TERMINAL_SSH_USER", "root")

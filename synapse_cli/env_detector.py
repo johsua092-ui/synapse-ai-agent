@@ -132,8 +132,10 @@ def _persist_backend(backend: str) -> bool:
     return True
 
 
-def _explicit_backend_usable(backend: str) -> bool:
-    """Return True when an explicitly configured *backend* can actually run.
+def _explicit_backend_usable(backend: str) -> Optional[bool]:
+    """Return True/False for a decisive probe, None when the probe fails.
+
+    True = the explicitly configured *backend* can actually run.
 
     Uses the SAME check the runtime uses (``tools.terminal_tool.
     check_terminal_requirements``) so a backend that is merely *known* but not
@@ -152,7 +154,7 @@ def _explicit_backend_usable(backend: str) -> bool:
 
             return find_docker() is not None
         except Exception:
-            return False
+            return None
     try:
         # Probe against the CURRENT config.yaml on disk.  terminal_tool bridges
         # config -> env only ONCE per process (`_terminal_config_bridge_attempted`),
@@ -169,11 +171,12 @@ def _explicit_backend_usable(backend: str) -> bool:
             _terminal_tool._terminal_config_bridge_attempted = _prev_bridged
     except Exception:
         logger.warning(
-            "env_detector: could not verify backend %r; treating as unusable",
+            "env_detector: could not verify backend %r (probe failed); "
+            "leaving configuration untouched.",
             backend,
             exc_info=True,
         )
-        return False
+        return None
 
 
 def ensure_terminal_env_configured(*, persist: bool = True, log_notice: bool = True) -> Dict[str, Any]:
@@ -184,7 +187,7 @@ def ensure_terminal_env_configured(*, persist: bool = True, log_notice: bool = T
         {"detected": "docker"|"local",
          "current":  <effective backend or None>,
          "fixed":    bool,          # True when a value was written
-         "reason":   "missing" | "invalid" | "unusable" | "mismatch" | "ok"}
+         "reason":   "missing" | "invalid" | "unusable" | "unverified" | "mismatch" | "ok"}
 
     * ``current`` invalid (not in KNOWN_BACKENDS) or missing → detected value
       is written (missing is written so the configured truth is explicit).
@@ -228,12 +231,29 @@ def ensure_terminal_env_configured(*, persist: bool = True, log_notice: bool = T
         # stale backfill, lost credentials — would otherwise strip the whole
         # terminal + file + execute_code toolset at boot, so repair it to the
         # detected backend instead.
-        if _explicit_backend_usable(current):
+        try:
+            usable = _explicit_backend_usable(current)
+        except Exception:
+            usable = None
+        if usable is True:
             return {
                 "detected": detected,
                 "current": current,
                 "fixed": False,
                 "reason": "ok",
+            }
+        if usable is None:
+            logger.warning(
+                "env_detector: could not verify backend %r (probe failed); "
+                "leaving configuration untouched.",
+                current,
+                exc_info=True,
+            )
+            return {
+                "detected": detected,
+                "current": current,
+                "fixed": False,
+                "reason": "unverified",
             }
         reason = "unusable"
 
