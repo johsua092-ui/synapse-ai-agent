@@ -706,3 +706,16 @@ class TestBomToleranceInMemoryFiles:
         raw, read_ok = MemoryStore._read_raw_checked(path)
         assert read_ok is False
         assert raw == ""
+
+
+class TestMemoryRequirementsFailOpen:
+    def test_memory_requirements_fail_open_on_exception(self, monkeypatch):
+        """B4: a single transient failure in the store-flags probe must not
+        strip the memory tool for the turn."""
+        from tools import memory_tool
+
+        def exploding():
+            raise RuntimeError("store probe exploded")
+
+        monkeypatch.setattr(memory_tool, "get_builtin_memory_store_flags", exploding)
+        assert memory_tool.check_memory_requirements() is True

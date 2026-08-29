@@ -1207,10 +1207,16 @@ def get_builtin_memory_store_flags(config: Optional[Dict[str, Any]] = None) -> T
 @no_cache_check_fn
 def check_memory_requirements() -> bool:
     """Snapshot store flags and report whether the built-in tool is available."""
-    _memory_surface_flags.set(None)
-    flags = get_builtin_memory_store_flags()
-    _memory_surface_flags.set(flags)
-    return flags[0] or flags[1]
+    try:
+        _memory_surface_flags.set(None)
+        flags = get_builtin_memory_store_flags()
+        _memory_surface_flags.set(flags)
+        return flags[0] or flags[1]
+    except Exception as e:
+        # Fail open like check_terminal_requirements: a transient store-flags
+        # probe failure should not strip the memory tool for the turn.
+        logger.warning("memory requirements probe failed: %s", e)
+        return True
 
 
 def _memory_target_error(store: "MemoryStore", target: str) -> Optional[Dict[str, Any]]:
