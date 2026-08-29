@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 from typing import Any, Dict, Optional
 
 from synapse_constants import is_container, is_termux
@@ -45,18 +44,13 @@ KNOWN_BACKENDS = frozenset(
 
 
 def _docker_runtime_usable() -> bool:
-    """Return True when a Docker runtime looks reachable from this process.
+    """Only ``local``-env docker that we can actually *run* is worth detecting."""
+    try:
+        from tools.environments.docker import find_docker
 
-    Checks (in order): an explicit ``DOCKER_HOST`` env var, a Unix socket at
-    the standard path, and a ``docker`` binary on ``PATH``.  Any one is enough
-    — but only when we are actually inside a container; callers gate on
-    :func:`is_container` first.
-    """
-    if os.environ.get("DOCKER_HOST"):
-        return True
-    if os.path.exists("/var/run/docker.sock"):
-        return True
-    return shutil.which("docker") is not None
+        return find_docker() is not None
+    except Exception:
+        return False
 
 
 def detect_terminal_backend() -> str:

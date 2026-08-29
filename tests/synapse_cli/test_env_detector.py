@@ -8,6 +8,11 @@ import pytest
 
 from synapse_cli import env_detector
 
+# The autouse `_isolate_home` fixture overrides `_docker_runtime_usable` for
+# detection tests; capture the real function so the Docker-runtime tests below
+# can exercise the actual implementation.
+_original_docker_runtime_usable = env_detector._docker_runtime_usable
+
 
 @pytest.fixture(autouse=True)
 def _isolate_home(tmp_path, monkeypatch):
@@ -28,6 +33,28 @@ def write_config(synapse_home, terminal_backend=None):
     with open(config_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f)
     return config_path
+
+
+class TestDockerRuntimeUsable:
+    def test_docker_socket_without_cli_is_not_usable(self, monkeypatch):
+        import tools.environments.docker as docker_mod
+
+        monkeypatch.setattr(
+            env_detector, "_docker_runtime_usable", _original_docker_runtime_usable
+        )
+        monkeypatch.setattr(docker_mod, "find_docker", lambda: None)
+        monkeypatch.setattr(env_detector, "is_container", lambda: True)
+        monkeypatch.delenv("SYNAPSE_DOCKER_BINARY", raising=False)
+        assert env_detector._docker_runtime_usable() is False
+
+    def test_docker_cli_present_is_usable(self, monkeypatch):
+        import tools.environments.docker as docker_mod
+
+        monkeypatch.setattr(
+            env_detector, "_docker_runtime_usable", _original_docker_runtime_usable
+        )
+        monkeypatch.setattr(docker_mod, "find_docker", lambda: "/usr/bin/docker")
+        assert env_detector._docker_runtime_usable() is True
 
 
 class TestDetectTerminalBackend:
