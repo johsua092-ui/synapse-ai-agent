@@ -133,6 +133,16 @@ class TestEnsureTerminalEnvConfigured:
         assert result["fixed"] is True
         assert env_detector.current_effective_backend() == "local"
 
+    def test_explicit_docker_with_cli_but_daemon_down_is_respected(self, _isolate_home, monkeypatch):
+        import tools.environments.docker as docker_mod
+
+        monkeypatch.setattr(docker_mod, "find_docker", lambda: "/usr/bin/docker")
+        write_config(_isolate_home, "docker")
+        result = env_detector.ensure_terminal_env_configured()
+        assert result["fixed"] is False
+        assert result["reason"] == "ok"
+        assert env_detector.current_effective_backend() == "docker"
+
     def test_explicit_backend_usable_is_respected(self, _isolate_home, monkeypatch):
         monkeypatch.setenv("TERMINAL_SSH_HOST", "example.com")
         monkeypatch.setenv("TERMINAL_SSH_USER", "root")

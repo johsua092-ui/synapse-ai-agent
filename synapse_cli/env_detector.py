@@ -146,6 +146,13 @@ def _explicit_backend_usable(backend: str) -> bool:
     """
     if backend == "local":
         return True
+    if backend == "docker":
+        try:
+            from tools.environments.docker import find_docker
+
+            return find_docker() is not None
+        except Exception:
+            return False
     try:
         # Probe against the CURRENT config.yaml on disk.  terminal_tool bridges
         # config -> env only ONCE per process (`_terminal_config_bridge_attempted`),
