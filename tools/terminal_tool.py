@@ -3802,19 +3802,21 @@ def check_terminal_requirements() -> bool:
             return True
 
         elif env_type == "docker":
+            from synapse_cli._subprocess_compat import bounded_probe_run
             from tools.environments.docker import find_docker
             docker = find_docker()
             if not docker:
                 logger.error("Docker executable not found in PATH or common install locations")
                 return False
-            result = subprocess.run([docker, "version"], capture_output=True, timeout=5, stdin=subprocess.DEVNULL)
-            return result.returncode == 0
+            result = bounded_probe_run([docker, "version"], timeout=5)
+            return result is not None and result.returncode == 0
 
         elif env_type == "singularity":
+            from synapse_cli._subprocess_compat import bounded_probe_run
             executable = shutil.which("apptainer") or shutil.which("singularity")
             if executable:
-                result = subprocess.run([executable, "--version"], capture_output=True, timeout=5, stdin=subprocess.DEVNULL)
-                return result.returncode == 0
+                result = bounded_probe_run([executable, "--version"], timeout=5)
+                return result is not None and result.returncode == 0
             return False
 
         elif env_type == "ssh":

@@ -41,6 +41,29 @@ def _clear_terminal_env(monkeypatch):
     monkeypatch.setattr(_tbh, "managed_nous_tools_enabled", lambda: False)
 
 
+def test_docker_probe_uses_bounded_probe_run(monkeypatch):
+    import tools.environments.docker as docker_mod
+    import synapse_cli._subprocess_compat as compat
+
+    calls = {}
+
+    def fake_find_docker():
+        return "/usr/bin/docker"
+
+    def fake_probe(argv, **kw):
+        calls["probe"] = True
+        calls["timeout"] = kw.get("timeout")
+        return None
+
+    monkeypatch.setattr(docker_mod, "find_docker", fake_find_docker)
+    monkeypatch.setattr(compat, "bounded_probe_run", fake_probe)
+    _clear_terminal_env(monkeypatch)
+    monkeypatch.setenv("TERMINAL_ENV", "docker")
+    assert terminal_tool_module.check_terminal_requirements() is False
+    assert calls.get("probe") is True
+    assert calls.get("timeout") == 5
+
+
 def test_local_terminal_requirements(monkeypatch, caplog):
     """Local backend uses Synapse' own LocalEnvironment wrapper."""
     _clear_terminal_env(monkeypatch)
