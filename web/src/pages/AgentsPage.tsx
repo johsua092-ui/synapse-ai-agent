@@ -179,7 +179,7 @@ function AgentEditor({
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
+          <Button ghost onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={busy}>
@@ -203,7 +203,7 @@ export default function AgentsPage() {
   const [teamSeed, setTeamSeed] = useState<string[]>([]);
   const [teamResult, setTeamResult] = useState<{ name: string; tasks: AgentTeamTask[] } | null>(null);
   const [runningTeam, setRunningTeam] = useState<string | null>(null);
-  const { showToast } = useToast();
+  const { showToast, toast } = useToast();
   const { profile: selectedProfile } = useProfileScope();
   const { setAfterTitle, setEnd } = usePageHeader();
 
@@ -260,7 +260,7 @@ export default function AgentsPage() {
     try {
       await api.deleteAgent(name, selectedProfile || undefined);
       await reload();
-      showToast(`Deleted subagent ${name}`);
+      showToast(`Deleted subagent ${name}`, "success");
     } catch {
       showToast("Failed to delete subagent", "error");
     }
@@ -270,7 +270,7 @@ export default function AgentsPage() {
     try {
       await api.deleteTeam(name, selectedProfile || undefined);
       await reload();
-      showToast(`Deleted team ${name}`);
+      showToast(`Deleted team ${name}`, "success");
     } catch {
       showToast("Failed to delete team", "error");
     }
@@ -280,7 +280,7 @@ export default function AgentsPage() {
     setRunningTeam(name);
     try {
       const res = await api.runTeam(name, undefined, selectedProfile || undefined);
-      setTeamResult(res);
+      setTeamResult({ name: res.team, tasks: res.tasks });
     } catch {
       showToast("Failed to run team", "error");
     } finally {
@@ -298,7 +298,7 @@ export default function AgentsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Toast />
+      <Toast toast={toast} />
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Bot className="h-5 w-5" /> Agents
@@ -327,21 +327,21 @@ export default function AgentsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono-ui text-sm">{a.name}</span>
-                      {a.model && <Badge variant="outline">{a.model}</Badge>}
+                      {a.model && <Badge tone="outline">{a.model}</Badge>}
                     </div>
                     {a.task && <p className="mt-1 text-xs text-muted-foreground">{a.task}</p>}
                     <div className="mt-1 flex flex-wrap gap-1">
                       {a.skills.map((s) => (
-                        <Badge key={s} variant="secondary">{s}</Badge>
+                        <Badge key={s} tone="secondary">{s}</Badge>
                       ))}
                       {a.toolsets.map((t) => (
-                        <Badge key={t} variant="outline">{t}</Badge>
+                        <Badge key={t} tone="outline">{t}</Badge>
                       ))}
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <Button
-                      variant="ghost"
+                      ghost
                       size="icon"
                       title="Edit"
                       onClick={() => setEditing({ mode: "edit", agent: a })}
@@ -349,7 +349,7 @@ export default function AgentsPage() {
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
-                      variant="ghost"
+                      ghost
                       size="icon"
                       title="Delete"
                       onClick={() => handleDelete(a.name)}
@@ -383,13 +383,13 @@ export default function AgentsPage() {
                   <span className="font-mono-ui text-sm">{t.name}</span>
                   <p className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
                     {t.agents.map((a) => (
-                      <Badge key={a} variant="outline">{a}</Badge>
+                      <Badge key={a} tone="outline">{a}</Badge>
                     ))}
                   </p>
                 </div>
                 <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <Button
-                    variant="ghost"
+                    ghost
                     size="icon"
                     title="Run"
                     onClick={() => handleRunTeam(t.name)}
@@ -402,7 +402,7 @@ export default function AgentsPage() {
                     )}
                   </Button>
                   <Button
-                    variant="ghost"
+                    ghost
                     size="icon"
                     title="Delete team"
                     onClick={() => handleDeleteTeam(t.name)}
@@ -447,7 +447,7 @@ export default function AgentsPage() {
                     await api.createTeam({ name: teamName, agents: teamSeed }, selectedProfile || undefined);
                     await reload();
                     setTeamSeed([]);
-                    showToast(`Created team ${teamName}`);
+                    showToast(`Created team ${teamName}`, "success");
                   } catch {
                     showToast("Failed to create team", "error");
                   }
@@ -465,7 +465,7 @@ export default function AgentsPage() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-sm">
               <span>Team run: {teamResult.name}</span>
-              <Button variant="ghost" size="icon" onClick={() => setTeamResult(null)}>
+              <Button ghost size="icon" onClick={() => setTeamResult(null)}>
                 <X className="h-3.5 w-3.5" />
               </Button>
             </CardTitle>
@@ -497,7 +497,7 @@ export default function AgentsPage() {
               {active.map((a) => (
                 <div key={a.subagent_id} className="flex items-center gap-2 px-2 py-1.5 text-xs">
                   <span className="font-mono-ui">{a.subagent_id}</span>
-                  <Badge variant="secondary">{a.status}</Badge>
+                  <Badge tone="secondary">{a.status}</Badge>
                   <span className="truncate text-muted-foreground">{a.goal}</span>
                 </div>
               ))}
