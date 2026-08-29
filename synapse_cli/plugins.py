@@ -5920,12 +5920,11 @@ def get_plugin_toolset_keys_nowait() -> "set[str]":
     """Plugin toolset keys without blocking on in-flight discovery.
 
     When discovery already completed in this process, reads the live
-    registry. While a background discovery is still running, falls back to
-    the key set persisted by the previous run — callers on the startup path
-    (platform toolset resolution) only use these keys to EXCLUDE plugin
-    toolsets from composite expansion, so a stale set from the last launch
-    is harmless and self-heals as soon as discovery lands. When neither is
-    available, blocks via discover_plugins() (correctness first).
+    registry. While a background discovery is still running, uses the key set
+    persisted by the previous run unioned with the live registry keys that
+    are already visible (so a plugin installed this launch is not dropped
+    until discovery lands). When neither is available, blocks via
+    discover_plugins() (correctness first).
     """
     manager = get_plugin_manager()
     t = _background_discovery_thread
@@ -5933,10 +5932,24 @@ def get_plugin_toolset_keys_nowait() -> "set[str]":
         return {ts_key for ts_key, _, _ in get_plugin_toolsets()}
     if t is not None and t.is_alive():
         blob = _read_plugin_keys_cache()
+        cached = set()
         if blob is not None:
             keys = blob.get("toolset_keys")
             if isinstance(keys, list) and all(isinstance(k, str) for k in keys):
-                return set(keys)
+                cached = set(keys)
+        # Discovery is still in flight, but the live registry already holds
+        # toolsets registered this launch (e.g. a freshly installed plugin).
+        # Serving only the last launch's persisted set would drop those tools
+        # until a daemon restart, so union the live (non-blocking) keys in.
+        live = {ts_key for ts_key, _, _ in get_plugin_toolsets()}
+        merged = cached | live
+        if live - cached:
+            logger.debug(
+                "plugin toolset keys: union adds freshly-discovered toolset(s) %s "
+                "beyond last launch's cache %s",
+                sorted(live - cached), sorted(cached),
+            )
+        return merged
     discover_plugins()
     return {ts_key for ts_key, _, _ in get_plugin_toolsets()}
 

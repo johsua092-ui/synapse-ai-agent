@@ -2104,3 +2104,53 @@ class TestDispatchToolWithoutCliRef:
             assert calls[0][1].get("parent_agent") is None
         finally:
             registry.deregister("_test_dispatch_probe")
+
+
+def test_nowait_keys_include_live_discovered_toolsets(monkeypatch, tmp_path):
+    """get_plugin_toolset_keys_nowait must merge live registry toolsets into
+    the stale persisted cache while background discovery is in flight.
+
+    Regression: while discovery was still running the function returned ONLY
+    the last launch's persisted key set, so a plugin installed this launch
+    stayed absent until a daemon restart and _get_platform_tools dropped its
+    tools. The in-flight branch must union the live manager's keys.
+    """
+    import synapse_cli.plugins as plugins_mod
+    from tools.registry import registry
+
+    mgr = PluginManager()
+    monkeypatch.setattr(plugins_mod, "get_plugin_manager", lambda: mgr)
+
+    # A fresh toolset registered in the live manager registry this launch.
+    registry.register(
+        name="_task17_fresh_tool",
+        toolset="task17_fresh",
+        schema={"name": "_task17_fresh_tool", "description": "probe",
+                "parameters": {"type": "object", "properties": {}}},
+        handler=lambda args, **kw: "{}",
+    )
+    try:
+        mgr._plugin_tool_names.add("_task17_fresh_tool")
+        mgr._discovered = False
+
+        # Persisted cache from the previous launch — lacks the fresh toolset.
+        cache_file = tmp_path / "plugin_toolset_keys.json"
+        cache_file.write_text(
+            '{"toolset_keys": ["stale_old"], "portable_mcp": []}'
+        )
+        monkeypatch.setattr(
+            plugins_mod, "_plugin_toolset_keys_cache_path", lambda: cache_file
+        )
+
+        class _Alive:
+            def is_alive(self):
+                return True
+
+        # Force the "discovery in flight" branch.
+        monkeypatch.setattr(plugins_mod, "_background_discovery_thread", _Alive())
+
+        keys = plugins_mod.get_plugin_toolset_keys_nowait()
+        assert "task17_fresh" in keys, f"fresh toolset missing: {sorted(keys)}"
+        assert "stale_old" in keys
+    finally:
+        registry.deregister("_task17_fresh_tool")
