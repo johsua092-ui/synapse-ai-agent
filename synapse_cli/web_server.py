@@ -7987,6 +7987,7 @@ async def update_config(body: ConfigUpdate, profile: Optional[str] = None):
                 # key collision. Only approvals.mode feeds session.info, so
                 # it is the honest trigger.
                 approvals_mode_changed = _approval_mode_of(merged) != _approval_mode_of(existing)
+                _validate_terminal_section(merged)
                 save_config(merged)
         # REST saves bypass the config.set RPC (which re-emits itself), so
         # refresh live sessions' cached approval/YOLO indicators after a mode
@@ -8003,6 +8004,20 @@ async def update_config(body: ConfigUpdate, profile: Optional[str] = None):
     except Exception:
         _log.exception("PUT /api/config failed")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+def _validate_terminal_section(config: Dict[str, Any]) -> None:
+    """Reject a ``terminal.backend`` the picker whitelist would never offer."""
+    terminal = config.get("terminal")
+    if not isinstance(terminal, dict):
+        return
+    backend = terminal.get("backend")
+    if backend is None or not str(backend).strip():
+        return
+    try:
+        validate_terminal_backend(str(backend), platform=sys.platform)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _is_other_profile(profile: Optional[str]) -> bool:
@@ -15429,6 +15444,45 @@ _TERMINAL_BACKENDS: List[Dict[str, str]] = [
 ]
 
 _TERMINAL_BACKEND_NAMES = {row["name"] for row in _TERMINAL_BACKENDS}
+
+
+def validate_terminal_backend(value: str, *, platform: str) -> str:
+    """Validate a terminal.backend value against the picker whitelist.
+
+    Returns the normalized (stripped, lower-cased) value, or raises
+    ``ValueError`` for a backend the picker does not offer.  ``singularity``
+    is additionally rejected on Windows because the setup gate only enables it
+    on Linux.  The whitelist deliberately omits ``vercel_sandbox``, so that
+    legacy value is rejected on every platform.
+    """
+    normalized = str(value).strip().lower()
+    if normalized not in _TERMINAL_BACKEND_NAMES:
+        allowed = ", ".join(sorted(_TERMINAL_BACKEND_NAMES))
+        raise ValueError(f"terminal.backend must be one of: {allowed}")
+    if normalized == "singularity" and platform.startswith("win"):
+        raise ValueError("terminal.backend 'singularity' is only supported on Linux")
+    return normalized
+
+
+def _terminal_backend_options() -> List[str]:
+    """Flat-settings select options for terminal.backend.
+
+    Built from the picker whitelist so the flat form and the picker can never
+    disagree about what is offered; ``singularity`` stays Linux-only, matching
+    the setup gate.
+    """
+    options = sorted(_TERMINAL_BACKEND_NAMES)
+    if sys.platform.startswith("win"):
+        options = [name for name in options if name != "singularity"]
+    return options
+
+
+# The flat-settings schema (``_SCHEMA_OVERRIDES`` / ``CONFIG_SCHEMA``) is built
+# above, before ``_TERMINAL_BACKENDS`` exists, so patch the terminal.backend
+# options in now that both are available.
+_flat_terminal_backend_options = _terminal_backend_options()
+_SCHEMA_OVERRIDES["terminal.backend"]["options"] = _flat_terminal_backend_options
+CONFIG_SCHEMA["terminal.backend"]["options"] = _flat_terminal_backend_options
 
 
 def _terminal_cfg_value(terminal_cfg: dict, key: str, env_var: str) -> str:

@@ -2307,7 +2307,7 @@ class TestBuildSchemaFromConfig:
             assert entry["type"] == "select"
             assert "options" in entry
             assert "local" in entry["options"]
-            assert "vercel_sandbox" in entry["options"]
+            assert "vercel_sandbox" not in entry["options"]
         runtime_entry = CONFIG_SCHEMA["terminal.vercel_runtime"]
         assert runtime_entry["type"] == "select"
         assert "node24" in runtime_entry["options"]
