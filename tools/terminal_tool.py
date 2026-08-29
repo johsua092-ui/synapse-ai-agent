@@ -1786,6 +1786,25 @@ def _get_env_config() -> Dict[str, Any]:
     }
 
 
+def read_current_terminal_env() -> Dict[str, Any]:
+    """Fresh ``_get_env_config`` with the config → env bridge forced to replay.
+
+    In a long-lived daemon ``_ensure_terminal_env_bridged`` runs once per
+    process, so a verdict derived from ``_get_env_config()`` can stay stale
+    after env_detector repairs ``config.yaml`` (or credentials are provisioned
+    at runtime). Mirroring env_detector's bridge-reset pattern, this re-reads
+    the config on disk and restores the one-shot flag afterwards.
+    """
+    global _terminal_config_bridge_attempted
+
+    prev = _terminal_config_bridge_attempted
+    _terminal_config_bridge_attempted = False
+    try:
+        return _get_env_config()
+    finally:
+        _terminal_config_bridge_attempted = prev
+
+
 def _get_modal_backend_state(modal_mode: object | None) -> Dict[str, Any]:
     """Resolve direct vs managed Modal backend selection."""
     return resolve_modal_backend_state(

@@ -307,10 +307,10 @@ def check_sandbox_requirements() -> bool:
     try:
         from tools.terminal_tool import (
             _check_vercel_sandbox_requirements,
-            _get_env_config,
+            read_current_terminal_env,
         )
 
-        config = _get_env_config()
+        config = read_current_terminal_env()
     except Exception:
         # An unexpected fault resolving the terminal env config (e.g. a
         # platform-specific exception in _get_env_config) must not strip

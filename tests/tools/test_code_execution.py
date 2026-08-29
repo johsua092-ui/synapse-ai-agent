@@ -71,6 +71,31 @@ def _mock_handle_function_call(function_name, function_args, task_id=None, user_
     return json.dumps({"error": f"Unknown tool in mock: {function_name}"})
 
 
+def test_sandbox_requirements_sees_repaired_backend(monkeypatch, tmp_path):
+    """B5: execute_code's verdict must re-derive from the CURRENT config.yaml.
+
+    In a long-lived daemon the terminal config -> env bridge runs once per
+    process; after env_detector repairs config.yaml away from vercel_sandbox
+    (or credentials are provisioned at runtime), check_sandbox_requirements
+    must flip in-process instead of staying stripped on the stale env.
+    """
+    monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path))
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "terminal:\n  backend: vercel_sandbox\n",
+        encoding="utf-8",
+    )
+    assert check_sandbox_requirements() is False
+
+    cfg.write_text(
+        "terminal:\n  backend: local\n",
+        encoding="utf-8",
+    )
+    assert check_sandbox_requirements() is True
+
+
 class TestSandboxRequirements(unittest.TestCase):
     def test_available_on_posix(self):
         if sys.platform != "win32":
