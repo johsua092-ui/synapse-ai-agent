@@ -1553,6 +1553,17 @@ _HOST_CWD_PREFIXES = ("/Users/", "/home/", "C:\\", "C:/")
 
 _CONTAINER_BACKENDS = frozenset({"docker", "singularity", "modal", "daytona", "vercel_sandbox"})
 
+# Every env_type value that check_terminal_requirements / _get_env_config
+# understand. A value outside this set (typo, or a stale terminal.backend
+# bridged from config.yaml) used to fall through check_terminal_requirements'
+# ``else`` and return False — silently stripping the ENTIRE terminal + file
+# toolsets (read_file/write_file/patch/search_files route through
+# check_file_requirements → check_terminal_requirements), surfacing as
+# "Tool terminal does not exist". Degrade to the safe local backend instead.
+_KNOWN_TERMINAL_ENVS = frozenset(
+    {"local", "docker", "singularity", "modal", "daytona", "vercel_sandbox", "ssh"}
+)
+
 
 def _is_unusable_container_cwd(cwd: str) -> bool:
     """Return True if *cwd* is a host/relative path that won't work as the
@@ -1635,6 +1646,19 @@ def _get_env_config() -> Dict[str, Any]:
     default_image = "nikolaik/python-nodejs:python3.11-nodejs20"
     _ensure_terminal_env_bridged()
     env_type = os.getenv("TERMINAL_ENV", "local")
+    # An unrecognized TERMINAL_ENV (typo, or a stale ``terminal.backend``
+    # bridged from config.yaml) must degrade to the safe local backend instead
+    # of letting check_terminal_requirements fall through its else-branch and
+    # strip the entire terminal+file toolset ("Tool terminal does not exist").
+    # Normalize here (single source of truth) so routing, execution, and both
+    # check_terminal_requirements + check_sandbox_requirements stay consistent.
+    if env_type not in _KNOWN_TERMINAL_ENVS:
+        logger.warning(
+            "Unknown TERMINAL_ENV %r; falling back to 'local'. Use one of: "
+            "local, docker, singularity, modal, daytona, vercel_sandbox, ssh.",
+            env_type,
+        )
+        env_type = "local"
     
     mount_docker_cwd = os.getenv("TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE", "false").lower() in {"true", "1", "yes"}
     container_backend = env_type in {"docker", "singularity", "modal", "daytona", "vercel_sandbox"}

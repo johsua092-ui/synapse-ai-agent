@@ -53,18 +53,54 @@ def test_local_terminal_requirements(monkeypatch, caplog):
     assert "Terminal requirements check failed" not in caplog.text
 
 
-def test_unknown_terminal_env_logs_error_and_returns_false(monkeypatch, caplog):
+def test_unknown_terminal_env_falls_back_to_local(monkeypatch, caplog):
+    """An unrecognized TERMINAL_ENV must NOT strip the terminal/file tools.
+
+    Historically an unknown value fell through to the ``else`` branch and made
+    ``check_terminal_requirements()`` return False — which silently removed the
+    entire ``terminal`` AND ``file`` toolsets (read_file/write_file/patch/
+    search_files delegate to ``check_file_requirements`` → this function), so
+    the agent reported "Tool terminal does not exist". A typo'd or stale value
+    (e.g. bridged from config.yaml ``terminal.backend``) must degrade to the
+    safe local backend with a clear warning instead of breaking core tools.
+    """
     _clear_terminal_env(monkeypatch)
     monkeypatch.setenv("TERMINAL_ENV", "unknown-backend")
 
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         ok = terminal_tool_module.check_terminal_requirements()
 
-    assert ok is False
+    assert ok is True
     assert any(
-        "Unknown TERMINAL_ENV 'unknown-backend'" in record.getMessage()
+        "unknown-backend" in record.getMessage() and "falling back" in record.getMessage()
         for record in caplog.records
     )
+
+
+def test_unknown_terminal_env_keeps_core_tools_exposed(monkeypatch):
+    """terminal/read_file/patch stay in get_tool_definitions under a bad env.
+
+    This is the end-to-end symptom guard for the "Tool terminal does not
+    exist" bug: an unrecognized TERMINAL_ENV must not empty the terminal+file
+    toolsets (they route through check_terminal_requirements).
+    """
+    _clear_terminal_env(monkeypatch)
+    monkeypatch.setenv("TERMINAL_ENV", "unknown-backend")
+    import logging as _logging
+
+    _logging.disable(_logging.CRITICAL)
+    try:
+        from model_tools import get_tool_definitions
+
+        defs = get_tool_definitions(
+            enabled_toolsets=None, disabled_toolsets=None, quiet_mode=True
+        )
+    finally:
+        _logging.disable(_logging.NOTSET)
+    names = {d["function"]["name"] for d in defs}
+
+    for tool in ("terminal", "read_file", "write_file", "patch", "search_files"):
+        assert tool in names, f"{tool} was stripped under unknown TERMINAL_ENV"
 
 
 def test_modal_backend_managed_mode_without_feature_flag_logs_clear_error(monkeypatch, caplog, tmp_path):
