@@ -103,6 +103,82 @@ def test_unknown_terminal_env_keeps_core_tools_exposed(monkeypatch):
         assert tool in names, f"{tool} was stripped under unknown TERMINAL_ENV"
 
 
+def test_terminal_requirements_survive_env_config_exception(monkeypatch, caplog):
+    """An unexpected exception in _get_env_config must NOT strip the tools.
+
+    This is the "Tool does not exists" report from a Windows user after
+    /update: check_terminal_requirements wraps everything in try/except and
+    returned False on ANY exception from _get_env_config — silently removing
+    the terminal AND file toolsets. Since the same exception re-fired on every
+    requirements probe, retries never recovered ("10+ retry"). A transient or
+    platform-specific config fault must expose the tools instead (real errors
+    then surface at call time where the model can read and adapt).
+    """
+    _clear_terminal_env(monkeypatch)
+
+    def _boom():
+        raise RuntimeError("simulated env-config fault")
+
+    monkeypatch.setattr(terminal_tool_module, "_get_env_config", _boom)
+
+    with caplog.at_level(logging.ERROR):
+        ok = terminal_tool_module.check_terminal_requirements()
+
+    assert ok is True
+    assert any(
+        "Terminal requirements check failed" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+def test_sandbox_requirements_survive_env_config_exception(monkeypatch):
+    """execute_code must stay exposed when _get_env_config raises.
+
+    check_sandbox_requirements forwards to terminal_tool._get_env_config and
+    returned False when it raised — which stripped execute_code alongside the
+    terminal/file tools (the Windows user's report had terminal, patch AND
+    execute_code all unavailable). A config-resolution fault is not a sandbox
+    capability fault: expose the tool and let the real error surface at call
+    time.
+    """
+    _clear_terminal_env(monkeypatch)
+
+    def _boom():
+        raise RuntimeError("simulated env-config fault")
+
+    monkeypatch.setattr(terminal_tool_module, "_get_env_config", _boom)
+
+    from tools.code_execution_tool import check_sandbox_requirements
+
+    assert check_sandbox_requirements() is True
+
+
+def test_config_exception_keeps_core_tools_exposed(monkeypatch):
+    """terminal/read_file/patch/execute_code stay under a raising env-config."""
+    _clear_terminal_env(monkeypatch)
+
+    def _boom():
+        raise RuntimeError("simulated env-config fault")
+
+    monkeypatch.setattr(terminal_tool_module, "_get_env_config", _boom)
+
+    import logging as _logging
+
+    _logging.disable(_logging.CRITICAL)
+    try:
+        from model_tools import get_tool_definitions
+
+        defs = get_tool_definitions(
+            enabled_toolsets=None, disabled_toolsets=None, quiet_mode=True
+        )
+    finally:
+        _logging.disable(_logging.NOTSET)
+    names = {d["function"]["name"] for d in defs}
+
+    for tool in ("terminal", "read_file", "patch", "execute_code"):
+        assert tool in names, f"{tool} was stripped after env-config exception"
+
+
 def test_modal_backend_managed_mode_without_feature_flag_logs_clear_error(monkeypatch, caplog, tmp_path):
     _clear_terminal_env(monkeypatch)
     monkeypatch.setenv("TERMINAL_ENV", "modal")
@@ -227,7 +303,17 @@ def test_vercel_backend_rejects_nondefault_disk(monkeypatch, caplog):
     )
 
 
-def test_vercel_backend_rejects_malformed_disk_without_raising(monkeypatch, caplog):
+def test_vercel_backend_malformed_disk_exposes_tool_and_logs_reason(monkeypatch, caplog):
+    """A malformed env value must not hide the terminal/file tools.
+
+    Historically a bad TERMINAL_CONTAINER_DISK made _get_env_config raise a
+    ValueError; the outer except returned False and silently stripped the whole
+    terminal+file toolset ("Tool does not exist"). On a Windows machine after
+    /update a single malformed bridged env value produced exactly that, plus a
+    stripped execute_code (check_sandbox_requirements forwards to
+    _get_env_config). Config-resolution faults log the real reason and keep
+    the tools exposed, so the actual error surfaces at call time.
+    """
     _clear_terminal_env(monkeypatch)
     monkeypatch.setenv("TERMINAL_ENV", "vercel_sandbox")
     monkeypatch.setenv("TERMINAL_CONTAINER_DISK", "large")
@@ -237,7 +323,7 @@ def test_vercel_backend_rejects_malformed_disk_without_raising(monkeypatch, capl
     with caplog.at_level(logging.ERROR):
         ok = terminal_tool_module.check_terminal_requirements()
 
-    assert ok is False
+    assert ok is True
     assert any(
         "Invalid value for TERMINAL_CONTAINER_DISK" in record.getMessage()
         for record in caplog.records

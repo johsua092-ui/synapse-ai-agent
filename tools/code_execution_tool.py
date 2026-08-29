@@ -312,8 +312,18 @@ def check_sandbox_requirements() -> bool:
 
         config = _get_env_config()
     except Exception:
-        logger.debug("Could not resolve terminal config for execute_code availability", exc_info=True)
-        return False
+        # An unexpected fault resolving the terminal env config (e.g. a
+        # platform-specific exception in _get_env_config) must not strip
+        # execute_code: returning False here makes the agent report "Tool
+        # 'execute_code' does not exist", alongside the stripped terminal/file
+        # tools, and the same fault re-fires on every probe so retries never
+        # recover. Expose the tool and let the real error surface at call time.
+        logger.error(
+            "Could not resolve terminal config for execute_code availability; "
+            "exposing execute_code anyway — real errors surface at call time.",
+            exc_info=True,
+        )
+        return True
 
     if config.get("env_type") == "vercel_sandbox":
         return _check_vercel_sandbox_requirements(config)

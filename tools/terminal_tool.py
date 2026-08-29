@@ -3902,8 +3902,15 @@ def check_terminal_requirements() -> bool:
             )
             return False
     except Exception as e:
+        # An unexpected fault (e.g. a platform-specific exception in
+        # _get_env_config) must NEVER strip the terminal/file toolsets:
+        # returning False here makes the agent report "Tool 'X' does not
+        # exist" for terminal/read_file/write_file/patch/search_files, and
+        # because the same fault re-fires on every requirements probe, retries
+        # never recover. Expose the tools and let the real error surface at
+        # call time, where the model can read it and adapt.
         logger.error("Terminal requirements check failed: %s", e, exc_info=True)
-        return False
+        return True
 
 
 if __name__ == "__main__":
