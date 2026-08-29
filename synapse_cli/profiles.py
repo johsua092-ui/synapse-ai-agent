@@ -1215,7 +1215,17 @@ def create_profile(
                 src = source_dir / filename
                 if src.exists():
                     dst = profile_dir / filename
-                    shutil.copy2(src, dst)
+                    if filename == ".env":
+                        # Terminal backend is per-machine: never clone
+                        # TERMINAL_* secrets into the new profile.
+                        dst.write_text(
+                            _env_without_terminal_env(
+                                src.read_text(encoding="utf-8-sig", errors="replace")
+                            ),
+                            encoding="utf-8",
+                        )
+                    else:
+                        shutil.copy2(src, dst)
                     # Tighten .env to owner-only after copy. shutil.copy2
                     # preserves source mode bits, but if the source's .env
                     # was loose (host umask 0o022 leaving 0o644), tighten
@@ -1361,6 +1371,22 @@ def seed_profile_skills(profile_dir: Path, quiet: bool = False) -> Optional[dict
         return None
 
 
+def _env_without_terminal_env(content: str) -> str:
+    """Return *content* with ``TERMINAL_*`` lines removed.
+
+    The terminal backend is per-machine; a polluted root ``TERMINAL_ENV``
+    (e.g. a stale ``vercel_sandbox`` from a bad backfill) must not spread to
+    every profile via secrets files when cloning or backfilling. Defensively
+    drops every ``^TERMINAL_`` line (not just ``TERMINAL_ENV=``), preserving
+    order and line endings.
+    """
+    return "".join(
+        line
+        for line in content.splitlines(keepends=True)
+        if not line.lstrip().startswith("TERMINAL_")
+    )
+
+
 def backfill_profile_envs(quiet: bool = False) -> List[str]:
     """Give every named profile that predates per-profile ``.env`` files one.
 
@@ -1396,7 +1422,12 @@ def backfill_profile_envs(quiet: bool = False) -> List[str]:
             continue
         try:
             if default_env.is_file():
-                shutil.copy2(default_env, env_path)
+                env_path.write_text(
+                    _env_without_terminal_env(
+                        default_env.read_text(encoding="utf-8-sig", errors="replace")
+                    ),
+                    encoding="utf-8",
+                )
             else:
                 env_path.write_text(
                     "# Per-profile secrets for this Synapse profile.\n"

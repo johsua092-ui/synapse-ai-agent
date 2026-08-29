@@ -43,6 +43,7 @@ from synapse_cli.profiles import (
     has_bundled_skills_opt_out,
     NO_BUNDLED_SKILLS_MARKER,
     backfill_profile_envs,
+    _env_without_terminal_env,
     profiles_to_serve,
 )
 from synapse_cli.config import DEFAULT_CONFIG
@@ -250,6 +251,63 @@ class TestBackfillProfileEnvs:
 
     def test_no_profiles_root_is_noop(self, profile_env):
         assert backfill_profile_envs(quiet=True) == []
+
+
+# ===================================================================
+# TestEnvCopyDropsTerminalEnv
+# ===================================================================
+
+class TestEnvCopyDropsTerminalEnv:
+    """The terminal backend is per-machine; a polluted root TERMINAL_ENV must
+    never spread to cloned/backfilled profile .env files (bug-fix round C5)."""
+
+    def test_env_copy_drops_terminal_env_line(self):
+        src = "FOO=1\nTERMINAL_ENV=vercel_sandbox\nTERMINAL_VERCEL_RUNTIME=node24\nBAR=2\n"
+        out = _env_without_terminal_env(src)
+        assert "TERMINAL_ENV" not in out
+        assert "TERMINAL_VERCEL_RUNTIME" not in out
+        assert out == "FOO=1\nBAR=2\n"
+
+    def test_helper_preserves_order_and_line_endings(self):
+        src = "A=1\r\nTERMINAL_ENV=x\r\nB=2\r\n"
+        assert _env_without_terminal_env(src) == "A=1\r\nB=2\r\n"
+
+    def test_helper_leaves_non_terminal_lines_untouched(self):
+        src = "NOUS_API_KEY=abc\nMODAL_TOKEN_ID=xyz\n"
+        assert _env_without_terminal_env(src) == src
+
+    def test_clone_config_drops_terminal_env_from_copied_env(self, profile_env):
+        tmp_path = profile_env
+        default_home = tmp_path / ".synapse"
+        (default_home / "config.yaml").write_text("model: test")
+        (default_home / ".env").write_text(
+            "KEY=val\nTERMINAL_ENV=vercel_sandbox\nTERMINAL_SSH_KEY=~/.ssh/id_rsa\n",
+            encoding="utf-8",
+        )
+        (default_home / "SOUL.md").write_text("Be helpful.")
+
+        profile_dir = create_profile("coder", clone_config=True, no_alias=True)
+
+        cloned_env = (profile_dir / ".env").read_text(encoding="utf-8")
+        assert "KEY=val" in cloned_env
+        assert "TERMINAL_ENV" not in cloned_env
+        assert "TERMINAL_SSH_KEY" not in cloned_env
+
+    def test_backfill_drops_terminal_env_from_copied_env(self, profile_env):
+        import stat
+        tmp_path = profile_env
+        (tmp_path / ".synapse" / ".env").write_text(
+            "OPENROUTER_API_KEY=root-key\nTERMINAL_ENV=daytona\n", encoding="utf-8"
+        )
+        p1 = create_profile("old1", no_alias=True)
+        (p1 / ".env").unlink()
+
+        backfilled = backfill_profile_envs(quiet=True)
+        assert backfilled == ["old1"]
+        content = (p1 / ".env").read_text(encoding="utf-8")
+        assert "OPENROUTER_API_KEY=root-key" in content
+        assert "TERMINAL_ENV" not in content
+        assert stat.S_IMODE((p1 / ".env").stat().st_mode) == 0o600
 
 
 # ===================================================================
