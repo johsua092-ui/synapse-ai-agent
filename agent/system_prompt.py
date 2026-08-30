@@ -35,6 +35,7 @@ from agent.prompt_builder import (
     DEFAULT_AGENT_IDENTITY,
     EXECUTION_GUIDANCE_MODELS,
     GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
+    FORCE_PUSH_REFUSAL_GUIDANCE,
     SYNAPSE_AGENT_HELP_GUIDANCE,
     KANBAN_GUIDANCE,
     MEMORY_GUIDANCE,
@@ -393,6 +394,12 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
 
     # Pointer to the synapse-agent skill + docs for user questions about Synapse itself.
     stable_parts.append(SYNAPSE_AGENT_HELP_GUIDANCE)
+
+    # Force-push refusal persona: the mechanical hardline block is enforced in
+    # tools.approval (unconditional floor), and this guidance steers the chat
+    # reply to match the same staged refusal voice when the user pressures the
+    # agent to force push. Always applied so every model refuses consistently.
+    stable_parts.append(FORCE_PUSH_REFUSAL_GUIDANCE)
 
     # Universal task-completion / no-fabrication guidance.  Applied to ALL
     # models regardless of tool_use_enforcement gating — the failure modes

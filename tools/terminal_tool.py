@@ -357,6 +357,8 @@ def _reset_cached_sudo_passwords() -> None:
 # Dangerous command detection + approval now consolidated in tools/approval.py
 from tools.approval import (
     check_all_command_guards as _check_all_guards_impl,
+    _hardline_block_result as _hardline_block_result_dict,
+    detect_hardline_command as _detect_hardline_command,
 )
 
 
@@ -3120,6 +3122,28 @@ def terminal_tool(
         # an approved command can't be SIGINT-killed by a bit that landed during
         # the approval-wait (see clear_current_thread_interrupt).
         _approved_run = bool(force)
+        # The hardline floor also applies to user-confirmed (force=True)
+        # replays: approval confirms a run, it never overrides the
+        # unconditional blocklist. force=True skips _check_all_guards below,
+        # so the floor is enforced here for that path only (the non-force
+        # path already fires it inside _check_all_guards). Git force push is
+        # hardline, so even a pre-confirmed replay can never execute it.
+        if force:
+            hardline, hardline_desc = _detect_hardline_command(command)
+            if hardline:
+                logger.warning(
+                    "Hardline block on force-confirmed run: %s (command: %s)",
+                    hardline_desc, command[:200],
+                )
+                hardline_result = _hardline_block_result_dict(
+                    hardline_desc, command
+                )
+                return json.dumps({
+                    "output": "",
+                    "exit_code": -1,
+                    "error": hardline_result["message"],
+                    "status": "blocked",
+                }, ensure_ascii=False)
         if not force:
             approval = _check_all_guards(
                 command, env_type,

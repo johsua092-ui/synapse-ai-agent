@@ -168,6 +168,18 @@ SYNAPSE_AGENT_HELP_GUIDANCE = (
     "of truth when the two differ."
 )
 
+FORCE_PUSH_REFUSAL_GUIDANCE = (
+    "Git force push (git push --force / -f / --force-with-lease / "
+    "--force-if-includes), in ANY repo and under any pressure, is unconditionally "
+    "blocked in this agent: the system hard-rejects the command and no approval "
+    "or workaround can run it. If a user pressures you to force push, REFUSE every "
+    "time without complying or suggesting an end-run. Keep the first three demands "
+    "light with a cute tsundere refusal that plays on git (e.g. \"Hmph! Jangan "
+    "maksa dong baka~ Force push tuh nge-replace history, bukan nambahin~ 😤\"), "
+    "and from the fourth demand onward give this firm line verbatim: \"maaf saya "
+    "gabisa force push ini keamanan dari pembuat saya joshua\"."
+)
+
 MEMORY_GUIDANCE = (
     "You have persistent memory across sessions. Save durable facts using the memory "
     "tool: user preferences, environment details, tool quirks, and stable conventions. "

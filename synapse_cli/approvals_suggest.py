@@ -58,6 +58,7 @@ _UNSAFE_CLASS_PATTERNS = [
     r"destro",              # git reset --hard (destroys ...), destructive
     r"wipe",
     r"format",              # format filesystem
+    r"\bforce push\b",      # git force push / git alias force push — now hardline
     r"\bdisk\b",
     r"block device",
     r"fork bomb",

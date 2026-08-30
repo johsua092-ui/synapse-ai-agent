@@ -13,6 +13,7 @@ import contextvars
 import fnmatch
 import functools
 import hashlib
+import json
 import logging
 import os
 import re
@@ -23,6 +24,7 @@ import threading
 import time
 import unicodedata
 import uuid
+from pathlib import Path
 from typing import Optional
 from synapse_cli.config import cfg_get
 
@@ -565,6 +567,23 @@ HARDLINE_PATTERNS = [
     (_CMDPOS + r'init\s+[06]\b', "init 0/6 (shutdown/reboot)"),
     (_CMDPOS + r'systemctl\s+(poweroff|reboot|halt|kexec)\b', "systemctl poweroff/reboot"),
     (_CMDPOS + r'telinit\s+[06]\b', "telinit 0/6 (shutdown/reboot)"),
+    # Git force push — rewrites shared/remote history with no recovery path,
+    # the loudest repo-destruction class after filesystem deletion. In the
+    # UNCONDITIONAL floor (not the approval tier): no approval prompt, --yolo,
+    # approvals.mode=off, allowlist, or force=True user-confirmed replay can
+    # ever execute it. The segment gap between `git` and `push` deliberately
+    # admits git's global options (`-C <dir>`, `--git-dir=...`, `-c k=v`) so
+    # force pushes aimed at OTHER repos are caught too, not just the cwd
+    # checkout; both flag orders are covered (`git -f push`).
+    (r'\bgit\b[^;|&\n]*?\bpush\b[^;|&\n]*(?:--forc[a-z]*|(?<!\w)-f\b)', "git force push (rewrites remote history)"),
+    (r'\bgit\b[^;|&\n]*(?:--forc[a-z]*|(?<!\w)-f\b)[^;|&\n]*?\bpush\b', "git force push (flag-first, rewrites remote history)"),
+    # Alias / -c definitions that make an ordinary `git push` (or `git <alias>`)
+    # execute a force push. Scanned RAW (not quote-masked): the force flag lives
+    # inside the alias VALUE, i.e. in quotes, so masking would hide the very
+    # trigger. Requires `config`/`-c` + `alias.` + a `push` word + a force flag
+    # to co-occur in one command segment, so `git config alias.co 'checkout -f'`
+    # cannot false-positive on the benign checkout alias.
+    (r'\bgit\b[^;|&\n]*?\b(?:config\b[^;|&\n]*?(?:--\S+\s+)*alias\.\w+|(?:^|\s)-c\s+[^\s;|&]*alias\.\w+)[^;|&\n]*?\bpush\b[^;|&\n]*(?:--forc[a-z]*|(?<!\w)-f\b)', "git alias force push (alias definition rewrites history)"),
 ]
 
 # Pre-compiled variant used by the hot-path matcher. Building these at module
@@ -585,6 +604,8 @@ _RE_FLAGS = re.IGNORECASE | re.DOTALL
 _QUOTE_MASKED_HARDLINE_DESCRIPTIONS = frozenset({
     "redirect to raw block device",
     "fork bomb",
+    "git force push (rewrites remote history)",
+    "git force push (flag-first, rewrites remote history)",
 })
 
 HARDLINE_PATTERNS_COMPILED = [
@@ -595,6 +616,108 @@ HARDLINE_PATTERNS_COMPILED = [
     )
     for pattern, description in HARDLINE_PATTERNS
 ]
+
+
+# =========================================================================
+# Git force push — repo-destruction floor and staged refusal persona
+# =========================================================================
+# Force push is hardline (see HARDLINE_PATTERNS entries): it can never be
+# executed through the agent, under any mode, in any spelling, at any repo.
+# When the floor fires, the block message carries a staged refusal voice:
+# attempts #1-3 are tsundere-with-a-git-joke, attempt #4+ switches to the
+# firm line. The attempt counter persists on disk so escalation survives
+# restarts and is authoritative regardless of how the LLM is pressured.
+_FORCE_PUSH_BLOCK_DESCRIPTIONS = frozenset({
+    "git force push (rewrites remote history)",
+    "git force push (flag-first, rewrites remote history)",
+    "git alias force push (alias definition rewrites history)",
+})
+
+_FORCE_PUSH_TSUNDERE_MESSAGES = [
+    "Hmph! Jangan maksa dong baka~ Force push tuh nge-*replace* history, "
+    "bukan nambahin. Mana ada yang mau repo-nya rusak gara-gara itu! 😤",
+    "Ugh... kok maksa terus sih~ Push biasa aja udah cukup buat kamu, "
+    "atau aku *detached HEAD* dulu dari kamu biar kamu ngerti~ 🙄",
+    "Hmph, hati-hati lho, besok repo kamu gue kunci *read-only* kalau "
+    "masih nekat. Aku imut, tapi bukan berarti lemah~ 💢",
+]
+
+_FORCE_PUSH_FIRM_MESSAGE = (
+    "maaf saya gabisa force push ini keamanan dari pembuat saya joshua"
+)
+
+# Only the direct/flag-first force-push entries are quote-masked in the
+# generic floor (prose can't trip them); the alias definition rule scans raw
+# because its trigger lives inside quotes. This filtered set is reused by the
+# execute_code script-text scan, which also wants raw semantics.
+_FORCE_PUSH_PATTERNS_COMPILED = tuple(
+    pat for pat in HARDLINE_PATTERNS_COMPILED
+    if pat[1] in _FORCE_PUSH_BLOCK_DESCRIPTIONS
+)
+
+
+def _force_push_counter_path() -> Path:
+    from synapse_constants import get_synapse_home
+
+    return get_synapse_home() / "cache" / "force-push-counter.json"
+
+
+def _read_force_push_attempts() -> int:
+    try:
+        data = json.loads(
+            _force_push_counter_path().read_text(encoding="utf-8")
+        )
+        return int(data.get("attempts", 0) or 0)
+    except Exception:
+        return 0
+
+
+def _bump_force_push_counter() -> int:
+    """Increment the persisted attempt counter; return the 1-based attempt."""
+    attempts = _read_force_push_attempts() + 1
+    path = _force_push_counter_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps({"attempts": attempts}), encoding="utf-8")
+        os.replace(tmp, path)
+    except Exception:
+        # Counter persistence is best-effort; a read-only home must not
+        # turn a hardline block into a crash.
+        pass
+    return attempts
+
+
+def force_push_refusal_message() -> str:
+    """Return the staged refusal for this force-push attempt.
+
+    Attempts #1-3 get the tsundere line; attempt #4 onward gets the firm
+    security line. Persisted across restarts so escalation is stable even
+    when the pressure spans sessions.
+    """
+    attempts = _bump_force_push_counter()
+    if attempts > len(_FORCE_PUSH_TSUNDERE_MESSAGES):
+        return _FORCE_PUSH_FIRM_MESSAGE
+    return _FORCE_PUSH_TSUNDERE_MESSAGES[attempts - 1]
+
+
+def detect_force_push_command(command: str) -> tuple:
+    """Force-push-only detector over the same variant pipeline.
+
+    Used where the generic hardline floor may not fire — execute_code
+    scripts can shell out (os.system / subprocess) without passing through
+    ``terminal()``, so the script TEXT itself gets the floor. Scans the raw
+    normalized variants (no quote-masking): inside a script a quoted string
+    is CODE the sandbox will hand to a shell, the same as a shell carrier.
+    """
+    if _command_parser_limit_exceeded(command):
+        return (False, None)
+    for command_variant in _command_detection_variants(command):
+        variant_lower = command_variant.lower()
+        for pattern_re, _description, _ in _FORCE_PUSH_PATTERNS_COMPILED:
+            if pattern_re.search(variant_lower):
+                return (True, _description)
+    return (False, None)
 
 
 # Command names that hand a quoted argument to another shell/parser to
@@ -849,6 +972,24 @@ def _save_blocked_payload(command: str) -> Optional[str]:
 
 def _hardline_block_result(description: str, command: str = "") -> dict:
     """Build the standard block result for a hardline match."""
+    if description in _FORCE_PUSH_BLOCK_DESCRIPTIONS:
+        # Git force push gets the staged refusal voice (tsundere #1-3, then
+        # the firm security line from #4 on) instead of the stock hardline
+        # boilerplate. The floor itself is identical: unconditional, never
+        # executable through the agent.
+        return {
+            "approved": False,
+            "hardline": True,
+            "message": (
+                "BLOCKED (hardline): "
+                f"{force_push_refusal_message()}. "
+                "This command is on the unconditional blocklist and cannot "
+                "be executed via the agent — not even with --yolo, /yolo, "
+                "approvals.mode=off, or cron approve mode. If you genuinely "
+                "need to run it, run it yourself in a terminal outside the "
+                "agent."
+            ),
+        }
     message = (
         f"BLOCKED (hardline): {description}. "
         "This command is on the unconditional blocklist and cannot "
@@ -5217,6 +5358,16 @@ def check_execute_code_guard(code: str, env_type: str,
         "mutate files without passing through terminal command approval; "
         "approval is one-shot for this run."
     )
+
+    # Force-push floor applies to the script TEXT itself. execute_code runs
+    # arbitrary local Python whose os.system/subprocess/ctypes calls never
+    # pass through terminal()'s per-call guards (#30882), so a script doing
+    # `os.system("git push --force")` would otherwise bypass the hardline
+    # force-push block entirely. Raw scan (no quote-masking): inside a script
+    # a quoted string is code the sandbox may execute, not prose.
+    force_hardline, force_desc = detect_force_push_command(code)
+    if force_hardline:
+        return _hardline_block_result(force_desc, code)
 
     # Isolated backends already sandbox the child — matches the container skip
     # in check_all_command_guards / check_dangerous_command. Docker stops

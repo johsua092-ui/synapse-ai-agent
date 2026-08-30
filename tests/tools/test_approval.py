@@ -10,14 +10,23 @@ from unittest.mock import patch as mock_patch
 import pytest
 
 import tools.approval as approval_module
-from synapse_constants import get_synapse_home
+from synapse_constants import (
+    get_synapse_home,
+    reset_synapse_home_override,
+    set_synapse_home_override,
+)
 from tools.approval import (
+    _FORCE_PUSH_FIRM_MESSAGE,
+    _FORCE_PUSH_TSUNDERE_MESSAGES,
     _get_approval_mode,
+    _hardline_block_result,
     _normalize_approval_mode,
     _smart_approve,
     approve_session,
+    check_dangerous_command,
     detect_dangerous_command,
     detect_hardline_command,
+    force_push_refusal_message,
     is_approved,
     load_permanent,
     prompt_dangerous_approval,
@@ -924,6 +933,99 @@ class TestGitDestructiveOps:
         for cmd in ("git status", "git push origin main"):
             dangerous, _, _ = detect_dangerous_command(cmd)
             assert dangerous is False, cmd
+
+
+class TestForcePushHardlineFloor:
+    """git force push is an unconditional floor: no approval, no yolo,
+    no allowlist, no user confirmation (force=True) can execute it. This
+    pins the repo-destruction guarantee: the command can never run through
+    the agent, in any spelling targeting any repo."""
+
+    def test_all_force_push_spellings_hit_the_floor(self):
+        for cmd in (
+            "git push origin main --force",
+            "git push -f origin main",
+            "git push --force-with-lease origin main",
+            "git push --force-if-includes origin main",
+            "cd /other && git push --force origin main",
+            "git -C /other/repo push --force origin main",
+            "git -C somedir push -f upstream staging",
+            "git --git-dir=/x/.git push -f origin",
+            "git -c protocol.file.allow=always push --force origin",
+            "git commit -am 'x' && git push --force",
+            "git config alias.push 'push --force'",
+            "git -c alias.p='push --force' push origin main",
+        ):
+            is_hardline, desc = detect_hardline_command(cmd)
+            assert is_hardline is True, cmd
+            assert "push" in desc.lower(), cmd
+
+    def test_quoted_prose_and_safe_git_ops_not_floor(self):
+        for cmd in (
+            "git status",
+            "git push origin main",
+            "git pull --ff-only",
+            "git commit -m \"docs: never git push --force to main\"",
+            "echo 'git push --force was historical'",
+            "git config push.default simple",
+            "git config alias.co 'checkout -f'",
+            "git log --oneline",
+            "cat README.md",
+        ):
+            is_hardline, _ = detect_hardline_command(cmd)
+            assert is_hardline is False, cmd
+
+    def test_gate_blocks_under_mode_off_and_yolo(self, monkeypatch):
+        # approvals.mode=off AND session yolo must not bypass the floor
+        monkeypatch.setattr(
+            approval_module, "_get_approval_mode", lambda: "off"
+        )
+        monkeypatch.setattr(
+            approval_module,
+            "is_current_session_yolo_enabled",
+            lambda: True,
+        )
+        res = check_dangerous_command("git -C /other push --force", "local")
+        assert res.get("approved") is False
+        assert res.get("hardline") is True
+
+    def test_allowlist_cannot_bypass_force_push_floor(self, monkeypatch):
+        monkeypatch.setattr(
+            approval_module, "_command_matches_permanent_allowlist", lambda c: True
+        )
+        res = check_dangerous_command("git -C /other push -f", "local")
+        assert res.get("approved") is False
+        assert res.get("hardline") is True
+
+    def test_force_push_refusal_escalates_then_goes_firm(self, tmp_path):
+        token = set_synapse_home_override(tmp_path)
+        try:
+            msgs = [
+                force_push_refusal_message() for _ in range(5)
+            ]
+        finally:
+            reset_synapse_home_override(token)
+        assert msgs[0] in _FORCE_PUSH_TSUNDERE_MESSAGES
+        assert msgs[1] in _FORCE_PUSH_TSUNDERE_MESSAGES
+        assert msgs[2] in _FORCE_PUSH_TSUNDERE_MESSAGES
+        assert msgs[3] == _FORCE_PUSH_FIRM_MESSAGE
+        assert msgs[4] == _FORCE_PUSH_FIRM_MESSAGE
+
+    def test_hardline_block_result_carries_staged_refusal(self, tmp_path):
+        token = set_synapse_home_override(tmp_path)
+        try:
+            r = _hardline_block_result(
+                "git force push (rewrites remote history)",
+                "git -C repo push --force",
+            )
+        finally:
+            reset_synapse_home_override(token)
+        assert r["approved"] is False
+        assert r["hardline"] is True
+        assert "BLOCKED (hardline):" in r["message"]
+        assert r["message"] != (
+            "BLOCKED (hardline): git force push (rewrites remote history). "
+        )
 
 
 class TestChmodExecuteCombo:
