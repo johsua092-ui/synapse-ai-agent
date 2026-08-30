@@ -53,12 +53,27 @@ describe("shouldFollowPtyOutput", () => {
 });
 
 describe("parseResumeControlMessage", () => {
-	it("extracts the id from a resume control frame", () => {
+	it("extracts the id (reattach default) from a resume control frame", () => {
 		// #93518: the implicit active-session fallback has no `?resume=` on the
 		// URL, so the server names the session it resolved in a control frame.
 		expect(
 			parseResumeControlMessage('{"type":"resume","id":"sess-123"}'),
-		).toBe("sess-123");
+		).toEqual({ id: "sess-123", created: false });
+	});
+
+	it("carries the created (fresh spawn) flag when present", () => {
+		// A connect that SPAWNED the PTY must run the boot erase suppression;
+		// a reattach (created absent/false) must pass the live tail through.
+		expect(
+			parseResumeControlMessage(
+				'{"type":"resume","id":"sess-123","created":true}',
+			),
+		).toEqual({ id: "sess-123", created: true });
+		expect(
+			parseResumeControlMessage(
+				'{"type":"resume","id":"sess-123","created":false}',
+			),
+		).toEqual({ id: "sess-123", created: false });
 	});
 
 	it("ignores plain ANSI banner text sent as a text frame", () => {

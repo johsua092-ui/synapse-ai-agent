@@ -165,7 +165,13 @@ class FakeWebSocket {
     this.readyState = 3;
   }
 
-  send() {}
+  sent: string[] = [];
+
+  send(data: unknown) {
+    if (typeof data === "string") {
+      this.sent.push(data);
+    }
+  }
 }
 
 type CloseEventLike = {
@@ -445,6 +451,11 @@ describe("ChatPage side panel collapse", () => {
 // re-enter the resume-boot "Please wait while the conversation loads…" state
 // (nor re-arm erase suppression). Regression for Blc's "minimize window → chat
 // says please wait" report.
+// Hydration + wait notice are now keyed per-MOUNT and per-`created` (server-
+// sent control frame): a fresh tab reattaching a living PTY STILL shows the
+// wait notice and repaint pulse; a same-mount reconnect never does. Regressions
+// for Blc's "minimize → please wait" AND "new tab reloaded the session"
+// reports.
 describe("ChatPage resume vs reattach", () => {
   async function renderChat(entry: string) {
     const { default: ChatPage } = await import("./ChatPage");
@@ -455,6 +466,16 @@ describe("ChatPage resume vs reattach", () => {
     );
   }
 
+  const WAIT = "Please wait while the conversation loads";
+  const resumeFrame = (created = false) =>
+    JSON.stringify({ type: "resume", id: "session-1", created });
+
+  function send(ws: FakeWebSocket, data: ArrayBuffer | string) {
+    return act(async () => {
+      ws.onmessage?.({ data });
+    });
+  }
+
   it("waits on a fresh resume, but not on a reattach after a drop", async () => {
     await renderChat("/chat?resume=session-1");
     await vi.waitFor(
@@ -463,23 +484,20 @@ describe("ChatPage resume vs reattach", () => {
     );
     const ws = FakeWebSocket.instances[0];
 
-    // Fresh page load with ?resume=: the wait notice is up until the first
-    // real chunk lands.
+    // Fresh page load with ?resume=: the wait notice is up from mount.
     await act(async () => {
       ws.onopen?.();
     });
-    expect(container.textContent).toContain(
-      "Please wait while the conversation loads",
-    );
+    expect(container.textContent).toContain(WAIT);
 
-    await act(async () => {
-      ws.onmessage?.({
-        data: new TextEncoder().encode("ready\n").buffer,
-      });
-    });
-    expect(container.textContent).not.toContain(
-      "Please wait while the conversation loads",
-    );
+    // The server names the session (explicit resumes ship a control frame
+    // too, so `created` is known before the replay bytes land).
+    await send(ws, resumeFrame(false));
+    expect(container.textContent).toContain(WAIT);
+
+    // First real chunk lands → notice finishes.
+    await send(ws, new TextEncoder().encode("ready\n").buffer);
+    expect(container.textContent).not.toContain(WAIT);
 
     // The window gets occluded/minimized → the socket drops (1006) → the
     // connect backoff mints a fresh socket that reattaches the same PTY.
@@ -495,10 +513,119 @@ describe("ChatPage resume vs reattach", () => {
       reattached.onopen?.();
     });
 
-    // Reattach: the terminal already holds the conversation — no wait wall.
-    expect(container.textContent).not.toContain(
-      "Please wait while the conversation loads",
+    // Reattach within the same mount: the terminal already holds the
+    // conversation — no wait wall even though the control frame re-fires.
+    await send(reattached, resumeFrame(false));
+    expect(container.textContent).not.toContain(WAIT);
+  });
+
+  it("shows the wait notice on a fresh tab's implicit resume, but not on its reconnect", async () => {
+    await renderChat("/chat");
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(1),
+      { timeout: 7000 },
     );
+    const ws = FakeWebSocket.instances[0];
+
+    await act(async () => {
+      ws.onopen?.();
+    });
+    expect(container.textContent).not.toContain(WAIT);
+
+    // Implicit active-session fallback: no ?resume= on the URL, so the server
+    // names the session AFTER the socket opened. This mount's terminal is
+    // empty and a replay is coming — the wait notice must appear even though
+    // the socket is already open (regression: it was suppressed because the
+    // "reattach" gate looked at the socket being open instead of this mount).
+    await send(ws, resumeFrame(false));
+    expect(container.textContent).toContain(WAIT);
+
+    await send(ws, new TextEncoder().encode("hello\n").buffer);
+    expect(container.textContent).not.toContain(WAIT);
+
+    // Drop + reconnect in this same tab: content is on screen again — the
+    // control frame must NOT re-pop the notice.
+    await act(async () => {
+      ws.onclose?.({ code: 1006, reason: "", wasClean: false });
+    });
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(2),
+      { timeout: 7000 },
+    );
+    const reattached = FakeWebSocket.instances[1];
+    await act(async () => {
+      reattached.onopen?.();
+    });
+    await send(reattached, resumeFrame(false));
+    expect(container.textContent).not.toContain(WAIT);
+  });
+
+  it("pulses the living TUI to repaint on a reattach, but not on a fresh spawn", async () => {
+    await renderChat("/chat");
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(1),
+      { timeout: 7000 },
+    );
+    const ws = FakeWebSocket.instances[0];
+    const term = FakeTerminal.instances[0];
+    const [cols, rows] = [term.cols, term.rows];
+
+    // First connect (no resume yet, mount fresh): plain RESIZE only.
+    await act(async () => {
+      ws.onopen?.();
+    });
+    expect(ws.sent).toEqual([`\x1b[RESIZE:${cols};${rows}]`]);
+
+    // Reattach to the living PTY: the server's \x0c clears the terminal and
+    // the TUI ignores it, so the client nudges a full repaint (off-by-one
+    // pulse — a same-size TIOCSWINSZ raises no SIGWINCH).
+    await send(ws, resumeFrame(false));
+    expect(ws.sent).toEqual([
+      `\x1b[RESIZE:${cols};${rows}]`,
+      `\x1b[RESIZE:${cols + 1};${rows}]`,
+      `\x1b[RESIZE:${cols};${rows}]`,
+    ]);
+
+    // Drop + reconnect: the onopen pulse covers the repaint (still one pulse,
+    // no duplicate from the control frame).
+    await act(async () => {
+      ws.onclose?.({ code: 1006, reason: "", wasClean: false });
+    });
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(2),
+      { timeout: 7000 },
+    );
+    const reattached = FakeWebSocket.instances[1];
+    await act(async () => {
+      reattached.onopen?.();
+    });
+    await send(reattached, resumeFrame(false));
+    expect(reattached.sent).toEqual([
+      `\x1b[RESIZE:${cols};${rows}]`,
+      `\x1b[RESIZE:${cols + 1};${rows}]`,
+      `\x1b[RESIZE:${cols};${rows}]`,
+    ]);
+  });
+
+  it("does NOT repaint-pulse a fresh spawn (booting TUI paints itself)", async () => {
+    await renderChat("/chat?resume=session-1");
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(1),
+      { timeout: 7000 },
+    );
+    const ws = FakeWebSocket.instances[0];
+    const [cols, rows] = [
+      FakeTerminal.instances[0].cols,
+      FakeTerminal.instances[0].rows,
+    ];
+
+    await act(async () => {
+      ws.onopen?.();
+    });
+    await send(ws, resumeFrame(true));
+    expect(container.textContent).toContain(WAIT);
+    // Fresh spawn: Ink is booting and will paint its own frame — no nudge.
+    expect(ws.sent).toEqual([`\x1b[RESIZE:${cols};${rows}]`]);
   });
 });
 // The gated-mode ticket request runs before any socket exists, so a rejection

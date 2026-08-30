@@ -187,6 +187,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // hydrate state or re-arm the resume replay's erase suppression. Only the
   // first connect of a fresh page load is a true resume-boot.
   const chatAttachedRef = useRef(false);
+  // Per-MOUNT resume marker. A resume/hydration may legitimately be triggered
+  // by the server's control frame arriving after this mount's socket opened
+  // (a fresh tab reattaching the live PTY) — that must STILL show the wait
+  // notice and repaint, exactly like an explicit `?resume=` load. What must
+  // NOT repeat is a *second* resume run inside the same mount (a transient
+  // drop → reconnect), where the terminal already holds the conversation.
+  const resumeHydratedRef = useRef(false);
   const stickToBottomRef = useRef(true);
   // Exposed to the main metrics-sync effect so it can refit the terminal
   // the moment `isActive` flips back to true (display:none → display:flex
@@ -245,6 +252,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // Covers the blank terminal + blinking-cursor window so users don't think
   // chat is broken; clears as soon as there is something to show.
   const [resumeHydrating, setResumeHydrating] = useState(false);
+  // A session the server resolved for THIS mount without a `?resume=` URL
+  // (implicit active-session fallback, e.g. a fresh tab). lifts
+  // `hasResumeTarget` so the wait notice can render even though the URL
+  // carries no resume id (#93518).
+  const [implicitResumeId, setImplicitResumeId] = useState<string | null>(null);
   const [lastCloseCode, setLastCloseCode] = useState<number | null>(null);
   // NS-504: when the agent process exits cleanly (the user typed `/exit`, or
   // started a new session that ended the current PTY child), the PTY socket
@@ -1101,6 +1113,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     // `ws.onmessage` below) — everything gated on "is this a resume replay"
     // reads this instead of `resumeParam` directly (#93518).
     let effectiveResume = resumeParam;
+    // Whether the current socket SPAWNED the PTY (`created`) or reattached a
+    // living one. Learned from the server's one-off resume control frame,
+    // which always precedes the tail replay (see `pty_ws`). Fresh spawns run
+    // the erase-suppression sanitizer (TUI boot virtual-scroll); reattaches
+    // pass the live tail through untouched.
+    let resumeCreated = false;
     let onDataDisposable: { dispose(): void } | null = null;
     let onResizeDisposable: { dispose(): void } | null = null;
     let onScrollDisposable: { dispose(): void } | null = null;
@@ -1253,6 +1271,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }, PTY_CONNECTING_TIMEOUT_MS);
 
     ws.onopen = () => {
+      const isReattach = chatAttachedRef.current;
       chatAttachedRef.current = true;
       clearReconnectTimer();
       clearConnectingTimer();
@@ -1272,6 +1291,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // follow up with the authoritative measurement — at worst Ink
       // reflows once after the PTY boots, which is imperceptible.
       ws.send(`\x1b[RESIZE:${term.cols};${term.rows}]`);
+      // Reattach to a still-living PTY: the server replays the tail then
+      // writes a form feed so the TUI re-emits a full frame, but the TUI
+      // ignores the \x0c byte and a same-size TIOCSWINSZ raises no SIGWINCH,
+      // so the reattached terminal stays blank after the tail+FF clears it.
+      // Nudge a full Ink repaint with an off-by-one size pulse, then correct
+      // it — two genuine size changes, two guaranteed SIGWINCH repaints.
+      if (isReattach && term.cols > 0 && term.rows > 0) {
+        ws.send(`\x1b[RESIZE:${term.cols + 1};${term.rows}]`);
+        ws.send(`\x1b[RESIZE:${term.cols};${term.rows}]`);
+      }
       // Resumed sessions replay scrollback over the socket. Start pinned to
       // the bottom so the latest output is in view; released once the user
       // scrolls up (#59591).
@@ -1299,30 +1328,25 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
     // Session resume: Ink's two-pass virtual scroll floods the PTY with
     // erase codes and blank-line bursts while replaying a long session.
-    // Suppress them for a bounded window after connect, then let ordinary
-    // in-place redraws through untouched. See pty-resume-sanitizer.ts.
+    // Suppress them for a bounded window only when THIS connect actually
+    // spawned the TUI (`created`); a live reattach must pass through.
+    // See pty-resume-sanitizer.ts.
     const decoder = new TextDecoder();
     const sanitizer = new PtyResumeSanitizer();
-    const beginResumeReplay = () => {
+    const beginResumeReplay = (created: boolean) => {
       stickToBottomRef.current = true;
-      // Erase suppression + the "please wait" notice belong to a genuine
-      // resume-boot (fresh page loading a session's scrollback through Ink's
-      // two-pass virtual scroll). A reconnect/reattach to a still-living PTY
-      // must NOT re-arm either: the terminal already has content, the tail
-      // replay + force-redraw repaint in place, and stripping the live TUI's
-      // erase codes for 30s is exactly what leaves stale glyphs on screen.
-      if (chatAttachedRef.current) {
-        console.info(
-          "[synapse-chat] reattach replay active (no hydrate, no erase suppression)",
-        );
+      if (resumeHydratedRef.current) {
+        // Same-mount reconnect: the terminal already holds the conversation,
+        // so never re-show the wait notice or re-run a repaint nudge (the
+        // socket-level pulse already fired in onopen).
+        if (!created) {
+          console.info(
+            "[synapse-chat] reattach replay active (no hydrate, no erase suppression)",
+          );
+        }
         return;
       }
-      if (!eraseSuppressionTimer) {
-        eraseSuppressionTimer = setTimeout(() => {
-          eraseSuppressionTimer = null;
-          sanitizer.endEraseSuppression();
-        }, PTY_RESUME_SANITIZE_WINDOW_MS);
-      }
+      resumeHydratedRef.current = true;
       if (!resumeMaxTimer) {
         setResumeHydrating(true);
         resumeMaxTimer = setTimeout(
@@ -1330,30 +1354,61 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           PTY_RESUME_LOADING_MAX_MS,
         );
       }
-      // Marks the window where erase codes are stripped and blank bursts
-      // collapsed — useful when diagnosing the stacked/overlapping viewport
-      // after a blur/occlusion-triggered reconnect (see pty-resume-sanitizer).
+      if (created) {
+        // Fresh spawn: the TUI is booting and virtual-scrolls the session.
+        if (!eraseSuppressionTimer) {
+          eraseSuppressionTimer = setTimeout(() => {
+            eraseSuppressionTimer = null;
+            sanitizer.endEraseSuppression();
+          }, PTY_RESUME_SANITIZE_WINDOW_MS);
+        }
+        console.info(
+          `[synapse-chat] resume replay active; erase suppression ${PTY_RESUME_SANITIZE_WINDOW_MS}ms`,
+        );
+        return;
+      }
+      // Reattach to a living PTY on a fresh mount: the terminal is empty and
+      // about to receive the tail replay; the server's \x0c clears the screen
+      // and the TUI ignores it, so nudge a full Ink repaint (off-by-one size
+      // pulse — an identical TIOCSWINSZ raises no SIGWINCH). The erase pass-
+      // through keeps live spinner/status redraws intact.
+      sendRepaintPulse();
       console.info(
-        `[synapse-chat] resume replay active; erase suppression ${PTY_RESUME_SANITIZE_WINDOW_MS}ms`,
+        "[synapse-chat] reattach replay active (wait notice, no erase suppression)",
       );
     };
-    if (resumeParam) {
-      beginResumeReplay();
-    }
+    // Force the living TUI to re-emit its whole frame: the tail replay leaves
+    // an empty xterm and a same-size TIOCSWINSZ delivers no SIGWINCH, so two
+    // genuine size changes — +1 then back — guarantee the repaint.
+    const sendRepaintPulse = () => {
+      if (term.cols > 0 && term.rows > 0) {
+        try {
+          ws.send(`\x1b[RESIZE:${term.cols + 1};${term.rows}]`);
+          ws.send(`\x1b[RESIZE:${term.cols};${term.rows}]`);
+        } catch {
+          /* socket closing */
+        }
+      }
+    };
 
     ws.onmessage = (ev) => {
       if (typeof ev.data === "string") {
-        // The active-session fallback (no `?resume=` on the URL) tells us
-        // via a one-off JSON control frame that a replay is starting (#93518,
-        // see `pty_ws` in web_server.py). Real PTY output always arrives as
-        // binary frames, so any text frame is a candidate; anything that
-        // isn't this control shape (e.g. the ANSI "Chat unavailable" banners
-        // pty_ws sends as text on failure) falls through to the write path
-        // below unchanged.
-        const resumeId = parseResumeControlMessage(ev.data);
-        if (resumeId) {
-          effectiveResume = resumeId;
-          beginResumeReplay();
+        // A one-off JSON control frame (explicit `?resume=` or the implicit
+        // active-session fallback) tells us a replay is starting before any
+        // PTY bytes arrive, and whether this connect spawned the PTY or
+        // reattached a living one (#93518; see `pty_ws` in web_server.py).
+        // Real PTY output always arrives as binary frames, so any text frame
+        // is a candidate; anything that isn't this control shape (e.g. the
+        // ANSI "Chat unavailable" banners pty_ws sends as text on failure)
+        // falls through to the write path below unchanged.
+        const resumeInfo = parseResumeControlMessage(ev.data);
+        if (resumeInfo) {
+          effectiveResume = resumeInfo.id;
+          resumeCreated = resumeInfo.created;
+          if (!resumeParam) {
+            setImplicitResumeId(resumeInfo.id);
+          }
+          beginResumeReplay(resumeInfo.created);
           return;
         }
       }
@@ -1367,12 +1422,11 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // sanitizer can turn a nonempty erase-only / all-newline / partial-CSI
       // resume frame into "" (pty-resume-sanitizer.ts); keying off raw `text`
       // would hide the wait notice while the terminal is still blank.
-      // A reattach feed bypasses the sanitizer entirely (see beginResumeReplay:
-      // suppression belongs to boot replay, not a live reattach).
+      // Erase suppression + blank-burst collapsing run ONLY for a fresh spawn
+      // (`created`: TUI boot virtual-scroll); a live reattach replay passes
+      // through untouched so the TUI's erases land as written.
       const rendered =
-        effectiveResume && !chatAttachedRef.current
-          ? sanitizer.next(text)
-          : text;
+        effectiveResume && resumeCreated ? sanitizer.next(text) : text;
       // Resume replay lands over many write chunks; pin the viewport to the
       // bottom as each chunk COMMITS (xterm write callback) instead of
       // guessing with a fixed delay, and release the pin the moment the user
@@ -1777,7 +1831,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const showReconnectOverlay =
     ptyState === "reconnecting" || (ptyState === "closed" && !banner);
   const showResumeLoadingOverlay = shouldShowResumeLoadingOverlay({
-    hasResumeTarget: Boolean(resumeParam),
+    hasResumeTarget: Boolean(resumeParam ?? implicitResumeId),
     ptyState,
     hydrating: resumeHydrating,
   });

@@ -17502,12 +17502,6 @@ async def pty_ws(ws: WebSocket) -> None:
             _forget_active_session_file(active_session_file)
         elif not resume:
             resume = _read_active_session_file(active_session_file)
-            if resume:
-                # The client only knows to pin the viewport to the bottom
-                # when it requested `?resume=`. Tell it a replay is coming
-                # anyway so the implicit active-session fallback gets the
-                # same follow-scroll treatment as an explicit resume (#93518).
-                await ws.send_json({"type": "resume", "id": resume})
 
     resolve_kwargs = {
         "resume": resume,
@@ -17574,6 +17568,14 @@ async def pty_ws(ws: WebSocket) -> None:
     # A fresh xterm cannot reliably reconstruct the TUI from an arbitrary
     # bounded tail of alternate-screen, differential ANSI output. Reused PTYs
     # emit a complete frame after replay so reconnects never reopen blank.
+    # The resumed-session notice must precede that replay so the frontend can
+    # arm its erase suppression / wait notice before the bytes land; it now
+    # covers BOTH the explicit `?resume=` and the implicit active-session
+    # fallback, and carries `created` so the frontend can tell a TUI boot
+    # (created → suppress Ink's virtual-scroll flak) from a live reattach
+    # (created=false → pass the tail through, force a repaint) (#93518).
+    if resume:
+        await ws.send_json({"type": "resume", "id": resume, "created": _created})
     await session.attach(ws, force_redraw=not _created)
 
     # --- writer loop: WebSocket → PTY master ----------------------------

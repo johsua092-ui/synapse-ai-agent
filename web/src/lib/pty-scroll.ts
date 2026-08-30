@@ -50,16 +50,25 @@ export function shouldFollowPtyOutput(
 }
 
 /**
- * When `pty_ws` falls back to the per-channel active-session file (no
- * `?resume=` on the URL), the server sends a one-off JSON text frame naming
- * the session it resolved before any PTY replay bytes arrive, since the
- * frontend has no other way to learn a replay is happening (#93518). PTY
- * output itself always arrives as binary frames, so any text frame is a
- * candidate; this returns the resume id on a match and `null` for anything
+ * When `pty_ws` resumes a session — explicitly (`?resume=`) or via the
+ * per-channel active-session fallback (no `?resume=` on the URL) — the server
+ * sends a one-off JSON text frame naming the session and whether this WS
+ * connect SPAWNED the PTY (`created: true`: the TUI is booting and will
+ * virtual-scroll the session, which needs erase suppression) or reattached a
+ * living one (`created: false`: the tail replay must pass through untouched).
+ * PTY output itself always arrives as binary frames, so any text frame is a
+ * candidate; this returns the resume info on a match and `null` for anything
  * else (including the plain ANSI error banners `pty_ws` still sends as text
  * on failure, which must keep rendering into the terminal as before).
  */
-export function parseResumeControlMessage(data: string): string | null {
+export type ResumeControlMessage = {
+	/** The session id the server resolved the replay against. */
+	id: string;
+	/** True when this connect spawned a fresh PTY (TUI boot), false on reattach. */
+	created: boolean;
+};
+
+export function parseResumeControlMessage(data: string): ResumeControlMessage | null {
 	try {
 		const parsed = JSON.parse(data);
 		if (
@@ -69,7 +78,7 @@ export function parseResumeControlMessage(data: string): string | null {
 			typeof parsed.id === "string" &&
 			parsed.id
 		) {
-			return parsed.id;
+			return { id: parsed.id, created: parsed.created === true };
 		}
 	} catch {
 		/* not JSON — an ANSI banner or other plain-text frame */
