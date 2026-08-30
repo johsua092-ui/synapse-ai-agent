@@ -32,11 +32,13 @@ import {
   Pin,
   PinOff,
   RefreshCw,
+  Trash2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useI18n } from "@/i18n";
 import { api, type SessionInfo } from "@/lib/api";
 import { cn, timeAgo } from "@/lib/utils";
@@ -67,6 +69,14 @@ function rowLabel(session: SessionInfo, untitled: string): string {
   return untitled;
 }
 
+/** Stable partition: pinned sessions first, otherwise keep API order. */
+function pinnedFirstCompare(a: SessionInfo, b: SessionInfo): number {
+  const ap = !!a.pinned;
+  const bp = !!b.pinned;
+  if (ap !== bp) return ap ? -1 : 1;
+  return 0;
+}
+
 export function ChatSessionList({
   activeSessionId,
   profile,
@@ -86,11 +96,15 @@ export function ChatSessionList({
   // Id of the row currently being renamed inline.
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  // Id + message of the last failed pin/rename action, surfaced under the row.
+  // Id + message of the last failed pin/rename/delete action, surfaced under the row.
   const [actionError, setActionError] = useState<{
     id: string;
     message: string;
   } | null>(null);
+  // Id whose Delete confirm dialog is open.
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  // True while a delete request is in flight (keeps the dialog busy).
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   // `profile` is read inside the fetch; it's part of the scope key so a
   // profile switch refetches. The empty-string fallback keeps the dep
@@ -234,6 +248,24 @@ export function ChatSessionList({
     [renameValue],
   );
 
+  const handleDelete = useCallback(async (session: SessionInfo) => {
+    setActionError(null);
+    setDeleteBusy(true);
+    try {
+      await api.deleteSession(session.id);
+      setSessions((prev) =>
+        prev?.filter((s) => s.id !== session.id) ?? prev,
+      );
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error ? e.message : "Failed to delete session";
+      setActionError({ id: session.id, message });
+    } finally {
+      setDeleteTarget(null);
+      setDeleteBusy(false);
+    }
+  }, []);
+
   const content = useMemo(() => {
     if (loading && sessions === null) {
       return (
@@ -255,7 +287,8 @@ export function ChatSessionList({
         </div>
       );
     }
-    if (!sessions || sessions.length === 0) {
+    const rows = sessions ? [...sessions].sort(pinnedFirstCompare) : sessions;
+    if (!rows || rows.length === 0) {
       return (
         <div className="px-2 py-6 text-center text-xs text-text-secondary">
           {t.sessions.noSessions}
@@ -264,7 +297,7 @@ export function ChatSessionList({
     }
     return (
       <div className="flex flex-col gap-0.5">
-        {sessions.map((s) => {
+        {rows.map((s) => {
           const isActive = s.id === activeSessionId;
           const menuOpen = openMenuId === s.id;
           if (renamingId === s.id) {
@@ -398,6 +431,18 @@ export function ChatSessionList({
                         <Pencil className="size-3.5" />
                         Rename
                       </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          setDeleteTarget(s.id);
+                        }}
+                        className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="size-3.5" />
+                        {t.sessions.deleteSession}
+                      </button>
                     </div>
                   </>
                 )}
@@ -465,6 +510,18 @@ export function ChatSessionList({
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 pb-1">
         {content}
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        loading={deleteBusy}
+        title={t.sessions.confirmDeleteTitle}
+        description={t.sessions.confirmDeleteMessage}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          const target = sessions?.find((s) => s.id === deleteTarget);
+          if (target) void handleDelete(target);
+        }}
+      />
     </aside>
   );
 }
