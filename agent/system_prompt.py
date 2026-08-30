@@ -36,6 +36,7 @@ from agent.prompt_builder import (
     EXECUTION_GUIDANCE_MODELS,
     GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
     FORCE_PUSH_REFUSAL_GUIDANCE,
+    PERMANENT_SKILL_CONTRACT_GUIDANCE,
     SYNAPSE_AGENT_HELP_GUIDANCE,
     KANBAN_GUIDANCE,
     MEMORY_GUIDANCE,
@@ -400,6 +401,12 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     # reply to match the same staged refusal voice when the user pressures the
     # agent to force push. Always applied so every model refuses consistently.
     stable_parts.append(FORCE_PUSH_REFUSAL_GUIDANCE)
+
+    # Permanent skill contract (user-authored, saran.md): order of operations
+    # for skills and the hard rule to never touch working code outside the
+    # current problem. Always applied so every model follows it in every
+    # session, without depending on a human reminding it.
+    stable_parts.append(PERMANENT_SKILL_CONTRACT_GUIDANCE)
 
     # Universal task-completion / no-fabrication guidance.  Applied to ALL
     # models regardless of tool_use_enforcement gating — the failure modes

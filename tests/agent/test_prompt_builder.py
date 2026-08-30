@@ -25,6 +25,7 @@ from agent.prompt_builder import (
     _CONTEXT_FILE_DYNAMIC_CEILING,
     DEFAULT_AGENT_IDENTITY,
     drain_truncation_warnings,
+    PERMANENT_SKILL_CONTRACT_GUIDANCE,
     TOOL_USE_ENFORCEMENT_GUIDANCE,
     TOOL_USE_ENFORCEMENT_MODELS,
     OPENAI_MODEL_EXECUTION_GUIDANCE,
@@ -71,6 +72,27 @@ class TestGuidanceConstants:
     def test_session_search_guidance_is_simple_cross_session_recall(self):
         assert "relevant cross-session context exists" in SESSION_SEARCH_GUIDANCE
         assert "recent turns of the current session" not in SESSION_SEARCH_GUIDANCE
+
+    def test_permanent_skill_contract_orders_analysis_before_skills(self):
+        text = PERMANENT_SKILL_CONTRACT_GUIDANCE
+        assert "analisis konteks masalah" in text
+        assert "JANGAN" in text
+        # Context analysis must come before the "load skills" step in the text.
+        assert text.index("analisis konteks masalah") < text.index("skill_view")
+
+    def test_permanent_skill_contract_protects_existing_code(self):
+        text = PERMANENT_SKILL_CONTRACT_GUIDANCE
+        assert "menyentuh" in text and "merusak" in text
+        assert "fokus 100%" in text
+        assert "kualitas sempurna" in text
+
+    def test_permanent_skill_contract_stays_out_of_user_affairs(self):
+        # The contract governs skill usage + code safety only; user identity /
+        # authorization territory stays untouched by design ("urusan user
+        # terlarang").
+        low = PERMANENT_SKILL_CONTRACT_GUIDANCE.casefold()
+        for banned in ("user profile", "identitas", "authorisasi", "otentikasi"):
+            assert banned not in low
 
 
 # =========================================================================

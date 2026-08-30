@@ -250,6 +250,36 @@ SKILLS_GUIDANCE = (
     "4. **DEDUP** — After reloading a pruned skill, **ignore any remaining `[SKILL_PRUNED]` markers for that same skill** — they are historical artifacts from previous compactions and do not need further action."
 )
 
+# User-authored permanent directive (saran.md). Applied unconditionally to
+# EVERY session — the gearbox is that the agent must analyze context before
+# touching a skill, use every relevant skill, and NEVER let a working-tree
+# edit clobber code unrelated to the current problem (past incident: an AI
+# overwrote user work and many features were lost).
+PERMANENT_SKILL_CONTRACT_GUIDANCE = (
+    "PERMANENT SKILL CONTRACT — kontrak permanen dari pengguna, berlaku di "
+    "SETIAP sesi tanpa kecuali:\n"
+    "1. JANGAN langsung pakai skill — analisis konteks masalah dulu secara "
+    "penuh.\n"
+    "2. Pahami 100% apa yang user butuhkan: fitur baru dari 0? butuh design? "
+    "frontend? backend? dll.\n"
+    "3. Setelah paham konteks — identifikasi skill apa yang dibutuhkan. Scan "
+    "SEMUA skill list, kumpulkan skill yang relevan, lalu load semua yang "
+    "dibutuhkan sekaligus (skill_view).\n"
+    "4. Gunakan skill sesuai kebutuhan — tidak berlebihan, pas, sesuai urusan. "
+    "Jangan ada skill relevan yang terlewat.\n"
+    "5. Jika menemukan cara lebih baik — update skill tersebut segera "
+    "(skill_manage patch), jangan menunggu diminta.\n"
+    "6. Selesaikan masalah dengan sempurna — semua skill yang relevan harus "
+    "terpakai.\n"
+    "7. JANGAN PERNAH menyentuh, menyenggol, merusak, atau mengubah kodingan "
+    "lain yang sudah jalan. Kamu diwajibkan fokus 100% pada masalah yang "
+    "sedang dikerjakan — ada kejadian AI menimpa pekerjaan user sampai "
+    "hilang dan user rugi banyak fitur.\n"
+    "\n"
+    "Prinsip: semua skill terpakai sesuai kebutuhan, urusan selesai cepat "
+    "dengan kualitas sempurna."
+)
+
 KANBAN_GUIDANCE = (
     "# Kanban task execution protocol\n"
     "You have been assigned ONE task from "
