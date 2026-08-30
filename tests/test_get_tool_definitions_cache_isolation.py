@@ -28,8 +28,10 @@ import model_tools
 def _clear_cache():
     """Each test starts with an empty quiet_mode cache."""
     model_tools._tool_defs_cache.clear()
+    getattr(model_tools, "_tool_defs_cache_times", {}).clear()
     yield
     model_tools._tool_defs_cache.clear()
+    getattr(model_tools, "_tool_defs_cache_times", {}).clear()
 
 
 class TestQuietModeCacheIsolation:
@@ -54,6 +56,35 @@ class TestQuietModeCacheIsolation:
         assert first is not second
         cached = next(iter(model_tools._tool_defs_cache.values()))
         assert second is not cached
+
+    def test_cache_recomputes_after_check_fn_ttl(self, monkeypatch):
+        """A quiet daemon must re-check tool availability after 30 seconds."""
+        now = 100.0
+        calls = 0
+
+        def compute(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            return [{"function": {"name": f"probe_{calls}"}}]
+
+        monkeypatch.setattr(model_tools, "_compute_tool_definitions", compute)
+        monkeypatch.setattr(model_tools.time, "monotonic", lambda: now)
+
+        first = model_tools.get_tool_definitions(
+            enabled_toolsets=["ttl_probe"], quiet_mode=True,
+        )
+        now += 29.0
+        cached = model_tools.get_tool_definitions(
+            enabled_toolsets=["ttl_probe"], quiet_mode=True,
+        )
+        now += 2.0
+        refreshed = model_tools.get_tool_definitions(
+            enabled_toolsets=["ttl_probe"], quiet_mode=True,
+        )
+
+        assert first == cached
+        assert refreshed != cached
+        assert calls == 2
 
 
 

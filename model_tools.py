@@ -318,9 +318,10 @@ _LEGACY_TOOLSET_MAP = {
 #
 # Invalidation happens transparently via the registry's _generation counter,
 # which bumps on register() / deregister() / register_toolset_alias(). The
-# inner check_fn TTL cache in registry.py handles environment drift (Docker
-# daemon start/stop, env var changes, etc.) on a 30 s horizon.
+# The outer entry TTL matches registry.py's check_fn TTL so environment drift
+# (Docker daemon start/stop, env var changes, etc.) is actually re-probed.
 _tool_defs_cache: Dict[tuple, List[Dict[str, Any]]] = {}
+_tool_defs_cache_times: Dict[tuple, float] = {}
 _tool_defs_cache_lock = threading.Lock()
 
 # Hard cap on memoized get_tool_definitions() results. A long-lived Gateway
@@ -330,6 +331,7 @@ _tool_defs_cache_lock = threading.Lock()
 # set (the handful of distinct platform/toolset combos a gateway actually
 # serves) while keeping the cap small. (#19251)
 _TOOL_DEFS_CACHE_MAX = 8
+_TOOL_DEFS_CACHE_TTL_SECONDS = 30.0
 
 
 def _clear_tool_defs_cache() -> None:
@@ -338,6 +340,7 @@ def _clear_tool_defs_cache() -> None:
     execute_code sandbox reconfigured)."""
     with _tool_defs_cache_lock:
         _tool_defs_cache.clear()
+        _tool_defs_cache_times.clear()
 
 
 def get_tool_definitions(
@@ -402,6 +405,14 @@ def get_tool_definitions(
             )
         with _tool_defs_cache_lock:
             cached = _tool_defs_cache.get(cache_key) if cache_key is not None else None
+            cached_at = _tool_defs_cache_times.get(cache_key) if cache_key is not None else None
+            if cached is not None and (
+                cached_at is None
+                or time.monotonic() - cached_at >= _TOOL_DEFS_CACHE_TTL_SECONDS
+            ):
+                _tool_defs_cache.pop(cache_key, None)
+                _tool_defs_cache_times.pop(cache_key, None)
+                cached = None
         if cached is not None:
             # Update _last_resolved_tool_names so downstream callers see
             # consistent state even on a cache hit.
@@ -430,8 +441,11 @@ def get_tool_definitions(
             cached = _tool_defs_cache.get(cache_key)
             if cached is None:
                 if len(_tool_defs_cache) >= _TOOL_DEFS_CACHE_MAX:
-                    _tool_defs_cache.pop(next(iter(_tool_defs_cache)))
+                    evicted = next(iter(_tool_defs_cache))
+                    _tool_defs_cache.pop(evicted)
+                    _tool_defs_cache_times.pop(evicted, None)
                 _tool_defs_cache[cache_key] = result
+                _tool_defs_cache_times[cache_key] = time.monotonic()
                 cached = result
         return list(cached)
     if quiet_mode:
