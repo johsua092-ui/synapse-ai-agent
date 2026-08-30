@@ -212,3 +212,31 @@ class TestServeIndexStaleMarker:
         resp = self._client(tmp_path, monkeypatch).get("/chat")
         assert resp.status_code == 200
         assert "window.__SYNAPSE_STALE_BUILD__" not in resp.text
+
+
+class TestSuccessClearsStaleMarker:
+    """M6: a successful rebuild in the same process must stop injecting the
+    stale marker, so a UI repaired after a stale fallback is no longer
+    marketed as stale."""
+
+    def test_successful_rebuild_clears_stale_marker(self, tmp_path, monkeypatch):
+        import subprocess
+
+        from synapse_cli.main import _build_web_ui
+
+        web_dir, dist_dir = _make_web_dir(tmp_path)
+        monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path / "_home"))
+        monkeypatch.setenv("SYNAPSE_STALE_BUILD", "1")
+        monkeypatch.delenv("TERMUX_VERSION", raising=False)
+        monkeypatch.setenv("PREFIX", "/usr")
+
+        install_ok = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        build_ok = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        with patch("synapse_cli.main.shutil.which", return_value="/usr/bin/npm"), \
+             patch("synapse_cli.main._time.sleep"), \
+             patch("synapse_cli.main.subprocess.run", return_value=install_ok), \
+             patch("synapse_cli.main._run_with_idle_timeout", return_value=build_ok):
+            result = _build_web_ui(web_dir)
+
+        assert result is True
+        assert "SYNAPSE_STALE_BUILD" not in os.environ

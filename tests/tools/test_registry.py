@@ -402,6 +402,7 @@ class TestBuiltinDiscovery:
             return real_import(name, **kwargs)
 
         monkeypatch.setattr(registry_mod, "_failed_discovery_modules", set())
+        monkeypatch.setattr(registry_mod, "_last_failed_retry_attempt", {})
         monkeypatch.setattr("tools.registry.importlib.import_module", flaky_import)
 
         try:
@@ -448,6 +449,7 @@ class TestBuiltinDiscovery:
         # Seed the failed set directly (simulating a cold-start import failure)
         # and patch the per-module importer to succeed on this retry pass.
         monkeypatch.setattr(registry_mod, "_failed_discovery_modules", {fake_mod})
+        monkeypatch.setattr(registry_mod, "_last_failed_retry_attempt", {})
         monkeypatch.setattr("tools.registry.importlib.import_module", recover_import)
 
         from model_tools import get_tool_definitions
@@ -458,6 +460,48 @@ class TestBuiltinDiscovery:
             assert fake_mod not in registry_mod._failed_discovery_modules
         finally:
             registry_mod.registry.deregister("DummyTool")
+            sys.modules.pop(fake_mod, None)
+
+    def test_failed_module_retry_throttled_after_failed_pass(self, monkeypatch):
+        """I2: a module that fails a retry and never recovers must NOT be
+        re-imported on every get_tool_definitions call (including cache hits).
+        The per-module retry is throttled so the gate only re-attempts it after
+        the interval elapses, keeping import attempts bounded."""
+        import sys
+        import importlib
+
+        from tools import registry as registry_mod
+
+        fake_mod = "tools.__fake_throttle_probe__"
+        sys.modules.pop(fake_mod, None)
+        registry_mod.registry.deregister("DummyTool")
+
+        real_import = importlib.import_module
+        attempts = {"n": 0, "fail_mod": fake_mod}
+
+        def always_fail_import(name, **kwargs):
+            if name == attempts["fail_mod"]:
+                attempts["n"] += 1
+                raise ImportError("persistent")
+            return real_import(name, **kwargs)
+
+        monkeypatch.setattr(registry_mod, "_failed_discovery_modules", {fake_mod})
+        monkeypatch.setattr(registry_mod, "_last_failed_retry_attempt", {})
+        monkeypatch.setattr("tools.registry.importlib.import_module", always_fail_import)
+
+        from model_tools import get_tool_definitions
+
+        try:
+            get_tool_definitions(quiet_mode=True)
+            get_tool_definitions(quiet_mode=True)
+            get_tool_definitions(quiet_mode=True)
+            # Only the first definitions call re-attempts import; the two
+            # subsequent calls within the throttle window must skip it.
+            assert attempts["n"] == 1
+            assert fake_mod in registry_mod._failed_discovery_modules
+        finally:
+            registry_mod.registry.deregister("DummyTool")
+            registry_mod._failed_discovery_modules.discard(fake_mod)
             sys.modules.pop(fake_mod, None)
 
 

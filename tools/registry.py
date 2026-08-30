@@ -35,6 +35,15 @@ logger = logging.getLogger(__name__)
 # path.
 _failed_discovery_modules: Set[str] = set()
 
+# Per-module monotonic-clock timestamp of the last retry attempt (seconds).
+# Throttles the retry pass so a module that fails cold-start and never
+# recovers is not re-imported (and re-logged at error level) on every
+# get_tool_definitions call — including cache hits — in a long-lived gateway.
+_last_failed_retry_attempt: Dict[str, float] = {}
+
+# Min seconds between consecutive retry attempts for a given failed module.
+_FAILED_DISCOVERY_RETRY_INTERVAL_SECONDS = 60.0
+
 # Cap on a tool error body; only trims runaway interpolated exceptions (static msgs are ~115 chars).
 _MAX_TOOL_ERROR_CHARS = 2048
 _TOOL_ERROR_TRUNCATION_MARKER = "… [truncated]"
@@ -136,8 +145,13 @@ def discover_builtin_tools(
     if not retry_failed:
         return _discover_and_import(tools_dir)
 
+    now = time.monotonic()
     imported: List[str] = []
     for mod_name in sorted(_failed_discovery_modules):
+        last = _last_failed_retry_attempt.get(mod_name, 0.0)
+        if now - last < _FAILED_DISCOVERY_RETRY_INTERVAL_SECONDS:
+            continue
+        _last_failed_retry_attempt[mod_name] = now
         try:
             importlib.import_module(mod_name)
         except Exception as e:
@@ -147,6 +161,7 @@ def discover_builtin_tools(
             continue
         imported.append(mod_name)
         _failed_discovery_modules.discard(mod_name)
+        _last_failed_retry_attempt.pop(mod_name, None)
     return imported
 
 

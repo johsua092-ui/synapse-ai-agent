@@ -359,6 +359,46 @@ class TestBuildWebUIFlock:
         assert ".web_ui_build.lock" in gitignore.read_text(encoding="utf-8")
 
 
+    def test_fatal_contended_lock_with_incomplete_dist_returns_false(self, tmp_path):
+        """M4: a fatal start that loses the build lock must not serve a
+        half-written dist — return False so the caller's sys.exit(1) fires."""
+        import fcntl
+        from synapse_cli.main import _build_web_ui as build
+
+        web_dir, dist_dir = _make_web_dir(tmp_path)
+        _touch(dist_dir / "index.html")
+        (dist_dir / "index.html").write_text("<html>half</html>", encoding="utf-8")
+        lock_path = tmp_path / ".web_ui_build.lock"
+        holder = open(lock_path, "a")
+        fcntl.flock(holder.fileno(), fcntl.LOCK_EX)
+        try:
+            result = build(web_dir, fatal=True)
+        finally:
+            holder.close()
+
+        assert result is False
+
+
+    def test_fatal_contended_lock_with_complete_dist_returns_true(self, tmp_path):
+        """M4: a fatal start that loses the build lock may serve a complete
+        previous build (manifest present), returning True."""
+        import fcntl
+        from synapse_cli.main import _build_web_ui as build
+
+        web_dir, dist_dir = _make_web_dir(tmp_path)
+        _touch(dist_dir / ".vite" / "manifest.json")
+        (dist_dir / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+        lock_path = tmp_path / ".web_ui_build.lock"
+        holder = open(lock_path, "a")
+        fcntl.flock(holder.fileno(), fcntl.LOCK_EX)
+        try:
+            result = build(web_dir, fatal=True)
+        finally:
+            holder.close()
+
+        assert result is True
+
+
 def _link_shims(bin_dir: Path, *names: str) -> None:
     bin_dir.mkdir(parents=True, exist_ok=True)
     for name in names:

@@ -1607,6 +1607,8 @@ def _schema_with_dynamic_provider_options() -> Dict[str, Dict[str, Any]]:
 
     merge("memory.provider", _memory_provider_schema_options(cfg))
 
+    merge("terminal.backend", _terminal_backend_options(cfg))
+
     if not overlay:
         return CONFIG_SCHEMA
 
@@ -8036,9 +8038,12 @@ def _validate_terminal_section(
     if not incoming_backend or incoming_backend == existing_backend:
         return
     try:
-        validate_terminal_backend(incoming_backend, platform=sys.platform)
+        backend = validate_terminal_backend(incoming_backend, platform=sys.platform)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    config_terminal = config.get("terminal") if isinstance(config, dict) else None
+    if isinstance(config_terminal, dict):
+        config_terminal["backend"] = backend
 
 
 def _is_other_profile(profile: Optional[str]) -> bool:
@@ -15480,12 +15485,12 @@ def validate_terminal_backend(value: str, *, platform: str) -> str:
     if normalized not in _TERMINAL_BACKEND_NAMES:
         allowed = ", ".join(sorted(_TERMINAL_BACKEND_NAMES))
         raise ValueError(f"terminal.backend must be one of: {allowed}")
-    if normalized == "singularity" and platform.startswith("win"):
+    if normalized == "singularity" and not platform.startswith("linux"):
         raise ValueError("terminal.backend 'singularity' is only supported on Linux")
     return normalized
 
 
-def _terminal_backend_options() -> List[str]:
+def _terminal_backend_options(cfg: Optional[Dict[str, Any]] = None) -> List[str]:
     """Flat-settings select options for terminal.backend.
 
     Built from the picker whitelist so the flat form and the picker can never
@@ -15493,8 +15498,16 @@ def _terminal_backend_options() -> List[str]:
     the setup gate.
     """
     options = sorted(_TERMINAL_BACKEND_NAMES)
-    if sys.platform.startswith("win"):
+    if not sys.platform.startswith("linux"):
         options = [name for name in options if name != "singularity"]
+
+    if cfg is not None:
+        terminal = cfg.get("terminal")
+        configured = terminal.get("backend") if isinstance(terminal, dict) else None
+        current = str(configured).strip().lower() if configured is not None else ""
+        if current and current not in options:
+            options = [*options, current]
+
     return options
 
 

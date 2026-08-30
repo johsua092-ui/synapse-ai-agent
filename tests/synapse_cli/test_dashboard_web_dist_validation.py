@@ -119,6 +119,8 @@ def test_skip_build_missing_dist_attempts_one_recovery_build(
 
     def fake_build(web_dir, *, fatal=False):
         builds.append((web_dir, fatal))
+        (dist / ".vite").mkdir(parents=True, exist_ok=True)
+        (dist / ".vite" / "manifest.json").write_text("{}", encoding="utf-8")
         (dist / "index.html").write_text("<html></html>", encoding="utf-8")
         return True
 
@@ -131,6 +133,46 @@ def test_skip_build_missing_dist_attempts_one_recovery_build(
     assert len(started) == 1
     out = capsys.readouterr().out
     assert "recovery build" in out.lower()
+
+
+def test_skip_build_half_build_dist_is_not_trusted(main_mod, monkeypatch, tmp_path, capsys):
+    """M5: under --skip-build a half-written dist (index.html but no
+    assets/manifest) must not be trusted as a previous good build, even after
+    a recovery build that only reconstructs index.html — the server must not
+    start serving a broken UI."""
+    _wire_common(main_mod, monkeypatch)
+    monkeypatch.delenv("SYNAPSE_WEB_DIST", raising=False)
+    project_root = tmp_path / "proj2"
+    dist = project_root / "synapse_cli" / "web_dist"
+    dist.mkdir(parents=True)
+    (dist / "index.html").write_text("<html>half</html>", encoding="utf-8")
+    monkeypatch.setattr(main_mod, "PROJECT_ROOT", project_root)
+
+    started = []
+    monkeypatch.setitem(
+        sys.modules,
+        "synapse_cli.web_server",
+        types.SimpleNamespace(start_server=lambda **k: started.append(k)),
+    )
+
+    builds = []
+
+    def fake_build(web_dir, *, fatal=False):
+        builds.append((web_dir, fatal))
+        (dist / "index.html").write_text("<html>still half</html>", encoding="utf-8")
+        return True
+
+    monkeypatch.setattr(main_mod, "_build_web_ui", fake_build)
+
+    with pytest.raises(SystemExit) as exc:
+        main_mod.cmd_dashboard(_args(skip_build=True))
+
+    assert exc.value.code == 1
+    assert started == []  # half-build must not be served
+    assert len(builds) == 1  # recovery was attempted once
+    out = capsys.readouterr().out
+    assert "recovery build" in out.lower()
+    assert "not produce a usable dist" in out
 
 
 

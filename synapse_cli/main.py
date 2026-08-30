@@ -6343,8 +6343,13 @@ def _build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
         except OSError:
             if dist_index.exists():
                 # Another process is already building — serve the current
-                # dist instead of piling a second build onto the same tree.
-                return True
+                # dist instead of piling a second build onto the same tree,
+                # but only if it is complete enough to trust; a fatal start
+                # must not serve a half-written dist just because index exists.
+                stale_usable = _build_stale_dist_usable(str(dist_index.parent))
+                if not stale_usable and fatal:
+                    return False
+                return not fatal or stale_usable
             # No dist at all (first-ever build): wait for the builder.
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         return _do_build_web_ui(web_dir, fatal=fatal)
@@ -6552,6 +6557,7 @@ def _do_build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
             _say("  Run manually:  npm install --workspace web && npm run build -w web")
         return False
     _say("  ✓ Web UI built")
+    os.environ.pop("SYNAPSE_STALE_BUILD", None)
     project_root = web_dir.parent.parent if web_dir.parent.name == "apps" else web_dir.parent
     _write_web_ui_build_stamp(project_root, web_dir)
     return True
@@ -11791,7 +11797,7 @@ def cmd_dashboard(args):
             if "SYNAPSE_WEB_DIST" in os.environ
             else PROJECT_ROOT / "synapse_cli" / "web_dist"
         )
-        if not (_dist_root / "index.html").exists():
+        if not _build_stale_dist_usable(str(_dist_root)):
             # The caller promised a pre-built dist but there isn't one.
             # Instead of hard-failing (issue #59288 — desktop launches with
             # --build-mode skip after a wipe of web_dist), warn and attempt
@@ -11803,7 +11809,7 @@ def cmd_dashboard(args):
                 print(f"⚠ --skip-build was passed but no web dist found at: {_dist_root}")
                 print("  Attempting one recovery build of the web UI...")
                 _build_web_ui(PROJECT_ROOT / "web", fatal=True)
-            if not (_dist_root / "index.html").exists():
+            if not _build_stale_dist_usable(str(_dist_root)):
                 print(f"✗ --skip-build was passed but no web dist found at: {_dist_root}")
                 if _recoverable:
                     print("  The recovery build did not produce a usable dist.")
