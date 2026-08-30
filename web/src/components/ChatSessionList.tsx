@@ -184,12 +184,12 @@ export function ChatSessionList({
               : s,
           ) ?? prev,
         );
-      } catch (e: Error) {
-        setActionError({
-          id: session.id,
-          message:
-            e.message || (pinned ? "Pin failed" : "Unpin failed"),
-        });
+      } catch (e: unknown) {
+        const message =
+          e instanceof Error
+            ? e.message
+            : (pinned ? "Pin failed" : "Unpin failed");
+        setActionError({ id: session.id, message });
       }
     },
     [],
@@ -223,11 +223,10 @@ export function ChatSessionList({
               : s,
           ) ?? prev,
         );
-      } catch (e: Error) {
-        setActionError({
-          id: session.id,
-          message: e.message || "Rename failed",
-        });
+      } catch (e: unknown) {
+        const message =
+          e instanceof Error ? e.message : "Rename failed";
+        setActionError({ id: session.id, message });
       } finally {
         setRenamingId(null);
       }

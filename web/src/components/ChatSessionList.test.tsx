@@ -4,6 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { SessionInfo } from "@/lib/api";
+
 function keydown(el: HTMLElement, key: string) {
   el.dispatchEvent(
     new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
@@ -11,7 +13,9 @@ function keydown(el: HTMLElement, key: string) {
 }
 
 const apiMocks = vi.hoisted(() => ({
-  getSessions: vi.fn(async () => ({ sessions: [] })),
+  getSessions: vi.fn(
+    async (): Promise<{ sessions: SessionInfo[] }> => ({ sessions: [] }),
+  ),
   renameSession: vi.fn(async (_id: string, title: string) => ({
     ok: true,
     title,
@@ -58,7 +62,7 @@ vi.mock("@nous-research/ui/ui/components/spinner", () => ({
   Spinner: () => <span>spinner</span>,
 }));
 
-const SESSIONS = [
+const SESSIONS: SessionInfo[] = [
   {
     id: "s1",
     title: "Alpha",
@@ -66,6 +70,13 @@ const SESSIONS = [
     last_active: 100,
     message_count: 3,
     source: "cli",
+    model: null,
+    started_at: 90,
+    ended_at: null,
+    is_active: false,
+    tool_call_count: 2,
+    input_tokens: 10,
+    output_tokens: 20,
   },
   {
     id: "s2",
@@ -74,9 +85,16 @@ const SESSIONS = [
     last_active: 200,
     message_count: 0,
     source: "cli",
+    model: null,
+    started_at: 180,
+    ended_at: null,
+    is_active: false,
+    tool_call_count: 0,
+    input_tokens: 0,
+    output_tokens: 0,
     pinned: true,
   },
-] as const;
+];
 
 let container: HTMLDivElement;
 let root: Root;
@@ -92,8 +110,14 @@ async function render(ui: ReactNode) {
 
 function manageButtons() {
   return Array.from(
-    container.querySelectorAll('button[title="Conversation actions"]'),
+    container.querySelectorAll<HTMLButtonElement>(
+      'button[title="Conversation actions"]',
+    ),
   );
+}
+
+function menuButtons() {
+  return Array.from(container.querySelectorAll<HTMLButtonElement>("button"));
 }
 
 function input() {
@@ -146,7 +170,7 @@ describe("ChatSessionList manage menu", () => {
       manageButtons()[0].click();
     });
     await act(async () => {
-      Array.from(container.querySelectorAll("button")).find((b) =>
+      menuButtons().find((b) =>
         b.textContent?.includes("Pin chat"),
       )!.click();
     });
@@ -166,7 +190,7 @@ describe("ChatSessionList manage menu", () => {
     expect(container.textContent).toContain("Unpin chat");
 
     await act(async () => {
-      Array.from(container.querySelectorAll("button")).find((b) =>
+      menuButtons().find((b) =>
         b.textContent?.includes("Unpin chat"),
       )!.click();
     });
@@ -182,7 +206,7 @@ describe("ChatSessionList manage menu", () => {
       manageButtons()[0].click();
     });
     await act(async () => {
-      Array.from(container.querySelectorAll("button")).find((b) =>
+      menuButtons().find((b) =>
         b.textContent?.includes("Rename"),
       )!.click();
     });
@@ -211,7 +235,7 @@ describe("ChatSessionList manage menu", () => {
       manageButtons()[0].click();
     });
     await act(async () => {
-      Array.from(container.querySelectorAll("button")).find((b) =>
+      menuButtons().find((b) =>
         b.textContent?.includes("Rename"),
       )!.click();
     });
