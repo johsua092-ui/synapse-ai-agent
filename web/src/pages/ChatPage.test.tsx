@@ -96,6 +96,10 @@ class FakeTerminal {
 const maybeReloadForLoopbackWsAuthFailure = vi.fn(() => false);
 const apiMocks = vi.hoisted(() => ({
   buildWsUrl: vi.fn(async () => "ws://localhost/api/pty?channel=chat-1"),
+  getSessionDetail: vi.fn(async () => ({
+    title: "Fix session bug",
+  })),
+  getSessionLatestDescendant: vi.fn(async () => ({ session_id: "" })),
 }));
 
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: FakeFitAddon }));
@@ -197,6 +201,10 @@ const localStorageMock = (() => {
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
+// This box (Termux/proot) is slow under load; 5s default timeouts trip and
+// cascade into unrelated failures. Keep the suite immune.
+vi.setConfig({ testTimeout: 20_000 });
+
 async function render(ui: ReactNode) {
   container = document.createElement("div");
   document.body.append(container);
@@ -281,7 +289,10 @@ describe("ChatPage", () => {
       </MemoryRouter>,
     );
 
-    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(1),
+      { timeout: 15_000 },
+    );
 
     FakeWebSocket.instances[0].onclose?.({
       code: 4401,
@@ -354,8 +365,9 @@ describe("ChatPage", () => {
       </MemoryRouter>,
     );
 
-    await vi.waitFor(() =>
-      expect(FakeWebglAddon.instances).toHaveLength(1),
+    await vi.waitFor(
+      () => expect(FakeWebglAddon.instances).toHaveLength(1),
+      { timeout: 15_000 },
     );
 
     const webgl = FakeWebglAddon.instances[0];
@@ -389,7 +401,10 @@ describe("ChatPage side panel collapse", () => {
   it("collapses the desktop side panel and persists the choice", async () => {
     localStorage.clear();
     await renderChat();
-    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(1),
+      { timeout: 15_000 },
+    );
 
     const collapseButton = container.querySelector(
       '[aria-label="Collapse chat side panel"]',
@@ -424,6 +439,68 @@ describe("ChatPage side panel collapse", () => {
   });
 });
 
+// A blur/occlusion-triggered socket drop (window minimize, screenshot) makes
+// the client RECONNECT. The PTY keeps living server-side, so that reconnect is
+// a REATTACH: the terminal already has content and live output, and must not
+// re-enter the resume-boot "Please wait while the conversation loads…" state
+// (nor re-arm erase suppression). Regression for Blc's "minimize window → chat
+// says please wait" report.
+describe("ChatPage resume vs reattach", () => {
+  async function renderChat(entry: string) {
+    const { default: ChatPage } = await import("./ChatPage");
+    await render(
+      <MemoryRouter initialEntries={[entry]}>
+        <ChatPage isActive />
+      </MemoryRouter>,
+    );
+  }
+
+  it("waits on a fresh resume, but not on a reattach after a drop", async () => {
+    await renderChat("/chat?resume=session-1");
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(1),
+      { timeout: 7000 },
+    );
+    const ws = FakeWebSocket.instances[0];
+
+    // Fresh page load with ?resume=: the wait notice is up until the first
+    // real chunk lands.
+    await act(async () => {
+      ws.onopen?.();
+    });
+    expect(container.textContent).toContain(
+      "Please wait while the conversation loads",
+    );
+
+    await act(async () => {
+      ws.onmessage?.({
+        data: new TextEncoder().encode("ready\n").buffer,
+      });
+    });
+    expect(container.textContent).not.toContain(
+      "Please wait while the conversation loads",
+    );
+
+    // The window gets occluded/minimized → the socket drops (1006) → the
+    // connect backoff mints a fresh socket that reattaches the same PTY.
+    await act(async () => {
+      ws.onclose?.({ code: 1006, reason: "", wasClean: false });
+    });
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(2),
+      { timeout: 7000 },
+    );
+    const reattached = FakeWebSocket.instances[1];
+    await act(async () => {
+      reattached.onopen?.();
+    });
+
+    // Reattach: the terminal already holds the conversation — no wait wall.
+    expect(container.textContent).not.toContain(
+      "Please wait while the conversation loads",
+    );
+  });
+});
 // The gated-mode ticket request runs before any socket exists, so a rejection
 // or a hang emits no `close` event and never arms PTY_CONNECTING_TIMEOUT_MS
 // (that timer is set after `new WebSocket`). Without its own deadline the tab
@@ -501,7 +578,10 @@ describe("ChatPage PTY ticket connect deadline", () => {
   it("leaves a settled ticket's socket to the CONNECTING timer", async () => {
     await renderChat();
     await advance(0);
-    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    await vi.waitFor(
+      () => expect(FakeWebSocket.instances).toHaveLength(1),
+      { timeout: 15_000 },
+    );
 
     // NS-591 regression: once the socket exists the ticket deadline is
     // disarmed, so PTY_CONNECTING_TIMEOUT_MS stays the only thing that may

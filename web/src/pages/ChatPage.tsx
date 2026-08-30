@@ -180,6 +180,13 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  // Set once a PTY socket has actually opened in this page lifetime. A later
+  // connect (after a drop / tab occlusion / window minimize) is a REATTACH to
+  // a still-living PTY: the terminal already has content and live output, so
+  // it must not re-enter the "Please wait while the conversation loads…"
+  // hydrate state or re-arm the resume replay's erase suppression. Only the
+  // first connect of a fresh page load is a true resume-boot.
+  const chatAttachedRef = useRef(false);
   const stickToBottomRef = useRef(true);
   // Exposed to the main metrics-sync effect so it can refit the terminal
   // the moment `isActive` flips back to true (display:none → display:flex
@@ -1125,13 +1132,16 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         finishResumeHydration();
       }
     };
-    if (resumeParam) {
+    if (resumeParam && !chatAttachedRef.current) {
       setResumeHydrating(true);
       resumeMaxTimer = setTimeout(
         finishResumeHydration,
         PTY_RESUME_LOADING_MAX_MS,
       );
     } else {
+      // Reattach path (and no-resume path): the terminal either already has
+      // the conversation on screen or has nothing to wait for, so never pop
+      // the "Please wait while the conversation loads…" notice here.
       setResumeHydrating(false);
     }
     const forceFresh = forceFreshPtyRef.current;
@@ -1243,6 +1253,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       }, PTY_CONNECTING_TIMEOUT_MS);
 
     ws.onopen = () => {
+      chatAttachedRef.current = true;
       clearReconnectTimer();
       clearConnectingTimer();
       connectInFlightRef.current = false;
@@ -1294,6 +1305,18 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const sanitizer = new PtyResumeSanitizer();
     const beginResumeReplay = () => {
       stickToBottomRef.current = true;
+      // Erase suppression + the "please wait" notice belong to a genuine
+      // resume-boot (fresh page loading a session's scrollback through Ink's
+      // two-pass virtual scroll). A reconnect/reattach to a still-living PTY
+      // must NOT re-arm either: the terminal already has content, the tail
+      // replay + force-redraw repaint in place, and stripping the live TUI's
+      // erase codes for 30s is exactly what leaves stale glyphs on screen.
+      if (chatAttachedRef.current) {
+        console.info(
+          "[synapse-chat] reattach replay active (no hydrate, no erase suppression)",
+        );
+        return;
+      }
       if (!eraseSuppressionTimer) {
         eraseSuppressionTimer = setTimeout(() => {
           eraseSuppressionTimer = null;
@@ -1344,7 +1367,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // sanitizer can turn a nonempty erase-only / all-newline / partial-CSI
       // resume frame into "" (pty-resume-sanitizer.ts); keying off raw `text`
       // would hide the wait notice while the terminal is still blank.
-      const rendered = effectiveResume ? sanitizer.next(text) : text;
+      // A reattach feed bypasses the sanitizer entirely (see beginResumeReplay:
+      // suppression belongs to boot replay, not a live reattach).
+      const rendered =
+        effectiveResume && !chatAttachedRef.current
+          ? sanitizer.next(text)
+          : text;
       // Resume replay lands over many write chunks; pin the viewport to the
       // bottom as each chunk COMMITS (xterm write callback) instead of
       // guessing with a fixed delay, and release the pin the moment the user
