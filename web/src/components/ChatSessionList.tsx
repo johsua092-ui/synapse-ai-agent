@@ -12,16 +12,28 @@
  * Best-effort, like ChatSidebar: a failed fetch surfaces a small inline
  * error with a retry affordance and the terminal pane keeps working.
  *
- * This is a navigation surface, NOT a session-management one — delete,
- * rename, export, and bulk actions live on the Sessions page. Keeping this
- * panel read-only (plus select / new) avoids duplicating that machinery and
- * keeps the chat context focused on switching conversations quickly.
+ * This stays a light navigation surface: delete, export, and bulk actions
+ * live on the Sessions page. Pin/unpin and rename are offered here too
+ * (they re-resolve on the Sessions page and cost no refetch) so the chat
+ * context supports them without leaving the page. Everything stays
+ * best-effort: failed mutations surface a small inline message; the
+ * terminal pane is never affected.
  */
 
 import { Button } from "@nous-research/ui/ui/components/button";
 import { ListItem } from "@nous-research/ui/ui/components/list-item";
 import { Spinner } from "@nous-research/ui/ui/components/spinner";
-import { AlertCircle, MessageSquarePlus, RefreshCw } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  MessageSquarePlus,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 
@@ -69,6 +81,16 @@ export function ChatSessionList({
   const [error, setError] = useState<string | null>(null);
   // Bumped to force a refetch (after switching, on Refresh, on mount).
   const [reloadNonce, setReloadNonce] = useState(0);
+  // Id of the row whose manage menu is open (single menu at a time).
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  // Id of the row currently being renamed inline.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  // Id + message of the last failed pin/rename action, surfaced under the row.
+  const [actionError, setActionError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
 
   // `profile` is read inside the fetch; it's part of the scope key so a
   // profile switch refetches. The empty-string fallback keeps the dep
@@ -149,6 +171,70 @@ export function ChatSessionList({
     );
   }, [onNewChat, onPicked, setSearchParams]);
 
+  const togglePin = useCallback(
+    async (session: SessionInfo, pinned: boolean) => {
+      setOpenMenuId(null);
+      setActionError(null);
+      try {
+        const res = await api.setSessionPinned(session.id, pinned);
+        setSessions((prev) =>
+          prev?.map((s) =>
+            s.id === session.id
+              ? { ...s, pinned: res.pinned ?? pinned }
+              : s,
+          ) ?? prev,
+        );
+      } catch (e: Error) {
+        setActionError({
+          id: session.id,
+          message:
+            e.message || (pinned ? "Pin failed" : "Unpin failed"),
+        });
+      }
+    },
+    [],
+  );
+
+  const startRename = useCallback(
+    (session: SessionInfo) => {
+      setOpenMenuId(null);
+      setActionError(null);
+      setRenameValue(session.title?.trim() || session.preview?.trim() || "");
+      setRenamingId(session.id);
+    },
+    [],
+  );
+
+  const commitRename = useCallback(
+    async (session: SessionInfo) => {
+      setActionError(null);
+      const value = renameValue.trim();
+      const existing = session.title?.trim() || "";
+      if (!value || value === existing) {
+        setRenamingId(null);
+        return;
+      }
+      try {
+        const res = await api.renameSession(session.id, value);
+        setSessions((prev) =>
+          prev?.map((s) =>
+            s.id === session.id
+              ? { ...s, title: res.title ?? value }
+              : s,
+          ) ?? prev,
+        );
+      } catch (e: Error) {
+        setActionError({
+          id: session.id,
+          message: e.message || "Rename failed",
+        });
+      } finally {
+        setRenamingId(null);
+      }
+    },
+    [renameValue],
+  );
+
   const content = useMemo(() => {
     if (loading && sessions === null) {
       return (
@@ -181,43 +267,168 @@ export function ChatSessionList({
       <div className="flex flex-col gap-0.5">
         {sessions.map((s) => {
           const isActive = s.id === activeSessionId;
+          const menuOpen = openMenuId === s.id;
+          if (renamingId === s.id) {
+            return (
+              <div
+                key={s.id}
+                className="flex items-center gap-1 rounded px-2 py-1.5"
+              >
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void commitRename(s);
+                    } else if (e.key === "Escape") {
+                      setRenamingId(null);
+                    }
+                  }}
+                  aria-label="Rename chat"
+                  placeholder={t.sessions.untitledSession}
+                  className="min-w-0 flex-1 rounded border border-midground/15 bg-transparent px-1.5 py-0.5 text-sm text-foreground outline-none focus:border-primary"
+                />
+                <Button
+                  ghost
+                  size="icon"
+                  aria-label="Save rename"
+                  title="Save"
+                  onClick={() => void commitRename(s)}
+                  className="shrink-0 text-text-secondary hover:text-foreground"
+                >
+                  <Check className="size-4" />
+                </Button>
+                <Button
+                  ghost
+                  size="icon"
+                  aria-label="Cancel rename"
+                  title="Cancel"
+                  onClick={() => setRenamingId(null)}
+                  className="shrink-0 text-text-secondary hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            );
+          }
           return (
-            <ListItem
-              key={s.id}
-              onClick={() => pick(s.id)}
-              aria-current={isActive ? "true" : undefined}
-              className={cn(
-                "flex-col items-start gap-0.5 rounded px-2 py-1.5",
-                "normal-case tracking-normal",
-                isActive
-                  ? "bg-primary/10 text-foreground border-l-2 border-primary"
-                  : "text-text-secondary hover:bg-midground/5 hover:text-foreground",
+            <div key={s.id} className="relative">
+              <div className="flex items-stretch gap-0.5">
+                <ListItem
+                  onClick={() => pick(s.id)}
+                  aria-current={isActive ? "true" : undefined}
+                  className={cn(
+                    "min-w-0 flex-1 flex-col items-start gap-0.5 rounded px-2 py-1.5",
+                    "normal-case tracking-normal",
+                    isActive
+                      ? "bg-primary/10 text-foreground border-l-2 border-primary"
+                      : "text-text-secondary hover:bg-midground/5 hover:text-foreground",
+                  )}
+                >
+                  <span className="w-full truncate text-sm font-medium">
+                    {rowLabel(s, t.sessions.untitledSession)}
+                  </span>
+                  <span className="flex w-full items-center gap-1.5 text-[0.6875rem] text-text-tertiary">
+                    {s.pinned && (
+                      <>
+                        <Pin
+                          aria-label="Pinned"
+                          className="size-3 shrink-0"
+                        />
+                      </>
+                    )}
+                    <span>{timeAgo(s.last_active)}</span>
+                    {s.message_count > 0 && (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span>{s.message_count} msgs</span>
+                      </>
+                    )}
+                    {s.source && s.source !== "cli" && (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span className="truncate">{s.source}</span>
+                      </>
+                    )}
+                  </span>
+                </ListItem>
+                <Button
+                  ghost
+                  size="icon"
+                  aria-label="Conversation actions"
+                  title="Conversation actions"
+                  onClick={() => setOpenMenuId(menuOpen ? null : s.id)}
+                  className="shrink-0 self-start rounded p-1 text-text-secondary hover:text-foreground"
+                >
+                  <MoreHorizontal className="size-4" />
+                </Button>
+                {menuOpen && (
+                  <>
+                    <button
+                      type="button"
+                      aria-hidden
+                      tabIndex={-1}
+                      className="fixed inset-0 z-0 cursor-default"
+                      onClick={() => setOpenMenuId(null)}
+                    />
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full z-10 mt-0.5 flex min-w-40 flex-col gap-0.5 rounded-md border border-midground/10 bg-background p-1 shadow-lg"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => void togglePin(s, !s.pinned)}
+                        className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-foreground hover:bg-midground/10"
+                      >
+                        {s.pinned ? (
+                          <PinOff className="size-3.5" />
+                        ) : (
+                          <Pin className="size-3.5" />
+                        )}
+                        {s.pinned ? "Unpin chat" : "Pin chat"}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => startRename(s)}
+                        className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-foreground hover:bg-midground/10"
+                      >
+                        <Pencil className="size-3.5" />
+                        Rename
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              {actionError?.id === s.id && (
+                <span className="mt-0.5 block px-2 text-[0.6875rem] text-destructive">
+                  {actionError.message}
+                </span>
               )}
-            >
-              <span className="w-full truncate text-sm font-medium">
-                {rowLabel(s, t.sessions.untitledSession)}
-              </span>
-              <span className="flex w-full items-center gap-1.5 text-[0.6875rem] text-text-tertiary">
-                <span>{timeAgo(s.last_active)}</span>
-                {s.message_count > 0 && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span>{s.message_count} msgs</span>
-                  </>
-                )}
-                {s.source && s.source !== "cli" && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span className="truncate">{s.source}</span>
-                  </>
-                )}
-              </span>
-            </ListItem>
+            </div>
           );
         })}
       </div>
     );
-  }, [activeSessionId, error, loading, pick, reload, sessions, t]);
+  }, [
+    actionError,
+    activeSessionId,
+    commitRename,
+    error,
+    loading,
+    openMenuId,
+    pick,
+    reload,
+    renamingId,
+    renameValue,
+    sessions,
+    startRename,
+    t,
+    togglePin,
+  ]);
 
   return (
     <aside
