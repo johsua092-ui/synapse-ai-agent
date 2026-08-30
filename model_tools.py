@@ -250,6 +250,26 @@ except Exception as e:
     logger.debug("Plugin discovery failed: %s", e)
 
 
+def _retry_failed_tool_discovery() -> None:
+    """Re-attempt importing tool modules that failed cold-start discovery.
+
+    A transient import failure (e.g. a missing dependency while the process
+    booted) leaves that module's tools absent for the whole process unless
+    retried. The retry pass is non-recursive, per-module, and continues on
+    failure, and drains each module from the failed set on success, so this
+    becomes a cheap no-op once nothing has failed. Guarded so a regression
+    here can never break the definitions path.
+    """
+    try:
+        from tools.registry import _failed_discovery_modules
+
+        if not _failed_discovery_modules:
+            return
+        discover_builtin_tools(retry_failed=True)
+    except Exception as e:
+        logger.debug("tool discovery retry skipped: %s", e)
+
+
 # =============================================================================
 # Backward-compat constants  (built once after discovery)
 # =============================================================================
@@ -344,6 +364,11 @@ def get_tool_definitions(
     Returns:
         Filtered list of OpenAI-format tool definitions.
     """
+    # Re-attempt any tool module that failed cold-start discovery so a later
+    # invocation recovers its tools (drains _failed_discovery_modules on
+    # success; cheap no-op otherwise).
+    _retry_failed_tool_discovery()
+
     # Fast path: memoized result when the caller doesn't need stdout prints.
     # The cache key captures every argument-level input; the registry
     # generation captures registry mutations (MCP refresh, plugin load).

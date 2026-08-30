@@ -310,6 +310,10 @@ _CHECK_FN_FAILURE_GRACE_SECONDS = 60.0
 _CHECK_FN_CACHE_MAX = 512
 _check_fn_cache: Dict[tuple[Callable, Optional[str]], tuple[float, bool]] = {}
 _check_fn_last_good: Dict[tuple[Callable, Optional[str]], float] = {}
+# Last observed verdict per cache key, kept across TTL expiry so a False->True
+# recovery can be detected even after the 30 s verdict TTL has passed in a quiet
+# daemon (needed to invalidate definitions memoized while the probe was False).
+_check_fn_last_verdict: Dict[tuple[Callable, Optional[str]], bool] = {}
 _check_fn_cache_lock = threading.Lock()
 CHECK_FN_CACHE_BYPASS = ""
 _NO_CACHE_CHECK_FNS: Set[Callable] = set()
@@ -336,6 +340,8 @@ def _prune_check_fn_caches(now: float) -> None:
         _check_fn_cache.pop(next(iter(_check_fn_cache)))
     while len(_check_fn_last_good) >= _CHECK_FN_CACHE_MAX:
         _check_fn_last_good.pop(next(iter(_check_fn_last_good)))
+    while len(_check_fn_last_verdict) >= _CHECK_FN_CACHE_MAX:
+        _check_fn_last_verdict.pop(next(iter(_check_fn_last_verdict)))
 
 
 def check_fn_cache_scope() -> Optional[str]:
@@ -424,8 +430,15 @@ def _check_fn_cached(fn: Callable) -> bool:
     with _check_fn_cache_lock:
         _prune_check_fn_caches(now)
         if value:
+            prev = _check_fn_last_verdict.get(cache_key)
             _check_fn_last_good[cache_key] = now
             _check_fn_cache[cache_key] = (now, True)
+            _check_fn_last_verdict[cache_key] = True
+            if prev is False:
+                # A stripped definitions entry may have been memoized while this
+                # probe was False. The defs cache key embeds registry._generation,
+                # so bump it to force a rebuild with the recovered tool.
+                registry._generation += 1
             return True
 
         last_good = _check_fn_last_good.get(cache_key)
@@ -450,6 +463,7 @@ def _check_fn_cached(fn: Callable) -> bool:
             "raised" if raised else "returned False",
         )
         _check_fn_cache[cache_key] = (now, False)
+        _check_fn_last_verdict[cache_key] = False
         return False
 
 
@@ -462,12 +476,12 @@ def invalidate_check_fn_cache() -> None:
         _check_fn_last_good.clear()
     # The defs cache key embeds registry._generation, so bump it to force a
     # rebuild of any memoized definitions list built under the old verdicts.
-    registry._generation += 1
     # Deferred import avoids the circular-import edge model_tools <-> registry.
     try:
         from model_tools import _clear_tool_defs_cache
 
         _clear_tool_defs_cache()
+        registry._generation += 1
     except Exception:
         logger.debug("could not clear tool-defs cache from registry", exc_info=True)
 

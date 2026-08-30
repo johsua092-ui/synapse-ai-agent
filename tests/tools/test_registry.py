@@ -415,6 +415,85 @@ class TestBuiltinDiscovery:
         finally:
             registry_mod.registry.deregister("DummyTool")
 
+    def test_production_definitions_entry_recovers_failed_module(
+        self, monkeypatch
+    ):
+        """I1: the production definitions entry point (get_tool_definitions)
+        re-attempts modules that failed cold-start discovery, so a transient
+        import failure does not keep that module's tools lost for the process."""
+        import sys
+        import importlib
+
+        from tools import registry as registry_mod
+
+        fake_mod = "tools.__fake_recovery_probe__"
+        sys.modules.pop(fake_mod, None)
+        registry_mod.registry.deregister("DummyTool")
+
+        real_import = importlib.import_module
+
+        def recover_import(name, **kwargs):
+            if name == fake_mod:
+                registry_mod.registry.register(
+                    name="DummyTool",
+                    toolset="x",
+                    schema={},
+                    handler=lambda *_a, **_k: "{}",
+                )
+                mod = type("FakeRecoveryProbe", (), {})()
+                sys.modules[fake_mod] = mod
+                return mod
+            return real_import(name, **kwargs)
+
+        # Seed the failed set directly (simulating a cold-start import failure)
+        # and patch the per-module importer to succeed on this retry pass.
+        monkeypatch.setattr(registry_mod, "_failed_discovery_modules", {fake_mod})
+        monkeypatch.setattr("tools.registry.importlib.import_module", recover_import)
+
+        from model_tools import get_tool_definitions
+
+        try:
+            get_tool_definitions(quiet_mode=True)
+            assert "DummyTool" in registry_mod.registry.get_all_tool_names()
+            assert fake_mod not in registry_mod._failed_discovery_modules
+        finally:
+            registry_mod.registry.deregister("DummyTool")
+            sys.modules.pop(fake_mod, None)
+
+
+class TestCheckFnRecoveryInvalidatesDefsCache:
+    """A False->True check_fn recovery must bump registry._generation so the
+    memoized definitions entry built while the probe was False is not served
+    forever after the probe recovers (the defs cache key embeds _generation)."""
+
+    def test_false_to_true_recovery_bumps_generation(self, monkeypatch):
+        import tools.registry as registry_mod
+
+        reg = registry_mod.registry
+        calls = {"n": 0}
+
+        def flaky_check():
+            # False on the first probe, True on recovery.
+            return calls["n"] >= 1
+
+        # Force the cached path (no profile scope) and expire verdicts on every
+        # call so a recovery probe actually re-runs (mirrors a quiet daemon
+        # whose 30 s TTL has passed between the False verdict and recovery).
+        monkeypatch.setattr(registry_mod, "check_fn_cache_scope", lambda: None)
+        monkeypatch.setattr(registry_mod, "_CHECK_FN_TTL_SECONDS", 0)
+
+        base = reg._generation
+        assert registry_mod._check_fn_cached(flaky_check) is False
+
+        calls["n"] = 1
+        gen_before = reg._generation
+        assert registry_mod._check_fn_cached(flaky_check) is True
+        assert reg._generation == gen_before + 1
+
+        # A repeated True verdict must NOT keep bumping generation.
+        assert registry_mod._check_fn_cached(flaky_check) is True
+        assert reg._generation == gen_before + 1
+
 
 class TestEmojiMetadata:
     """Verify per-tool emoji registration and lookup."""
