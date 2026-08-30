@@ -891,7 +891,31 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     if (useWebgl) {
       try {
         const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
+        webgl.onContextLoss(() => {
+          // Windows/Chrome release the GL context when the dashboard window
+          // gets occluded, minimized, or captured (screenshot). The addon
+          // must be disposed so xterm falls back to its trusted canvas
+          // renderer, and the fallback forced to repaint — otherwise the
+          // dead GL layer lingers as ghosted/overlapping glyphs (the
+          // "stacked synapse" viewport). Log so the loss is diagnosable.
+          console.warn(
+            "[synapse-chat] WebGL context lost; falling back to canvas renderer",
+          );
+          try {
+            webgl.dispose();
+          } catch {
+            /* already torn down */
+          }
+          requestAnimationFrame(() => {
+            if (termRef.current && termRef.current.rows > 0) {
+              try {
+                termRef.current.refresh(0, termRef.current.rows - 1);
+              } catch {
+                /* ignore */
+              }
+            }
+          });
+        });
         term.loadAddon(webgl);
       } catch (err) {
         console.warn(
@@ -1151,6 +1175,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         reconnectTimerRef.current = null;
         setReconnectNonce((n) => n + 1);
       }, delayMs);
+      // Evidence for the "chat lost focus → blank/unstacked viewport"
+      // reports: a reconnect + reattach replay is the only path that can
+      // re-run the resume sanitizer, so say so explicitly.
+      console.warn(
+        `[synapse-chat] PTY will reconnect in ${delayMs}ms (close code ${String(code)})`,
+      );
     };
     // Give up on the ticket phase and hand off to the ordinary backoff.
     const failTicketAttempt = () => {
@@ -1277,6 +1307,12 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
           PTY_RESUME_LOADING_MAX_MS,
         );
       }
+      // Marks the window where erase codes are stripped and blank bursts
+      // collapsed — useful when diagnosing the stacked/overlapping viewport
+      // after a blur/occlusion-triggered reconnect (see pty-resume-sanitizer).
+      console.info(
+        `[synapse-chat] resume replay active; erase suppression ${PTY_RESUME_SANITIZE_WINDOW_MS}ms`,
+      );
     };
     if (resumeParam) {
       beginResumeReplay();

@@ -11,12 +11,26 @@ class FakeFitAddon {
 }
 
 class FakeWebglAddon {
-  onContextLoss() {
-    return { dispose() {} };
+  static instances: FakeWebglAddon[] = [];
+  onContextLossCb: (() => void) | null = null;
+  disposed = false;
+
+  constructor() {
+    FakeWebglAddon.instances.push(this);
+  }
+
+  onContextLoss(cb: () => void) {
+    this.onContextLossCb = cb;
+    return { dispose: () => {} };
+  }
+
+  dispose() {
+    this.disposed = true;
   }
 }
 
 class FakeTerminal {
+  static instances: FakeTerminal[] = [];
   options: Record<string, unknown>;
   rows = 24;
   cols = 80;
@@ -27,6 +41,7 @@ class FakeTerminal {
 
   constructor(options: Record<string, unknown>) {
     this.options = options;
+    FakeTerminal.instances.push(this);
   }
 
   attachCustomKeyEventHandler() {
@@ -73,7 +88,7 @@ class FakeTerminal {
 
   paste() {}
 
-  refresh() {}
+  refresh = vi.fn();
 
   write() {}
 }
@@ -191,6 +206,8 @@ async function render(ui: ReactNode) {
 
 beforeEach(() => {
   FakeWebSocket.instances = [];
+  FakeWebglAddon.instances = [];
+  FakeTerminal.instances = [];
   maybeReloadForLoopbackWsAuthFailure.mockClear();
   apiMocks.buildWsUrl.mockReset();
   apiMocks.buildWsUrl.mockResolvedValue("ws://localhost/api/pty?channel=chat-1");
@@ -320,6 +337,42 @@ describe("ChatPage", () => {
       "resize",
       "scroll",
     ]);
+  });
+
+  it("self-heals the renderer when the WebGL context is lost", async () => {
+    // Windows/Chrome release the GL context when the dashboard window is
+    // occluded, minimized, or captured. The addon must dispose itself and
+    // force a repaint so the fallback canvas renderer redraws cleanly —
+    // otherwise the old GL layer lingers as ghosted (stacked) glyphs.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { default: ChatPage } = await import("./ChatPage");
+
+    await render(
+      <MemoryRouter initialEntries={["/chat"]}>
+        <ChatPage isActive />
+      </MemoryRouter>,
+    );
+
+    await vi.waitFor(() =>
+      expect(FakeWebglAddon.instances).toHaveLength(1),
+    );
+
+    const webgl = FakeWebglAddon.instances[0];
+    expect(webgl.onContextLossCb).not.toBeNull();
+    const term = FakeTerminal.instances[0];
+
+    await act(async () => {
+      webgl.onContextLossCb!();
+    });
+
+    expect(webgl.disposed).toBe(true);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("context lost"),
+    );
+    expect(term.refresh).toHaveBeenCalledWith(0, term.rows - 1);
+
+    warn.mockRestore();
   });
 });
 
