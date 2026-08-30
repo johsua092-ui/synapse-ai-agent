@@ -6352,6 +6352,31 @@ def _build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
         lock_file.close()
 
 
+def _build_stale_dist_usable(dist_dir: str) -> bool:
+    """Return True when a leftover dist is complete enough to serve as a fallback.
+
+    The Vite config uses ``emptyOutDir: true``, so a build killed mid-run
+    (idle timeout, OOM, machine reboot) can leave ``index.html`` written
+    while the ``assets/`` tree and ``.vite/manifest.json`` are still missing.
+    Treating ``index.html`` alone as a "previous good build" served that
+    half-build as a broken UI. Accept only a full Vite output: the build
+    manifest present, or a non-empty ``assets/`` directory (pre-manifest
+    configs).
+    """
+    root = Path(dist_dir)
+    if not (root / "index.html").is_file():
+        return False
+    if (root / ".vite" / "manifest.json").is_file():
+        return True
+    assets = root / "assets"
+    if assets.is_dir():
+        try:
+            return any(assets.iterdir())
+        except OSError:
+            return False
+    return False
+
+
 def _do_build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
     """Build the web UI frontend if npm is available.
 
@@ -6489,26 +6514,34 @@ def _do_build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
         dist_dir = project_root / "synapse_cli" / "web_dist"
         dist_index = dist_dir / "index.html"
 
-        # A stale dist may be served as a fallback for non-fatal callers
-        # (synapse update / CI), but it is marked so the dashboard can surface
-        # the staleness. Fatal callers (``synapse dashboard``) must NOT
-        # silently serve an outdated UI — return False so the caller's
-        # ``sys.exit(1)`` fires with guidance.
+        # A stale dist may be served as a fallback, but ONLY when it is a complete
+        # previous build. ``emptyOutDir: true`` means a Vite kill mid-run can
+        # leave index.html with no assets/manifest — serving that half-build
+        # renders a broken UI. Non-fatal callers get the stale-but-complete UI
+        # (marked with SYNAPSE_STALE_BUILD); fatal callers (``synapse
+        # dashboard``) must NOT silently serve an outdated UI — return False so
+        # the caller's ``sys.exit(1)`` fires with guidance.
         if dist_index.exists():
-            if fatal:
+            stale_usable = _build_stale_dist_usable(str(dist_dir))
+            if stale_usable:
+                if fatal:
+                    _say(
+                        "  ✗ Web UI build failed; a stale dist exists but serving it "
+                        "would silently run an outdated UI — aborting"
+                    )
+                else:
+                    _say("  ⚠ Web UI build failed — serving stale dist as fallback")
+                    os.environ["SYNAPSE_STALE_BUILD"] = "1"
+            else:
                 _say(
-                    "  ✗ Web UI build failed; a stale dist exists but serving it "
-                    "would silently run an outdated UI — aborting"
+                    "  ⚠ Web UI build failed and the leftover dist is incomplete "
+                    "(no .vite/manifest.json or non-empty assets/) — not serving it"
                 )
-                if stderr_tail:
-                    _say(f"  Build error:\n  {stderr_tail}")
-                _say("  Run manually:  npm install --workspace web && npm run build -w web")
-                return False
-            _say("  ⚠ Web UI build failed — serving stale dist as fallback")
             if stderr_tail:
                 _say(f"  Build error:\n  {stderr_tail}")
-            os.environ["SYNAPSE_STALE_BUILD"] = "1"
-            return True
+            if fatal:
+                _say("  Run manually:  npm install --workspace web && npm run build -w web")
+            return stale_usable and not fatal
 
         _say(
             f"  {'✗' if fatal else '⚠'} Web UI build failed"

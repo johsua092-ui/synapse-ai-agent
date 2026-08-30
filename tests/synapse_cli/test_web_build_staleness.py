@@ -115,6 +115,67 @@ class TestNonFatalStaleFallback:
         assert os.environ.get("SYNAPSE_STALE_BUILD") == "1"
         assert "serving stale dist as fallback" in capsys.readouterr().out
 
+    def test_nonfatal_incomplete_dist_not_served(self, tmp_path, monkeypatch, capsys):
+        from synapse_cli.main import _build_web_ui
+
+        web_dir, dist_dir = _make_web_dir(tmp_path)
+        _make_stale_dist(dist_dir, complete=False)
+        monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path / "_home"))
+        monkeypatch.delenv("TERMUX_VERSION", raising=False)
+        monkeypatch.setenv("PREFIX", "/usr")
+        monkeypatch.delenv("SYNAPSE_STALE_BUILD", raising=False)
+        install_ok, build_fail = _failing_build_run()
+        with _patch_failing_build(install_ok, build_fail):
+            result = _build_web_ui(web_dir, fatal=False)
+
+        assert result is False
+        assert "SYNAPSE_STALE_BUILD" not in os.environ
+        assert "incomplete" in capsys.readouterr().out
+
+
+class TestStaleDistUsable:
+    def test_accepts_complete_manifest_build(self, tmp_path):
+        from synapse_cli.main import _build_stale_dist_usable
+
+        dist = tmp_path / "dist"
+        (dist / ".vite").mkdir(parents=True)
+        (dist / ".vite" / "manifest.json").write_text("{}", encoding="utf-8")
+        (dist / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+        assert _build_stale_dist_usable(str(dist)) is True
+
+    def test_accepts_nonempty_assets_fallback(self, tmp_path):
+        from synapse_cli.main import _build_stale_dist_usable
+
+        dist = tmp_path / "dist"
+        (dist / "assets").mkdir(parents=True)
+        (dist / "assets" / "app.js").write_text("x", encoding="utf-8")
+        (dist / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+        assert _build_stale_dist_usable(str(dist)) is True
+
+    def test_rejects_incomplete_dist_without_manifest_or_assets(self, tmp_path):
+        from synapse_cli.main import _build_stale_dist_usable
+
+        dist = tmp_path / "dist"
+        dist.mkdir(parents=True)
+        (dist / "index.html").write_text("<html>half</html>", encoding="utf-8")
+        assert _build_stale_dist_usable(str(dist)) is False
+
+    def test_rejects_empty_assets_dir(self, tmp_path):
+        from synapse_cli.main import _build_stale_dist_usable
+
+        dist = tmp_path / "dist"
+        (dist / "assets").mkdir(parents=True)
+        (dist / "index.html").write_text("<html>half</html>", encoding="utf-8")
+        assert _build_stale_dist_usable(str(dist)) is False
+
+    def test_rejects_missing_index_html(self, tmp_path):
+        from synapse_cli.main import _build_stale_dist_usable
+
+        dist = tmp_path / "dist"
+        (dist / ".vite").mkdir(parents=True)
+        (dist / ".vite" / "manifest.json").write_text("{}", encoding="utf-8")
+        assert _build_stale_dist_usable(str(dist)) is False
+
 
 class TestServeIndexStaleMarker:
     def _client(self, tmp_path, monkeypatch):
