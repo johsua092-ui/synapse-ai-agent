@@ -6489,13 +6489,25 @@ def _do_build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
         dist_dir = project_root / "synapse_cli" / "web_dist"
         dist_index = dist_dir / "index.html"
 
-        # If a stale dist exists, serve it as a fallback instead of failing.
-        # A stale UI is far better than no UI for non-interactive callers
-        # (Windows Scheduled Tasks, CI) — issue #23817.
+        # A stale dist may be served as a fallback for non-fatal callers
+        # (synapse update / CI), but it is marked so the dashboard can surface
+        # the staleness. Fatal callers (``synapse dashboard``) must NOT
+        # silently serve an outdated UI — return False so the caller's
+        # ``sys.exit(1)`` fires with guidance.
         if dist_index.exists():
+            if fatal:
+                _say(
+                    "  ✗ Web UI build failed; a stale dist exists but serving it "
+                    "would silently run an outdated UI — aborting"
+                )
+                if stderr_tail:
+                    _say(f"  Build error:\n  {stderr_tail}")
+                _say("  Run manually:  npm install --workspace web && npm run build -w web")
+                return False
             _say("  ⚠ Web UI build failed — serving stale dist as fallback")
             if stderr_tail:
                 _say(f"  Build error:\n  {stderr_tail}")
+            os.environ["SYNAPSE_STALE_BUILD"] = "1"
             return True
 
         _say(

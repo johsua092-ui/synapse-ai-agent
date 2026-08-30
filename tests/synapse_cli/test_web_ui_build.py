@@ -258,11 +258,13 @@ class TestBuildWebUIRetryAndStaleFallback:
         assert mock_idle.call_count == 2  # build + retry
         mock_sleep.assert_called_once_with(3)
 
-    def test_falls_back_to_stale_dist_when_retry_also_fails(self, tmp_path, capsys):
+    def test_fatal_build_failure_not_swallowed_by_stale_dist(self, tmp_path, monkeypatch, capsys):
         web_dir, dist_dir = _make_web_dir(tmp_path)
-        # Stale dist exists but is older than source
-        _touch(dist_dir / "index.html", offset=-100)
-        _touch(web_dir / "src" / "App.tsx")  # newer source -> build_needed=True
+        # Stale-but-complete dist exists (index.html + .vite/manifest.json).
+        (dist_dir / ".vite").mkdir(parents=True, exist_ok=True)
+        (dist_dir / ".vite" / "manifest.json").write_text("{}")
+        (dist_dir / "index.html").write_text("<html>stale</html>")
+        monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path / "_home"))
 
         Subprocess = __import__("subprocess")
         install_ok = Subprocess.CompletedProcess([], 0, stdout="", stderr="")
@@ -274,9 +276,35 @@ class TestBuildWebUIRetryAndStaleFallback:
                    side_effect=[build_fail, build_fail]):
             result = _build_web_ui(web_dir, fatal=True)
 
-        # MUST return True (serve stale) — issue #23817 — even with fatal=True,
-        # because cmd_dashboard passes fatal=True and is the primary caller.
+        # MUST return False — cmd_dashboard passes fatal=True and exits(1) on
+        # False; silently serving the old dist was the "features missing"
+        # incident. The stale fallback is only for non-fatal callers.
+        assert result is False
+        out = capsys.readouterr().out
+        assert "Web UI build failed" in out
+        assert "vite ENOMEM" in out  # combined output surfaced to user
+
+    def test_nonfatal_stale_dist_fallback_sets_marker(self, tmp_path, monkeypatch, capsys):
+        web_dir, dist_dir = _make_web_dir(tmp_path)
+        (dist_dir / ".vite").mkdir(parents=True, exist_ok=True)
+        (dist_dir / ".vite" / "manifest.json").write_text("{}")
+        (dist_dir / "index.html").write_text("<html>stale</html>")
+        monkeypatch.setenv("SYNAPSE_HOME", str(tmp_path / "_home"))
+        monkeypatch.delenv("SYNAPSE_STALE_BUILD", raising=False)
+
+        Subprocess = __import__("subprocess")
+        install_ok = Subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        build_fail = Subprocess.CompletedProcess([], 1, stdout="vite ENOMEM", stderr="")
+        with patch("synapse_cli.main.shutil.which", return_value="/usr/bin/npm"), \
+             patch("synapse_cli.main._time.sleep"), \
+             patch("synapse_cli.main.subprocess.run", return_value=install_ok), \
+             patch("synapse_cli.main._run_with_idle_timeout",
+                   side_effect=[build_fail, build_fail]):
+            result = _build_web_ui(web_dir, fatal=False)
+
         assert result is True
+        import os
+        assert os.environ.get("SYNAPSE_STALE_BUILD") == "1"
         out = capsys.readouterr().out
         assert "serving stale dist as fallback" in out
         assert "vite ENOMEM" in out  # combined output surfaced to user

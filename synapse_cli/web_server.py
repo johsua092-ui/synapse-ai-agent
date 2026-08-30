@@ -17906,10 +17906,13 @@ def mount_spa(application: FastAPI):
         # ``ThemeProvider`` flips the CSS variables once
         # ``/api/dashboard/themes`` resolves.  Built-in themes are already
         # in the bundle's ``presets.ts`` so no shim is needed for them.
+        stale_build_marker = ""
+        if os.environ.get("SYNAPSE_STALE_BUILD") == "1":
+            stale_build_marker = "<script>window.__SYNAPSE_STALE_BUILD__=true;</script>"
         theme_bootstrap = _render_active_theme_bootstrap_css()
         if theme_bootstrap:
             html = html.replace("</head>", f"{theme_bootstrap}</head>", 1)
-        html = html.replace("</head>", f"{bootstrap_script}</head>", 1)
+        html = html.replace("</head>", f"{stale_build_marker}{bootstrap_script}</head>", 1)
         return HTMLResponse(
             html,
             headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
