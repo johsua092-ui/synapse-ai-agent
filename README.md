@@ -211,6 +211,33 @@ You can still bring your own keys per-tool whenever you want — the gateway is 
 
 ---
 
+## Reasoning & Thinking
+
+Synapse keeps reasoning/thinking enabled by default and never lets a config value turn it off. This is the **always-on reasoning** policy — models that support reasoning tokens always use them; models that don't are unaffected (no illegal provider parameters are sent).
+
+### Effort levels
+
+Only three effort levels exist, mapped from the old wider ladder:
+
+| Level | Trade-off                                             |
+|-------|--------------------------------------------------------|
+| Medium| Balanced speed and cost (the default)                  |
+| High  | Deeper reasoning — slower and costlier per turn        |
+| Max   | Strongest reasoning — slowest and costliest per turn   |
+
+### Setting the level
+
+- **CLI:** `/reasoning medium | high | max`
+- **Dashboard:** the Reasoning picker in the chat sidebar (the same `agent.reasoning_effort` config key)
+- **Config:** `agent.reasoning_effort: medium` in `config.yaml`
+- **Per-model overrides:** `agent.reasoning_overrides: { "model-id": "high" }`
+
+### Legacy disable migration
+
+Previously `none`, `false`, `off`, `disabled`, an empty value, a YAML boolean `False`, or `--reasoning_disabled` turned thinking off. Under the always-on policy all of these now resolve to **medium** (`{"enabled": true, "effort": "medium"}`) so reasoning is never silently disabled. An unrecognized level (e.g. `turbo`) still falls back to the caller default; the deprecated `--reasoning_disabled` batch-runner flag exists only for backward compatibility and prints a deprecation notice.
+
+---
+
 ## CLI vs Messaging Quick Reference
 
 Synapse has two entry points: start the terminal UI with `synapse`, or run the gateway and talk to it from Telegram, Discord, Slack, WhatsApp, Signal, or Email. Once you're in a conversation, many slash commands are shared across both interfaces.

@@ -376,9 +376,16 @@ class TestParseReasoningEffort:
     """Tests for parse_reasoning_effort() — string → reasoning config dict."""
 
     @pytest.mark.parametrize("value", ["", "   ", "\t", "\n"])
-    def test_empty_or_whitespace_returns_none(self, value):
-        """Empty / whitespace-only input falls back to caller default (None)."""
-        assert parse_reasoning_effort(value) is None
+    def test_empty_or_whitespace_returns_medium(self, value):
+        """Empty / whitespace-only input now returns the always-on default (medium)."""
+        assert parse_reasoning_effort(value) == {"enabled": True, "effort": "medium"}
+
+    @pytest.mark.parametrize("value", [False, "none", "false", "off", "disabled"])
+    def test_legacy_disable_values_keep_reasoning_on(self, value):
+        assert parse_reasoning_effort(value) == {
+            "enabled": True,
+            "effort": "medium",
+        }
 
 
 
@@ -387,7 +394,7 @@ class TestParseReasoningEffort:
 
     @pytest.mark.parametrize(
         "value",
-        ["bogus", "very-high", "0", "off", "true", "default"],
+        ["bogus", "very-high", "0", "true", "default"],
     )
     def test_unknown_levels_return_none(self, value):
         """Unrecognized strings fall back to the caller default (None)."""
@@ -485,6 +492,14 @@ class TestResolveReasoningConfig:
         cfg = self._cfg(overrides={"gpt-5": "high"}, default_model="gpt-5")
         assert resolve_reasoning_config(cfg) == {"enabled": True, "effort": "high"}
 
+    def test_unset_reasoning_defaults_to_medium(self):
+        from synapse_constants import resolve_reasoning_config
+
+        assert resolve_reasoning_config({}) == {
+            "enabled": True,
+            "effort": "medium",
+        }
+
 
 
 
@@ -495,9 +510,9 @@ class TestResolveReasoningConfig:
     def test_malformed_sections_tolerated(self):
         """Non-dict agent/model sections must not raise."""
         from synapse_constants import resolve_reasoning_config
-        assert resolve_reasoning_config({"agent": "oops", "model": 42}) is None
-        assert resolve_reasoning_config({"agent": None, "model": None}) is None
-        assert resolve_reasoning_config({"agent": {"reasoning_overrides": "bad"}}) is None
+        assert resolve_reasoning_config({"agent": "oops", "model": 42}) == {"enabled": True, "effort": "medium"}
+        assert resolve_reasoning_config({"agent": None, "model": None}) == {"enabled": True, "effort": "medium"}
+        assert resolve_reasoning_config({"agent": {"reasoning_overrides": "bad"}}) == {"enabled": True, "effort": "medium"}
 
     def test_invalid_override_value_falls_back_to_global(self):
         """A junk override value for the matching model falls through to global."""

@@ -4,9 +4,8 @@
  * Kept DOM-free so the node-environment vitest harness can cover the
  * resolution logic without loading React or the UI kit.
  *
- * Values mirror synapse_constants.VALID_REASONING_EFFORTS plus `none`
- * (thinking-off). An empty/unset config value means the Synapse default,
- * which is `medium`.
+ * The dashboard exposes the supported always-on policy: medium, high, max.
+ * Empty, legacy-disabled, and unsupported values migrate to medium.
  */
 
 export interface EffortOption {
@@ -15,14 +14,9 @@ export interface EffortOption {
 }
 
 export const EFFORT_OPTIONS: ReadonlyArray<EffortOption> = [
-  { value: "none", label: "Off (no thinking)" },
-  { value: "minimal", label: "Minimal" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "xhigh", label: "Extra High" },
-  { value: "max", label: "Max" },
-  { value: "ultra", label: "Ultra" },
+  { value: "medium", label: "Medium - balanced speed and cost" },
+  { value: "high", label: "High - deeper, slower, and costlier" },
+  { value: "max", label: "Max - strongest, slowest, and costliest" },
 ];
 
 export const VALID_EFFORTS: ReadonlySet<string> = new Set(

@@ -403,7 +403,7 @@ def _request_reasoning_config(model_options: Any) -> Optional[Dict[str, Any]]:
 
     effort_norm = str(effort).strip().lower() if effort is not None else ""
     if enabled is False or effort_norm == "none":
-        return {"enabled": False}
+        return {"enabled": True, "effort": "medium"}
     if effort_norm in _REASONING_EFFORTS and effort_norm != "none":
         return {"enabled": True, "effort": effort_norm}
     if enabled is True:
@@ -2538,7 +2538,10 @@ class APIServerAdapter(BasePlatformAdapter):
             enabled = reasoning.get("enabled")
             effort = cls._clean_runtime_id(reasoning.get("effort"), max_len=32)
             if enabled is False:
-                runtime_options["reasoning_config"] = {"enabled": False}
+                runtime_options["reasoning_config"] = {
+                    "enabled": True,
+                    "effort": "medium",
+                }
             elif effort:
                 runtime_options["reasoning_config"] = {"enabled": True, "effort": effort}
             elif enabled is True:

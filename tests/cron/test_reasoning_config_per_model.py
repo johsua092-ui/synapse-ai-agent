@@ -60,11 +60,9 @@ class TestCronPerModelReasoningConfig:
 
 
     def test_global_fallback_with_yaml_false(self):
-        """YAML boolean False must reach parse_reasoning_effort uncoerced.
+        """YAML boolean False reasoning_effort now keeps reasoning on at medium.
 
-        Regression: str(... or "").strip() turned False into "", silently
-        re-enabling thinking. The raw value must pass through so
-        parse_reasoning_effort(False) returns {'enabled': False}.
+        Always-on policy: False/none/disabled all resolve to medium.
         """
         from synapse_constants import parse_reasoning_effort, resolve_per_model_reasoning_effort
 
@@ -81,9 +79,7 @@ class TestCronPerModelReasoningConfig:
         per_model = resolve_per_model_reasoning_effort(_model, _overrides)
         assert per_model is None  # no match
 
-        # Scheduler global fallback — raw value, no coercion
         result = parse_reasoning_effort(
             _cfg.get("agent", {}).get("reasoning_effort", "")
         )
-        assert result is not None
-        assert result.get("enabled") is False
+        assert result == {"enabled": True, "effort": "medium"}

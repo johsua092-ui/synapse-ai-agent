@@ -1252,7 +1252,7 @@ def main(
         provider_sort (str): Sort providers by "price", "throughput", or "latency" (OpenRouter only)
         max_tokens (int): Maximum tokens for model responses (optional, uses model default if not set)
         reasoning_effort (str): Reasoning effort: "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra" (default: "medium")
-        reasoning_disabled (bool): Completely disable reasoning/thinking tokens (default: False)
+        reasoning_disabled (bool): Legacy alias for medium reasoning (default: False)
         prefill_messages_file (str): Path to JSON file containing prefill messages (list of {role, content} dicts)
         max_samples (int): Only process the first N samples from the dataset (optional, processes all if not set)
         
@@ -1266,7 +1266,7 @@ def main(
         # Use specific distribution
         python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=image_test --distribution=image_gen
         
-        # With disabled reasoning and max tokens
+        # Legacy disabled flag now selects medium reasoning
         python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run \\
                                --reasoning_disabled --max_tokens=128000
         
@@ -1312,15 +1312,14 @@ def main(
     providers_order_list = [p.strip() for p in providers_order.split(",")] if providers_order else None
 
     # Build reasoning_config from CLI flags
-    # --reasoning_disabled takes priority, then --reasoning_effort, then default (medium)
+    # The legacy --reasoning_disabled flag now maps to the always-on default.
     reasoning_config = None
     if reasoning_disabled:
-        # Completely disable reasoning/thinking tokens
-        reasoning_config = {"effort": "none"}
-        print("🧠 Reasoning: DISABLED (effort=none)")
+        reasoning_config = {"enabled": True, "effort": "medium"}
+        print("🧠 Reasoning effort: medium (--reasoning_disabled is deprecated)")
     elif reasoning_effort:
         # Use specified effort level
-        valid_efforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+        valid_efforts = ["medium", "high", "max"]
         if reasoning_effort not in valid_efforts:
             print(f"❌ Error: --reasoning_effort must be one of: {', '.join(valid_efforts)}")
             raise SystemExit(1)
@@ -1377,4 +1376,3 @@ def main(
 
 if __name__ == "__main__":
     fire.Fire(main)
-

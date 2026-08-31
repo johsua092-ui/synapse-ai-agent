@@ -1172,23 +1172,21 @@ def parse_reasoning_effort(effort) -> dict | None:
 
     Valid levels: "none", "minimal", "low", "medium", "high", "xhigh", "max",
     "ultra".
-    Returns None when the input is empty or unrecognized (caller uses default).
-    Returns {"enabled": False} for "none" (aliases: "false", "disabled", and
-    YAML boolean False — users write ``reasoning_effort: false``/``off``/``no``
-    in config.yaml and YAML hands us a bool, which must mean disabled, not
-    "fall back to the default and keep thinking").
+    Returns None when the input is unrecognized.
+    Legacy disable values ("none", "false", "off", "disabled", and YAML
+    boolean False) resolve to medium so reasoning remains enabled.
     Returns {"enabled": True, "effort": <level>} for valid effort levels.
     """
     if effort is False:
-        return {"enabled": False}
+        return {"enabled": True, "effort": "medium"}
     if effort is None or effort is True:
-        return None
+        return {"enabled": True, "effort": "medium"}
     effort = str(effort)
     if not effort.strip():
-        return None
+        return {"enabled": True, "effort": "medium"}
     effort = effort.strip().lower()
-    if effort in {"none", "false", "disabled"}:
-        return {"enabled": False}
+    if effort in {"none", "false", "off", "disabled"}:
+        return {"enabled": True, "effort": "medium"}
     if effort in VALID_REASONING_EFFORTS:
         return {"enabled": True, "effort": effort}
     return None

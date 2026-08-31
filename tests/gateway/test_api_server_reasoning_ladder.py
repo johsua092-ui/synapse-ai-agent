@@ -18,9 +18,16 @@ class TestRequestReasoningFullLadder:
             out = _request_reasoning_config({"reasoning_effort": level})
             assert out == {"enabled": True, "effort": level}, level
 
-    def test_none_disables(self):
+    def test_none_keeps_reasoning_on_at_medium(self):
         assert _request_reasoning_config({"reasoning_effort": "none"}) == {
-            "enabled": False
+            "enabled": True,
+            "effort": "medium",
+        }
+
+    def test_structured_disable_keeps_reasoning_on_at_medium(self):
+        assert _request_reasoning_config({"reasoning": {"enabled": False}}) == {
+            "enabled": True,
+            "effort": "medium",
         }
 
     def test_structured_object_shape(self):

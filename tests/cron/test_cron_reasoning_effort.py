@@ -123,12 +123,12 @@ class TestSchedulerJobReasoningPrecedence:
         result = _resolve_job_reasoning_config(job, self.CFG, "anthropic/claude-opus-4.5")
         assert result == {"enabled": True, "effort": "high"}
 
-    def test_job_none_disables_thinking_never_reenabled_by_config(self):
+    def test_job_none_keeps_reasoning_on_at_medium(self):
         from cron.scheduler import _resolve_job_reasoning_config
 
         job = {"reasoning_effort": "none"}
         result = _resolve_job_reasoning_config(job, self.CFG, "anthropic/claude-opus-4.5")
-        assert result == {"enabled": False}
+        assert result == {"enabled": True, "effort": "medium"}
 
     def test_absent_field_byte_identical_to_config_resolution(self):
         from synapse_constants import resolve_reasoning_config

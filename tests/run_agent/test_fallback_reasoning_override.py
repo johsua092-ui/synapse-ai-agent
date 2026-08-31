@@ -107,28 +107,15 @@ class TestFallbackReasoningOverride:
         assert agent.reasoning_config == {"enabled": True, "effort": "medium"}
 
     def test_fallback_global_fallback_with_yaml_false(self):
-        """Fallback global fallback must not coerce YAML boolean False.
+        """YAML boolean False reasoning_effort now keeps reasoning on at medium.
 
-        Regression: ``or ""`` turned False into "", silently re-enabling
-        thinking. The raw value must pass through so
-        parse_reasoning_effort(False) returns {'enabled': False}.
-
-        The production code in try_activate_fallback does:
-            _fb_global_effort = _fb_agent_cfg.get("reasoning_effort", "")
-            agent.reasoning_config = parse_reasoning_effort(_fb_global_effort)
-        We verify that passing the raw False (not coerced "") produces
-        the disabled config.
+        Always-on policy: False/none/disabled all resolve to medium so
+        thinking is never turned off by config.
         """
         from synapse_constants import parse_reasoning_effort
 
-        # Simulate: no per-model override matches, global is YAML False
         _fb_agent_cfg = {"reasoning_effort": False}
-
-        # This is the exact line from try_activate_fallback's else branch.
-        # The bug was: _fb_global_effort = _fb_agent_cfg.get(...) or ""
-        # which turned False into "". The fix passes the raw value.
         _fb_global_effort = _fb_agent_cfg.get("reasoning_effort", "")
         result = parse_reasoning_effort(_fb_global_effort)
 
-        assert result is not None
-        assert result.get("enabled") is False
+        assert result == {"enabled": True, "effort": "medium"}

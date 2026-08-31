@@ -25,17 +25,16 @@ class TestParseReasoningConfig(unittest.TestCase):
         from cli import _parse_reasoning_config
         return _parse_reasoning_config(effort)
 
-    def test_none_disables(self):
+    def test_none_maps_to_medium(self):
         result = self._parse("none")
-        self.assertEqual(result, {"enabled": False})
+        self.assertEqual(result, {"enabled": True, "effort": "medium"})
 
     def test_valid_levels(self):
-        for level in ("low", "medium", "high", "xhigh", "max", "ultra", "minimal"):
+        for level in ("medium", "high", "max"):
             result = self._parse(level)
             self.assertIsNotNone(result)
             self.assertTrue(result.get("enabled"))
             self.assertEqual(result["effort"], level)
-
 
     def test_unknown_returns_none(self):
         self.assertIsNone(self._parse("turbo"))
@@ -80,12 +79,12 @@ class TestHandleReasoningCommand(unittest.TestCase):
 
 
 
-    def test_effort_none_disables_reasoning(self):
+    def test_effort_none_maps_to_medium(self):
         from cli import _parse_reasoning_config
         stub = self._make_cli()
         parsed = _parse_reasoning_config("none")
         stub.reasoning_config = parsed
-        self.assertEqual(stub.reasoning_config, {"enabled": False})
+        self.assertEqual(stub.reasoning_config, {"enabled": True, "effort": "medium"})
 
 
 

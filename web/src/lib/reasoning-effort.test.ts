@@ -13,15 +13,21 @@ describe("normalizeEffort", () => {
     expect(normalizeEffort("   ")).toBe("medium");
   });
 
-  it("passes through every valid effort level", () => {
-    for (const level of ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]) {
+  it("passes through every dashboard effort level", () => {
+    for (const level of ["medium", "high", "max"]) {
       expect(normalizeEffort(level)).toBe(level);
+    }
+  });
+
+  it("migrates disabled and unsupported values to medium", () => {
+    for (const value of ["none", "false", "off", "disabled", "minimal", "low", "xhigh", "ultra"]) {
+      expect(normalizeEffort(value)).toBe("medium");
     }
   });
 
   it("is case- and whitespace-insensitive", () => {
     expect(normalizeEffort("HIGH")).toBe("high");
-    expect(normalizeEffort("  XHigh  ")).toBe("xhigh");
+    expect(normalizeEffort("  Max  ")).toBe("max");
   });
 
   it("falls back to medium for unknown values", () => {
@@ -37,11 +43,11 @@ describe("EFFORT_OPTIONS", () => {
     }
   });
 
-  it("covers the real reasoning levels plus thinking-off", () => {
-    // Invariant against synapse_constants.VALID_REASONING_EFFORTS + 'none'.
-    const values = new Set(EFFORT_OPTIONS.map((o) => o.value));
-    for (const level of ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]) {
-      expect(values.has(level)).toBe(true);
-    }
+  it("offers only the approved always-on levels with trade-offs", () => {
+    expect(EFFORT_OPTIONS).toEqual([
+      { value: "medium", label: "Medium - balanced speed and cost" },
+      { value: "high", label: "High - deeper, slower, and costlier" },
+      { value: "max", label: "Max - strongest, slowest, and costliest" },
+    ]);
   });
 });

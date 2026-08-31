@@ -71,7 +71,7 @@ class TestConfigSetReasoningSessionScope:
                 {"key": "reasoning", "session_id": "s1", "value": "none"}
             )
         assert resp["result"]["value"] == "none"
-        assert agent.reasoning_config == {"enabled": False}
+        assert agent.reasoning_config == {"enabled": True, "effort": "medium"}
         write_key.assert_not_called()
 
 
@@ -89,15 +89,15 @@ class TestConfigSetReasoningSessionScope:
 class TestLoadReasoningConfigYamlBoolean:
     """YAML `reasoning_effort: false` means disabled, not default."""
 
-    def test_boolean_false_disables(self) -> None:
+    def test_boolean_false_keeps_reasoning_on_medium(self) -> None:
         with patch.object(
             server, "_load_cfg", return_value={"agent": {"reasoning_effort": False}}
         ):
-            assert server._load_reasoning_config() == {"enabled": False}
+            assert server._load_reasoning_config() == {"enabled": True, "effort": "medium"}
 
-    def test_string_false_disables(self) -> None:
+    def test_string_false_keeps_reasoning_on_medium(self) -> None:
         with patch.object(
             server, "_load_cfg", return_value={"agent": {"reasoning_effort": "false"}}
         ):
-            assert server._load_reasoning_config() == {"enabled": False}
+            assert server._load_reasoning_config() == {"enabled": True, "effort": "medium"}
 
