@@ -388,7 +388,7 @@ export const zh: Translations = {
       keysSettings: '设置',
       mcp: 'MCP',
       archivedChats: '已归档对话',
-      about: '关于',
+      about: '更新',
       billing: '账单',
       notifications: '通知',
       plugins: '插件'
@@ -862,7 +862,7 @@ export const zh: Translations = {
       }
     }),
     about: {
-      heading: 'Synapse Desktop',
+      heading: '更新',
       version: value => `版本 ${value}`,
       versionUnavailable: '版本不可用',
       bundleOutOfSync: '应用构建版本过旧',

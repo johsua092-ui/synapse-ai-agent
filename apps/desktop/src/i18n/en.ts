@@ -401,7 +401,7 @@ export const en: Translations = {
       keysSettings: 'Settings',
       mcp: 'MCP',
       archivedChats: 'Archived Chats',
-      about: 'About',
+      about: 'Updates',
       billing: 'Billing',
       notifications: 'Notifications',
       plugins: 'Plugins'
@@ -657,7 +657,7 @@ export const en: Translations = {
     fieldLabels: FIELD_LABELS,
     fieldDescriptions: FIELD_DESCRIPTIONS,
     about: {
-      heading: 'Synapse Desktop',
+      heading: 'Updates',
       version: value => `Version ${value}`,
       versionUnavailable: 'Version unavailable',
       bundleOutOfSync: 'App build out of date',

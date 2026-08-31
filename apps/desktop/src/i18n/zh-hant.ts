@@ -275,7 +275,7 @@ export const zhHant = defineLocale({
       keysSettings: '設定',
       mcp: 'MCP',
       archivedChats: '已封存聊天',
-      about: '關於',
+      about: '更新',
       billing: '帳單',
       notifications: '通知'
     },
@@ -688,7 +688,7 @@ export const zhHant = defineLocale({
       }
     }),
     about: {
-      heading: 'Synapse Desktop',
+      heading: '更新',
       version: value => `版本 ${value}`,
       versionUnavailable: '版本不可用',
       bundleOutOfSync: '應用程式建置版本過舊',

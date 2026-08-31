@@ -283,7 +283,7 @@ export const ja = defineLocale({
       keysSettings: '設定',
       mcp: 'MCP',
       archivedChats: 'アーカイブ済みチャット',
-      about: '情報',
+      about: '更新',
       billing: '請求',
       notifications: '通知'
     },
@@ -703,7 +703,7 @@ export const ja = defineLocale({
       }
     }),
     about: {
-      heading: 'Synapse Desktop',
+      heading: '更新',
       version: value => `バージョン ${value}`,
       versionUnavailable: 'バージョンを取得できません',
       bundleOutOfSync: 'アプリのビルドが古くなっています',

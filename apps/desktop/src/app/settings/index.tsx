@@ -14,7 +14,6 @@ import {
   Bell,
   Download,
   Globe,
-  Info,
   Keyboard,
   KeyRound,
   Package,
@@ -279,7 +278,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
       {
         active: activeView === 'about',
         gapBefore: true,
-        icon: Info,
+        icon: RefreshCw,
         id: 'about',
         label: t.settings.nav.about,
         onSelect: () => setActiveView('about')
