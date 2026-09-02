@@ -36,7 +36,7 @@ def test_v38_migration_removes_only_legacy_relay_plugin_keys(tmp_path):
         results = migrate_config(interactive=False, quiet=True)
 
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    assert raw["_config_version"] == 38
+    assert raw["_config_version"] == 39
     assert raw["plugins"]["enabled"] == ["keep-me"]
     assert any(
         "observability/nemo_relay" in warning

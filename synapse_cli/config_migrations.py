@@ -827,6 +827,71 @@ def _migrate_to_38(results: Dict[str, Any], quiet: bool) -> None:
         print(f"  ⚠ {message}")
 
 
+def _migrate_to_39(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 38 → 39: legacy terminal timeouts → 600s ──
+    # The shipped terminal execution default rose 180 → 600 (see
+    # config_defaults terminal.timeout and the terminal_tool/process_registry
+    # fallbacks). Installs still carrying the OLD defaults — terminal.timeout
+    # 180 in config.yaml (written by the config→env bridge) or
+    # TERMINAL_TIMEOUT=60|180 in ~/.synapse/.env (written by installers and
+    # `synapse setup`) — would keep the short window after update because
+    # explicit values override the new shipped default. Lift values that are
+    # almost certainly the inherited old default; PRESERVE any other explicit
+    # value as a deliberate choice (mirrors _migrate_to_37's policy).
+    _c = _cfg()
+    read_raw_config = _c.read_raw_config
+    _persist_migration = _c._persist_migration
+    remove_env_value = _c.remove_env_value
+
+    # 1) config.yaml: terminal.timeout at an old default → 600
+    config = read_raw_config()
+    terminal_cfg = config.get("terminal")
+    if isinstance(terminal_cfg, dict) and terminal_cfg.get("timeout") in (60, 180):
+        old = terminal_cfg.get("timeout")
+        terminal_cfg["timeout"] = 600
+        config["terminal"] = terminal_cfg
+        _persist_migration(config)
+        results["config_added"].append(f"terminal.timeout=600 (was: {old})")
+        if not quiet:
+            print(
+                f"  ✓ Raised terminal.timeout from {old} to 600 — long tool "
+                "runs (builds, installs, tests) are no longer cut off at the "
+                "old default. Set terminal.timeout back to restore the old "
+                "window."
+            )
+
+    # 2) ~/.synapse/.env: legacy TERMINAL_TIMEOUT values → drop the line so
+    #    the new shipped default (600) applies. The FILE value is the source
+    #    of truth here (os.environ may legitimately differ — e.g. a worker
+    #    scoped override); remove_env_value clears os.environ too when it
+    #    removes a legacy file line.
+    env_path = _c.get_env_path()
+    try:
+        file_raw = None
+        if env_path.exists():
+            with open(env_path, encoding="utf-8-sig", errors="replace") as fh:
+                for line in fh:
+                    stripped = line.strip()
+                    if stripped.startswith("TERMINAL_TIMEOUT") and "=" in stripped:
+                        file_raw = stripped.split("=", 1)[1].strip().strip("'\"")
+                        break
+    except Exception:
+        file_raw = None
+    if file_raw is not None and file_raw in {"60", "180"}:
+        try:
+            if remove_env_value("TERMINAL_TIMEOUT"):
+                results["env_removed"].append(
+                    "TERMINAL_TIMEOUT (legacy value)"
+                )
+                if not quiet:
+                    print(
+                        "  ✓ Removed legacy TERMINAL_TIMEOUT from .env — the "
+                        f"new default of 600s now applies."
+                    )
+        except Exception:
+            pass  # best-effort; never block migration on env cleanup
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: observe earlier steps' writes via read_raw_config() (filesystem state).
@@ -853,6 +918,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (36, _migrate_to_36),
     (37, _migrate_to_37),
     (38, _migrate_to_38),
+    (39, _migrate_to_39),
 )
 
 
