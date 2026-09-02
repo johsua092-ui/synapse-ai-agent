@@ -19,3 +19,9 @@ def test_default_per_platform_streaming_flags():
     assert plats["slack"]["streaming"] is False
 
 
+def test_global_display_streaming_is_enabled_by_default():
+    from synapse_cli.config_defaults import DEFAULT_CONFIG
+
+    assert DEFAULT_CONFIG["display"]["streaming"] is True
+
+

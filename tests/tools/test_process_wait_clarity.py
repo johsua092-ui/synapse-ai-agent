@@ -17,6 +17,22 @@ def _spawn_sleeper(registry, notify=False):
     return session.id
 
 
+def test_wait_uses_600_second_default_timeout(monkeypatch, registry):
+    monkeypatch.delenv("TERMINAL_TIMEOUT", raising=False)
+    session = registry.spawn_local("sleep 30", cwd="/tmp", task_id="t-waitclar")
+    session.started_at = 0
+    clock = iter((0.0, 601.0))
+    monkeypatch.setattr("tools.process_registry.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr(registry, "_refresh_detached_session", lambda current: current)
+    monkeypatch.setattr(registry, "_reconcile_local_exit", lambda current: None)
+    monkeypatch.setattr("tools.interrupt.is_interrupted", lambda: False)
+
+    result = registry.wait(session.id)
+
+    assert result["status"] == "timeout"
+    assert "Wait window of 600s elapsed" in result["timeout_note"]
+
+
 class TestWaitTimeoutClarity:
     def test_wait_timeout_marks_process_running(self, registry):
         sid = _spawn_sleeper(registry)

@@ -390,7 +390,7 @@ DEFAULT_CONFIG = {
         # This lets users install a Nerd Font (or any custom font) and configure
         # it here without patching the built desktop app.
         "font_family": "",
-        "timeout": 180,
+        "timeout": 600,
         # Bounded grace period (seconds) between SIGTERM and an escalated
         # SIGKILL when terminating a host process tree (browser daemons, etc.).
         # A daemon that stalls in its SIGTERM handler is force-killed after this
@@ -1370,7 +1370,7 @@ DEFAULT_CONFIG = {
         #   "error"   — final raw-output message only on non-zero exit
         #   "off"     — no watcher messages at all
         "background_process_notifications": "concise",
-        "streaming": False,
+        "streaming": True,
         "timestamps": False,      # Show message timestamps (CLI labels, TUI rows, desktop transcript)
         "timestamp_format": "%H:%M",  # strftime format for timestamps (e.g. "%b-%d %H:%M")
         "final_response_markdown": "strip",  # render | strip | raw

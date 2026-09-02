@@ -117,6 +117,12 @@ def test_local_terminal_requirements(monkeypatch, caplog):
     assert "Terminal requirements check failed" not in caplog.text
 
 
+def test_terminal_config_default_timeout_is_600(monkeypatch):
+    _clear_terminal_env(monkeypatch)
+    config = terminal_tool_module._get_env_config()
+    assert config["timeout"] == 600
+
+
 def test_unknown_terminal_env_falls_back_to_local(monkeypatch, caplog):
     """An unrecognized TERMINAL_ENV must NOT strip the terminal/file tools.
 
