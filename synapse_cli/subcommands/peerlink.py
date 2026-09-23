@@ -535,6 +535,115 @@ def _cmd_connect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_send(args: argparse.Namespace) -> int:
+    """Send a text message to a trusted peer."""
+    import json as _json
+    from gateway.peer_link.mailbox import PeerMailbox
+    from gateway.peer_link.messenger import send_message
+
+    identity = _load_identity(create=False)
+    if identity is None:
+        print("peerlink: no identity yet — run `synapse peerlink identity` first",
+              file=sys.stderr)
+        return 1
+
+    # Resolve peer url from trusted list
+    policy = _load_policy()
+    trusted = policy.list_peers()  # all states; we filter below
+    target_url: str = getattr(args, "peer_url", "")
+    target_peer_id: str = getattr(args, "peer_id_or_url", "")
+
+    # If the arg looks like a URL use it directly; otherwise treat as peer_id prefix
+    if target_peer_id.startswith("http"):
+        target_url = target_peer_id
+        # derive to_peer_id from trusted list by matching url
+        to_peer_id = getattr(args, "to_peer_id", None) or ""
+        if not to_peer_id:
+            print("peerlink: pass --to <peer_id> when using a raw URL", file=sys.stderr)
+            return 1
+    else:
+        # find peer by id prefix
+        matches = [p for p in policy.trusted() if p["peer_id"].startswith(target_peer_id)]
+        if not matches:
+            print(f"peerlink: no trusted peer matching {target_peer_id!r}", file=sys.stderr)
+            print("  Run `synapse peerlink list` to see trusted peers.", file=sys.stderr)
+            return 1
+        if len(matches) > 1:
+            print(f"peerlink: ambiguous prefix {target_peer_id!r} — be more specific",
+                  file=sys.stderr)
+            return 1
+        peer = matches[0]
+        to_peer_id = peer["peer_id"]
+        target_url = peer.get("address") or peer.get("url") or ""
+        if not target_url:
+            print(f"peerlink: no address recorded for peer {to_peer_id}", file=sys.stderr)
+            print("  Ask the peer to run `synapse peerlink serve` and share their URL.",
+                  file=sys.stderr)
+            return 1
+        # normalise to https URL
+        if not target_url.startswith("http"):
+            target_url = f"https://{target_url}"
+
+    text = " ".join(args.message)
+    if not text.strip():
+        print("peerlink: message cannot be empty", file=sys.stderr)
+        return 1
+
+    result = send_message(
+        identity=identity,
+        peer_url=target_url,
+        to_peer_id=to_peer_id,
+        text=text,
+        timeout=getattr(args, "timeout", None) or 15.0,
+    )
+    payload = {"ok": result.ok, "reason": result.reason}
+    if getattr(args, "json", False):
+        print(_json.dumps(payload))
+        return 0 if result.ok else 1
+
+    if result.ok:
+        print(f"✓ Message delivered to {to_peer_id[:20]}...")
+    else:
+        print(f"✗ Failed: {result.reason}", file=sys.stderr)
+    return 0 if result.ok else 1
+
+
+def _cmd_inbox(args: argparse.Namespace) -> int:
+    """Read messages in the local mailbox."""
+    import json as _json
+    from pathlib import Path
+    from gateway.peer_link.mailbox import PeerMailbox
+
+    mailbox_path = _data_dir() / "mailbox.json"
+    mailbox = PeerMailbox(mailbox_path)
+
+    peer_filter: str = getattr(args, "peer_id", None) or ""
+    drain: bool = getattr(args, "drain", False)
+
+    if drain:
+        msgs = mailbox.drain(peer_filter or None)
+    else:
+        msgs = mailbox.peek(peer_filter or None)
+
+    if getattr(args, "json", False):
+        print(_json.dumps([m.to_dict() for m in msgs]))
+        return 0
+
+    if not msgs:
+        print("Inbox empty." if not peer_filter else f"No messages from {peer_filter}.")
+        return 0
+
+    for m in msgs:
+        import datetime
+        ts_str = datetime.datetime.fromtimestamp(m.ts).strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{ts_str}] from {m.from_peer_id[:20]}...")
+        print(f"  {m.text}")
+        print()
+    if drain:
+        print(f"({len(msgs)} message(s) removed from inbox)")
+    return 0
+
+
 _ACTIONS: Dict[str, Callable[[argparse.Namespace], int]] = {
     "identity": _cmd_identity,
     "mode": _cmd_mode,
@@ -549,6 +658,8 @@ _ACTIONS: Dict[str, Callable[[argparse.Namespace], int]] = {
     "rotate": _cmd_rotate,
     "serve": _cmd_serve,
     "connect": _cmd_connect,
+    "send": _cmd_send,
+    "inbox": _cmd_inbox,
 }
 
 
@@ -680,5 +791,29 @@ def build_peerlink_parser(subparsers) -> None:
     p_connect.add_argument("--timeout", type=float, default=None,
                            help="Per-request timeout in seconds (default 15)")
     p_connect.add_argument("--json", action="store_true")
+
+    p_send = sub.add_parser(
+        "send", help="Send a text message to a trusted peer")
+    p_send.add_argument(
+        "peer_id_or_url",
+        help="Peer id prefix (e.g. pl1abc...) or a raw https:// URL",
+    )
+    p_send.add_argument(
+        "message",
+        nargs="+",
+        help="Message text (all remaining arguments joined with spaces)",
+    )
+    p_send.add_argument("--to", dest="to_peer_id", default=None,
+                        help="Receiver peer id (required when peer_id_or_url is a URL)")
+    p_send.add_argument("--timeout", type=float, default=None)
+    p_send.add_argument("--json", action="store_true")
+
+    p_inbox = sub.add_parser(
+        "inbox", help="Read inbound messages from trusted peers")
+    p_inbox.add_argument("--peer", dest="peer_id", default=None,
+                         help="Filter by sender peer id prefix")
+    p_inbox.add_argument("--drain", action="store_true",
+                         help="Remove messages after reading")
+    p_inbox.add_argument("--json", action="store_true")
 
     parser.set_defaults(func=cmd_peerlink)

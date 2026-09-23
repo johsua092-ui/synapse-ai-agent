@@ -44,6 +44,8 @@ from gateway.peer_link.identity import (
     peer_id_from_public_key,
     public_key_from_b64,
 )
+from gateway.peer_link.mailbox import PeerMailbox
+from gateway.peer_link.messenger import MSG_TYPE, verify_msg_payload
 from gateway.peer_link.policy import (
     AdmissionDecision,
     AdmissionMode,
@@ -152,6 +154,7 @@ class PeerLinkHandler(BaseHTTPRequestHandler):
     policy: AdmissionPolicy
     label: Optional[str]
     pending: _PendingHandshakes
+    mailbox: PeerMailbox
 
     # ----- plumbing -----------------------------------------------------
 
@@ -243,6 +246,9 @@ class PeerLinkHandler(BaseHTTPRequestHandler):
             return
         if kind == wire.CONFIRM:
             self._handle_confirm(message)
+            return
+        if kind == MSG_TYPE:
+            self._handle_peer_msg(message)
             return
         self._send_json(400, {"error": "unsupported message type"})
 
@@ -392,6 +398,35 @@ class PeerLinkHandler(BaseHTTPRequestHandler):
             },
         )
 
+    def _handle_peer_msg(self, message: Dict[str, Any]) -> None:
+        """Receive a signed message from a trusted peer and queue it."""
+        from gateway.peer_link.mailbox import Message as _Msg, new_msg_id as _nid
+        import time as _time
+
+        err = verify_msg_payload(message, expected_to_peer_id=self.identity.peer_id)
+        if err is not None:
+            logger.warning("peerlink msg rejected: %s", err)
+            self._send_json(403, {"ok": False, "reason": err})
+            return
+
+        from_peer_id = message["from_peer_id"]
+        # Only accept messages from peers that have passed the handshake and
+        # are in TRUSTED state.  QUARANTINED peers have not been approved yet.
+        trusted_ids = {p["peer_id"] for p in self.policy.list_peers(PeerState.TRUSTED)}
+        if from_peer_id not in trusted_ids:
+            self._send_json(403, {"ok": False, "reason": "peer not trusted"})
+            return
+
+        msg = _Msg(
+            from_peer_id=from_peer_id,
+            text=str(message["text"]),
+            ts=float(message["ts"]),
+            msg_id=str(message.get("msg_id") or _nid()),
+        )
+        self.mailbox.put(msg)
+        logger.info("peerlink msg queued from=%s msg_id=%s", from_peer_id, msg.msg_id)
+        self._send_json(200, {"ok": True, "msg_id": msg.msg_id})
+
 
 class PeerLinkServer:
     """Owns the listening socket and the handler configuration.
@@ -425,8 +460,21 @@ class PeerLinkServer:
         self.port = int(port)
         self.label = label
         self.pending = _PendingHandshakes()
+        # Mailbox is initialised in start() once we know the data directory.
+        self._mailbox: Optional[PeerMailbox] = None
         self._httpd: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
+
+    @property
+    def mailbox(self) -> PeerMailbox:
+        """The instance mailbox; created lazily on first access / bind."""
+        if self._mailbox is None:
+            import pathlib
+            from gateway.peer_link.mailbox import PeerMailbox as _MB
+            data_dir = pathlib.Path.home() / ".synapse" / "peer_link"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            self._mailbox = _MB(data_dir / "mailbox.json")
+        return self._mailbox
 
     @property
     def address(self) -> Tuple[str, int]:
@@ -450,6 +498,7 @@ class PeerLinkServer:
                 "policy": self.policy,
                 "label": self.label,
                 "pending": self.pending,
+                "mailbox": self.mailbox,
             },
         )
         self._httpd = ThreadingHTTPServer((self.host, self.port), handler)
