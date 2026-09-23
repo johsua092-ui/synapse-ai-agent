@@ -11991,7 +11991,7 @@ _BUILTIN_SUBCOMMANDS = frozenset(
         "dump", "egress", "fallback", "gateway", "hooks", "import", "import-agent", "insights",
         "gui", "desktop", "kanban", "login", "logout", "logs", "lsp", "mcp", "memory", "migrate", "moa",
         "journey", "memory-graph", "learning",
-        "model", "monitoring", "pairing", "pause", "peer", "pets", "plugins", "portal", "profile",
+        "model", "monitoring", "pairing", "pause", "peer", "peerlink", "pets", "plugins", "portal", "profile",
         "project", "proxy",
         "prompt-size",
         "resume",
@@ -13109,6 +13109,13 @@ def main():
     from synapse_cli.subcommands.peer import build_peer_parser
 
     build_peer_parser(subparsers)
+
+    # =========================================================================
+    # peerlink command — link two Synapse instances (different users)
+    # =========================================================================
+    from synapse_cli.subcommands.peerlink import build_peerlink_parser
+
+    build_peerlink_parser(subparsers)
 
     # =========================================================================
     # portal command — Nous Portal status + Tool Gateway routing
