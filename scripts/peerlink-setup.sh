@@ -57,14 +57,17 @@ fi
 export PATH="$HOME/.local/bin:$HOME/.synapse/bin:/usr/local/bin:$PATH"
 
 # ── 3. Config Peer Link ──────────────────────────────────────
-DOMAIN="synz.zone.id"
+# Prioritas: argumen $1 > env PEERLINK_DOMAIN > auto-detect public IP > fallback
+DETECTED_IP=$(curl -s4 --max-time 3 ifconfig.me 2>/dev/null || curl -s4 --max-time 3 icanhazip.com 2>/dev/null || curl -s4 --max-time 3 api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+DOMAIN="${1:-${PEERLINK_DOMAIN:-$DETECTED_IP}}"
+[[ -n "$DOMAIN" ]] || DOMAIN="95.111.199.131"
 PEER_PORT=8443
 DASHBOARD_PORT=7070
 
-log "Set config Peer Link (domain: $DOMAIN)..."
+log "Set config Peer Link (target: $DOMAIN)..."
 synapse config set peer_link.base_domain "$DOMAIN"
 synapse config set peer_link.address_mode path
-ok "Config set"
+ok "Config set (base_domain: $DOMAIN)"
 
 # ── 4. Bikin identity kalau belum ada ───────────────────────
 log "Setup identity..."
@@ -83,11 +86,19 @@ ok "Mode: invite"
 
 # ── 6. Setup nginx untuk dashboard ──────────────────────────
 log "Setup nginx proxy untuk dashboard..."
+rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+
 NGINX_CONF="/etc/nginx/sites-available/peerlink-dashboard"
 cat > "$NGINX_CONF" <<NGINX
 server {
-    listen 80;
-    server_name $DOMAIN;
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _ $DOMAIN;
+
+    # Auto-redirect root ke dashboard
+    location = / {
+        return 302 /dashboard;
+    }
 
     # Dashboard web UI
     location /dashboard {
@@ -162,10 +173,13 @@ INVITE_JSON=$(synapse peerlink invite --peer "temen" --json 2>/dev/null || echo 
 CODE=$(echo "$INVITE_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('code',''))" 2>/dev/null || echo "")
 SHARE_LINK=$(echo "$INVITE_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('share_link',''))" 2>/dev/null || echo "")
 
-# Build link manual kalau share_link kosong
+# Build link manual kalau share_link kosong atau fix scheme jika IP
 if [[ -z "$SHARE_LINK" && -n "$CODE" ]]; then
     LABEL=$(synapse peerlink endpoint --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('address','').split('/')[-1] if d.get('address') else '')" 2>/dev/null || echo "")
-    SHARE_LINK="https://$DOMAIN/peer/$LABEL#c=$CODE"
+    SHARE_LINK="http://$DOMAIN/peer/$LABEL#c=$CODE"
+fi
+if [[ "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ && "$SHARE_LINK" =~ ^https:// ]]; then
+    SHARE_LINK="${SHARE_LINK/https:\/\//http:\/\/}"
 fi
 
 # ── 9. Summary ───────────────────────────────────────────────
@@ -203,7 +217,11 @@ echo "    journalctl -u synapse-peerlink -f"
 echo ""
 echo "============================================"
 echo ""
-warn "Pastiin DNS A record $DOMAIN sudah diarahkan ke IP VPS ini"
-IP=$(curl -s ifconfig.me 2>/dev/null || echo "?")
-warn "IP VPS ini: $IP"
+if [[ "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    ok "Dashboard aktif di IP: http://$DOMAIN/dashboard (atau http://$DOMAIN)"
+else
+    warn "Pastiin DNS A record $DOMAIN sudah diarahkan ke IP VPS ini"
+    IP=$(curl -s --max-time 3 ifconfig.me 2>/dev/null || echo "?")
+    warn "IP VPS ini: $IP"
+fi
 echo ""
