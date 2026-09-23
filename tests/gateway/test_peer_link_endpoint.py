@@ -123,17 +123,41 @@ class TestHostnameFor:
 
 
 class TestCertificateNote:
-    def test_apex_zone_is_fine(self):
-        note = certificate_note("example.com")
-        assert "should cover" in note
-        assert "DEEP" not in note
+    """The rule is apex-relative depth, NOT a label count.
 
-    def test_deep_domain_warns(self):
-        """The operator's case: 3 labels means a free wildcard will NOT cover it."""
-        note = certificate_note("synz.zone.id")
-        assert "DEEP" in note
+    This distinction was got wrong once: ``aikernel.qzz.io`` and
+    ``synz.zone.id`` both have three labels, but the first is a zone apex
+    (covered by its own free wildcard) while the second is a hostname inside
+    ``zone.id`` (not covered). Counting labels cannot tell them apart.
+    """
+
+    def test_apex_is_covered(self):
+        note = certificate_note("example.com", "example.com")
+        assert "covers" in note
+        assert "No paid certificate" in note
+
+    def test_three_label_apex_is_covered(self):
+        """A 3-label name that IS the zone apex still works — the case a
+        label-count heuristic got wrong."""
+        note = certificate_note("aikernel.qzz.io", "aikernel.qzz.io")
+        assert "No paid certificate" in note
+        assert "will NOT cover" not in note
+
+    def test_hostname_inside_foreign_zone_warns(self):
+        """The real failing case: base is one label below the apex."""
+        note = certificate_note("synz.zone.id", "zone.id")
         assert "will NOT cover" in note
-        assert "Register" in note
+        assert "1 label(s) below" in note
+
+    def test_unknown_apex_asks_instead_of_guessing(self):
+        """Without the apex we cannot know — so we must not claim either way."""
+        note = certificate_note("synz.zone.id")
+        assert "dig +short NS" in note
+        assert "will NOT cover" not in note
+        assert "No paid certificate" not in note
+
+    def test_rejects_invalid_domain(self):
+        assert "not a valid DNS name" in certificate_note("a b")
 
 
 class TestEndpointRegistry:

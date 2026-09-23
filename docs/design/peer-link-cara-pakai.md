@@ -28,7 +28,7 @@ synapse peerlink identity
 
 # 2. Lihat alamatmu (acak, stabil, tidak bisa ditebak dari peer id)
 synapse peerlink endpoint
-#   hostname : piug6mzzysaxygv9hmnenyjq4g.synz.zone.id
+#   hostname : piug6mzzysaxygv9hmnenyjq4g.aikernel.qzz.io
 
 # 3. Buka pintu — hanya untuk yang punya kode undangan
 synapse peerlink mode invite
@@ -63,10 +63,10 @@ Lalu **kamu** menjalankan `approve`. Baru setelah itu dia dipercaya.
 
 ```
 $ synapse peerlink endpoint
-  hostname : piug6mzzysaxygv9hmnenyjq4g.synz.zone.id
+  hostname : piug6mzzysaxygv9hmnenyjq4g.aikernel.qzz.io
 
 $ synapse peerlink rotate
-New address: dhhrxmcxnqqxmbs8ggygn33g9t.synz.zone.id
+New address: dhhrxmcxnqqxmbs8ggygn33g9t.aikernel.qzz.io
 ```
 
 - Label **acak 26 karakter** dari 32 simbol → ~130 bit entropi. 50 instance
@@ -91,36 +91,84 @@ itu jebakan *security by obscurity*.
 
 ---
 
-## 3. ⚠️ JEBAKAN BESAR: sertifikat TLS untuk `synz.zone.id`
+## 3. ⚠️ JEBAKAN TLS — dan cara keluar buat `synz.zone.id`
 
-Ini bisa bikin semuanya gagal, jadi gw tulis di depan.
+Ini bagian yang paling gampang salah, jadi gw tulis di depan. **Gw sendiri
+sempat salah di sini**, jadi gw jelaskan aturan yang benar.
 
-**Wildcard TLS hanya menutup SATU tingkat label.**
+### Aturannya: wildcard diukur dari *apex zone*, bukan dari jumlah titik
 
-| Yang kamu mau | Wildcard gratis nutup? |
-|---|---|
-| `abc.zone.id` | ✅ ya (`*.zone.id`) |
-| `abc.synz.zone.id` | ❌ **tidak** (`*.zone.id` cuma satu tingkat) |
+Sertifikat wildcard `*.X` menutup **satu tingkat tepat di bawah `X`** — dan `X`
+harus **apex zone** (nama yang NS-nya punya kamu), bukan sembarang hostname.
 
-Kalau zone Cloudflare kamu adalah **`zone.id`**, maka
-`blablabla.synz.zone.id` adalah subdomain **tingkat kedua** → sertifikat gratis
-**tidak** menutupinya → koneksi gagal validasi TLS.
+| Hostname | Zone apex | Wildcard gratis nutup? |
+|---|---|---|
+| `abc.aikernel.qzz.io` | `aikernel.qzz.io` | ✅ ya |
+| `abc.zone.id` | `zone.id` | ✅ ya |
+| `abc.synz.zone.id` | `zone.id` | ❌ **tidak** |
 
-**Solusi (pilih satu):**
+Perhatikan: `aikernel.qzz.io` punya **3 label** tapi **✅ jalan**, sedangkan
+`synz.zone.id` juga **3 label** tapi **❌ gagal**. Jadi **menghitung jumlah titik
+itu menyesatkan** — yang menentukan adalah: *nama itu apex zone, atau hostname
+di dalam zone orang lain?*
 
-1. **Daftarkan `synz.zone.id` sebagai zone sendiri di Cloudflare** (gratis).
-   Lalu wildcard `*.synz.zone.id` menutupi `blablabla.synz.zone.id`. ← rekomendasi
-2. Pakai Advanced Certificate Manager (bayar) — bisa multi-tingkat.
-3. Pakai `*.zone.id` langsung tanpa lapisan `synz` (`blablabla.zone.id`).
+**Kasus kamu (sudah gw ukur pakai DNS, bukan tebakan):**
 
-Cek sendiri setelah DNS jadi:
-
-```bash
-curl -svI https://<label>.synz.zone.id 2>&1 | grep -i 'subject\|SSL\|error'
+```
+$ dig +short NS synz.zone.id
+dns.webkus.com.                    # <- NS milik orang lain, bukan punya kamu
+$ dig +short A synz.zone.id
+dns.webkus.com. 216.176.239.254    # <- ini CNAME ke hosting bersama
 ```
 
-Perintah `synapse peerlink endpoint` **sudah memperingatkan ini otomatis**
-kalau base domain kamu lebih dari 2 label.
+→ `synz.zone.id` **bukan zona**, cuma hostname di dalam `zone.id` (NS-nya
+`alidns.com`). Jadi `blablabla.synz.zone.id` **tidak akan** dapat sertifikat
+gratis. **Tidak ada cara "daftarkan synz.zone.id sebagai zone"** — kamu bukan
+pemilik `zone.id`, jadi kamu tidak bisa menambah record NS untuk mendelegasikan
+`synz` ke Cloudflare.
+
+### Solusinya: pakai domain yang **sudah kamu miliki sebagai zona**
+
+Kamu **sudah punya** yang benar — `aikernel.qzz.io`. Gw buktikan sudah jalan:
+
+```
+$ dig +short NS aikernel.qzz.io
+angelina.ns.cloudflare.com.        # <- NS Cloudflare, punya kamu
+yoxall.ns.cloudflare.com.
+$ dig +short SOA aikernel.qzz.io
+angelina.ns.cloudflare.com. ...    # <- ada SOA = benar-benar zona
+
+# dan sertifikat wildcard-nya SUDAH terbit:
+$ echo | openssl s_client -connect 9router.aikernel.qzz.io:443 2>/dev/null \
+    | openssl x509 -noout -ext subjectAltName
+    DNS:aikernel.qzz.io, DNS:*.aikernel.qzz.io     # <- wildcard ADA
+```
+
+Artinya **`<label>.aikernel.qzz.io` langsung bisa dipakai, gratis, tanpa beli
+apa pun.** Ini yang gw set jadi default sekarang.
+
+**Urutan pilihan (dari yang paling gampang):**
+
+1. **Pakai `aikernel.qzz.io`** ← rekomendasi, sudah siap, wildcard sudah ada.
+2. Kalau tetap mau `synz.zone.id`: minta pemilik `zone.id` menambahkan **NS
+   record** `synz.zone.id` → nameserver Cloudflare kamu (butuh kerjasama mereka),
+   **atau** pindahkan `synz.zone.id` ke penyedia yang izinkan kelola DNS penuh.
+3. Beli domain sendiri (mis. `synz.id`), daftarkan sebagai zone di Cloudflare →
+   wildcard `*.synz.id` menutupi semuanya.
+4. Advanced Certificate Manager (bayar) — bisa multi-tingkat, tapi tidak perlu
+   karena opsi 1 gratis.
+
+Cek sendiri kapan saja:
+
+```bash
+dig +short NS <base-domain-kamu>
+# nameserver penyediamu      -> itu zona, wildcard menutupinya
+# host asing / kosong        -> hostname di zone orang lain, TLS akan gagal
+```
+
+`synapse peerlink endpoint` **tidak menebak** — kalau `zone_apex` belum diisi di
+config, dia mencetak perintah `dig` di atas supaya kamu cek sendiri; kalau
+`zone_apex` sudah diisi, dia langsung bilang **"aman"** atau **"akan gagal"**.
 
 ---
 
@@ -136,13 +184,13 @@ cloudflared tunnel login
 cloudflared tunnel create synapse-peerlink
 
 # 3. Route wildcard: SEMUA subdomain -> satu tunnel
-cloudflared tunnel route dns synapse-peerlink "*.synz.zone.id"
+cloudflared tunnel route dns synapse-peerlink "*.aikernel.qzz.io"
 
 # 4. config.yml
 #    tunnel: <id>
 #    credentials-file: /root/.cloudflared/<id>.json
 #    ingress:
-#      - hostname: "*.synz.zone.id"
+#      - hostname: "*.aikernel.qzz.io"
 #        service: http://localhost:<port-peerlink>
 #      - service: http_status:404
 
@@ -150,7 +198,7 @@ cloudflared tunnel route dns synapse-peerlink "*.synz.zone.id"
 cloudflared tunnel run synapse-peerlink
 ```
 
-Wildcard DNS (`*.synz.zone.id`) berarti **kamu tidak perlu menambah record
+Wildcard DNS (`*.aikernel.qzz.io`) berarti **kamu tidak perlu menambah record
 tiap peer baru** — setiap instance cukup memilih label acaknya sendiri.
 
 **Catatan keamanan:** Cloudflare **memutus TLS di edge-nya** — artinya
@@ -166,10 +214,12 @@ Setting perilaku ada di `config.yaml`, bukan environment variable:
 
 ```yaml
 peer_link:
-  base_domain: synz.zone.id
+  base_domain: aikernel.qzz.io
+  zone_apex: aikernel.qzz.io   # opsional: bikin pesan TLS jadi pasti
 ```
 
-Kalau tidak diisi, defaultnya `synz.zone.id`.
+Kalau tidak diisi, defaultnya `aikernel.qzz.io`. `zone_apex` opsional — kalau
+kosong, `peerlink endpoint` menyuruh kamu cek pakai `dig` (tidak menebak).
 
 ---
 

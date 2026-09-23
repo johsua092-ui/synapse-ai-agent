@@ -40,27 +40,36 @@ def _data_dir() -> Path:
     return get_synapse_dir("peer_link", "peer_link")
 
 
-def _default_base_domain() -> str:
-    """Base domain for per-instance addresses, from ``config.yaml``.
+def _peer_link_config() -> dict:
+    """The ``peer_link`` section of ``config.yaml`` (empty dict if absent).
 
-    Read from ``peer_link.base_domain`` so operators configure it the same way
-    they configure everything else. A behavioural setting belongs in
-    config.yaml, not an environment variable. Falls back to the project zone.
+    A behavioural setting belongs in config.yaml, not an environment variable.
     """
-    from gateway.peer_link.endpoint import DEFAULT_BASE_DOMAIN
-
     try:
         from synapse_cli.config import load_config
 
         cfg = load_config() or {}
         section = cfg.get("peer_link") or {}
-        if isinstance(section, dict):
-            value = str(section.get("base_domain") or "").strip()
-            if value:
-                return value
+        return section if isinstance(section, dict) else {}
     except Exception:
-        pass
-    return DEFAULT_BASE_DOMAIN
+        return {}
+
+
+def _default_base_domain() -> str:
+    """Base domain for per-instance addresses, from ``config.yaml``."""
+    from gateway.peer_link.endpoint import DEFAULT_BASE_DOMAIN
+
+    value = str(_peer_link_config().get("base_domain") or "").strip()
+    return value or DEFAULT_BASE_DOMAIN
+
+
+def _default_zone_apex() -> str:
+    """Registered zone apex, from ``peer_link.zone_apex`` in ``config.yaml``.
+
+    Used only to turn :func:`certificate_note` from "go check this yourself"
+    into an exact verdict. Optional: absent is safe, it just asks.
+    """
+    return str(_peer_link_config().get("zone_apex") or "").strip()
 
 
 def _load_identity(create: bool = True):
@@ -301,7 +310,9 @@ def _cmd_endpoint(args: argparse.Namespace) -> int:
     payload = {
         "hostname": hostname,
         "base_domain": registry.base_domain,
-        "certificate": certificate_note(registry.base_domain),
+        "certificate": certificate_note(
+            registry.base_domain, _default_zone_apex() or None
+        ),
     }
     text = (
         f"Your Peer Link address\n"
@@ -389,7 +400,7 @@ def build_peerlink_parser(subparsers) -> None:
             "\n"
             "Set the address base in config.yaml:\n"
             "  peer_link:\n"
-            "    base_domain: synz.zone.id\n"
+            "    base_domain: aikernel.qzz.io\n"
             "Exit codes: 0 ok, 1 error, 2 usage error."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

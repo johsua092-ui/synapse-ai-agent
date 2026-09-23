@@ -24,11 +24,13 @@ Do not rely on the label alone as a security boundary — that is exactly the
 "security by obscurity" trap. It is a discovery-cost multiplier, not a lock.
 
 **Certificate caveat (matters, and bites people):** a wildcard TLS certificate
-``*.example.com`` covers *one* label level only — ``a.example.com`` yes,
-``a.b.example.com`` no. Cloudflare's free Universal SSL follows the same rule
-unless the apex itself is the registered zone. :func:`certificate_note`
-returns the concrete implication for a chosen base domain so the operator finds
-out before peers start failing to connect, not after.
+``*.example.com`` covers *one* label level below the **zone apex**. The trap is
+that "one level" is measured from the apex, *not* by counting the labels in the
+name. ``aikernel.qzz.io`` is a genuine three-label apex, so
+``<label>.aikernel.qzz.io`` is covered; ``synz.zone.id`` is a *hostname inside*
+the ``zone.id`` zone, so ``<label>.synz.zone.id`` is not. Counting labels cannot
+tell those two apart — delegation can, and :func:`certificate_note` says exactly
+how to check rather than guessing.
 """
 
 from __future__ import annotations
@@ -55,8 +57,15 @@ DNS_LABEL_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-"
 #: enumeration, and well inside the 63-character DNS label limit.
 LABEL_LENGTH = 26
 
-#: Default base domain, matching the operator's own zone.
-DEFAULT_BASE_DOMAIN = "synz.zone.id"
+#: Default base domain: the operator's own **zone apex**.
+#:
+#: Peers are published as ``<label>.<base_domain>`` — one label below this name.
+#: It must therefore be the apex itself (the name whose NS records are yours),
+#: not a hostname inside somebody else's zone. ``synz.zone.id`` is a shared-host
+#: CNAME inside ``zone.id``, so it cannot work; ``aikernel.qzz.io`` is a real
+#: apex and does. Override per deployment with ``peer_link.base_domain`` in
+#: ``config.yaml``.
+DEFAULT_BASE_DOMAIN = "aikernel.qzz.io"
 
 
 def generate_label(length: int = LABEL_LENGTH) -> str:
@@ -115,35 +124,72 @@ def hostname_for(label: str, base_domain: str = DEFAULT_BASE_DOMAIN) -> str:
     return f"{label}.{domain}"
 
 
-def certificate_note(base_domain: str = DEFAULT_BASE_DOMAIN) -> str:
+def _normalise_domain(value: object) -> str:
+    """Lower-case, dot-trimmed DNS name (no other interpretation)."""
+    return (str(value) if value is not None else "").strip().strip(".").lower()
+
+
+def certificate_note(
+    base_domain: str = DEFAULT_BASE_DOMAIN,
+    zone_apex: Optional[str] = None,
+) -> str:
     """Explain the TLS-certificate implication of *base_domain*.
 
-    The distinction that decides whether this works for free:
+    The rule that decides whether this works for free is **how many labels
+    *base_domain* sits below the zone apex you registered** — not how many
+    labels the name happens to have:
 
-      * If *base_domain* is itself the **registered zone** (its nameservers
-        point at Cloudflare), then ``<label>.<base_domain>`` is a *first-level*
-        subdomain and the free wildcard ``*.<base_domain>`` covers it.
-      * If *base_domain* is only a *hostname inside someone else's zone*
-        (e.g. ``synz.zone.id`` while the registered zone is ``zone.id``), then
-        ``<label>.synz.zone.id`` is a *second-level* subdomain, which the free
-        wildcard does **not** cover — those connections fail certificate
-        validation and need Advanced Certificate Manager (paid) or a custom
-        certificate.
+      * ``base_domain == zone_apex`` — ``<label>.<base_domain>`` is one label
+        below the apex, so the free wildcard ``*.<zone_apex>`` covers it.
+      * ``base_domain`` is itself a subdomain of the apex (``synz.zone.id``
+        inside zone ``zone.id``) — ``<label>.<base_domain>`` is two levels
+        below, which a one-level wildcard does **not** reach.
+
+    A three-label base domain is therefore not automatically broken:
+    ``aikernel.qzz.io`` is a genuine three-label apex and works, while
+    ``synz.zone.id`` is a hostname inside ``zone.id`` and does not. Counting
+    labels cannot tell them apart, so when *zone_apex* is not supplied this
+    returns the exact command to check instead of guessing.
     """
-    domain = (base_domain or "").strip().strip(".").lower()
-    labels = [p for p in domain.split(".") if p]
-    if len(labels) <= 2:
+    domain = _normalise_domain(base_domain)
+    if not validate_domain(domain):
+        return f"'{base_domain}' is not a valid DNS name."
+
+    apex = _normalise_domain(zone_apex)
+    if not apex:
         return (
-            f"'{domain}' looks like a registered zone. "
-            f"Free wildcard '*.{domain}' should cover '<label>.{domain}'."
+            f"Free wildcard '*.{domain}' covers '<label>.{domain}' only if "
+            f"'{domain}' is itself a registered zone (its own NS records at your "
+            f"DNS provider) — a wildcard reaches exactly ONE label below the "
+            f"zone apex. Check which it is with:\n"
+            f"    dig +short NS {domain}\n"
+            f"  your provider's nameservers -> it is a zone, the wildcard covers "
+            f"it;\n"
+            f"  a foreign host or empty -> it is a hostname inside someone else's "
+            f"zone and '<label>.{domain}' will fail TLS validation.\n"
+            f"Set peer_link.zone_apex in config.yaml for an exact verdict."
+        )
+
+    if not validate_domain(apex):
+        return f"'{zone_apex}' is not a valid DNS name."
+
+    depth = len(domain.split(".")) - len(apex.split("."))
+    if depth == 0:
+        return (
+            f"'{domain}' is the zone apex, so the free wildcard '*.{apex}' covers "
+            f"'<label>.{domain}'. No paid certificate needed."
+        )
+    if depth > 0:
+        return (
+            f"'{domain}' sits {depth} label(s) below the zone apex '{apex}', so "
+            f"'<label>.{domain}' is {depth + 1} level(s) below the apex. A free "
+            f"wildcard '*.{apex}' reaches only ONE level and will NOT cover it. "
+            f"Publish peers directly under the apex ('<label>.{apex}'), or "
+            f"register '{domain}' as its own zone."
         )
     return (
-        f"'{domain}' has {len(labels)} labels, so '<label>.{domain}' is a "
-        f"DEEP subdomain. A free wildcard '*.<zone>' covers only ONE label "
-        f"level and will NOT cover this. Register '{domain}' as its own zone "
-        f"in Cloudflare (recommended, free), or expect a certificate error "
-        f"needing a paid advanced certificate. Verify with: "
-        f"curl -svI https://<label>.{domain} 2>&1 | grep -i 'subject\\|SSL'"
+        f"'{domain}' is {abs(depth)} label(s) above the zone apex '{apex}' — a "
+        f"configuration error: the apex must be '{domain}' or a suffix of it."
     )
 
 
