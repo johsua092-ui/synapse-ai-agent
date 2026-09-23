@@ -28,7 +28,8 @@ synapse peerlink identity
 
 # 2. Lihat alamatmu (acak, stabil, tidak bisa ditebak dari peer id)
 synapse peerlink endpoint
-#   address  : synz.zone.id/peer/pdef6crymbycnjmbm5fuhmjc4v
+#   url      : https://synz.zone.id/peer/da843snmcp23mazb29uz7gmt6e
+#   address  : synz.zone.id/peer/da843snmcp23mazb29uz7gmt6e
 #   hostname : synz.zone.id
 
 # 3. Buka pintu — hanya untuk yang punya kode undangan
@@ -64,10 +65,11 @@ Lalu **kamu** menjalankan `approve`. Baru setelah itu dia dipercaya.
 
 ```
 $ synapse peerlink endpoint
-  address  : synz.zone.id/peer/pdef6crymbycnjmbm5fuhmjc4v
+  url      : https://synz.zone.id/peer/da843snmcp23mazb29uz7gmt6e
 
 $ synapse peerlink rotate
-New address: synz.zone.id/peer/s2uft4im5jsxscy7byyia9223z
+New address: https://synz.zone.id/peer/2k5qtjafiyb2vmbrcvpnpn5vwt
+The previous address no longer resolves.
 ```
 
 - Label **acak 26 karakter** dari 32 simbol → ~130 bit entropi. 50 instance
@@ -329,3 +331,130 @@ Semua perintah menerima `--json` untuk scripting.
 
 **Di semua mode, tidak ada yang otomatis dipercaya.** Peer baru selalu masuk
 karantina sampai kamu `approve`.
+
+---
+
+## 8. ⚠️ JUJUR: apa yang SUDAH jalan dan apa yang BELUM
+
+Bagian ini penting, biar kamu tidak menyangka lebih dari kenyataannya.
+
+**SUDAH jalan (bisa kamu jalankan sekarang):**
+
+| Bagian | Status | Bukti |
+|---|---|---|
+| Identitas Ed25519 + peer id | ✅ | `synapse peerlink identity` |
+| Alamat acak (subdomain & path) | ✅ | `synapse peerlink endpoint` |
+| Rotate alamat | ✅ | `synapse peerlink rotate` |
+| Mode admission + default `closed` | ✅ | `synapse peerlink mode` |
+| Kode undangan (pakai `PairingStore` lama) | ✅ | `synapse peerlink invite` |
+| Karantina + approve/block/revoke | ✅ | `synapse peerlink pending` |
+| Perbaikan DoS per-platform (additive) | ✅ | `BUKTI_DOS.py` |
+| 200 tes lulus | ✅ | `pytest` |
+
+**BELUM ada — dan ini yang harus kamu tau:**
+
+| Bagian | Status |
+|---|---|
+| **Server yang benar-benar listen di port** | ❌ belum |
+| **Client yang mengetuk alamat peer** | ❌ belum |
+| **Sinkronisasi data antar peer** | ❌ belum |
+| **Barter skill/experience** | ❌ belum |
+| **E2EE antar-peer** | ❌ belum (tapi `cryptography` sudah tersedia) |
+
+**Artinya secara konkret:** hari ini `synapse peerlink endpoint` **membuat
+alamat**, tapi **belum ada proses yang melayani URL itu**. Kalau kamu buka
+`https://synz.zone.id/peer/da843...` sekarang, yang menjawab adalah **webkus**
+(hosting lama), bukan Synapse-mu.
+
+```
+$ curl -o /dev/null -w "%{http_code} %{remote_ip}\n" https://synz.zone.id/peer/tes
+404 216.176.239.254     # <- masih webkus, bukan server kamu
+```
+
+Ini **sesuai desain** (fondasi dulu, transport menyusul), tapi gw nggak mau
+kamu ngira-ngira. Urutan kerja yang benar:
+
+1. ✅ **FASE 1 (selesai):** identitas, alamat, policy, undangan, CLI.
+2. ⏳ **FASE 2 (berikutnya):** server yang listen + client yang mengetuk —
+   memakai `gateway/relay/` yang sudah ada (`RelayTransport`, `ws_transport.py`),
+   jadi **nol dependency baru**.
+3. ⏳ **FASE 3:** sinkronisasi data.
+4. ⏳ **FASE 4:** barter skill/experience.
+
+**Yang bisa kamu siapkan SEKARANG** (biar FASE 2 langsung jalan):
+A record `synz` → IP server, lalu `certbot --nginx -d synz.zone.id`, lalu
+blok `location /peer/` seperti di §4. Setelah itu tinggal FASE 2 nyambung.
+
+---
+
+## 9. 🔑 TANPA VPS — dan kenapa ini yang bikin orang lain gampang
+
+Pertanyaan yang benar: **kalau orang lain mau ikut, apakah mereka harus punya
+VPS / IP publik / domain sendiri?** Jawabannya **TIDAK**, dan kuncinya sudah ada
+di repo ini.
+
+### Kenapa: ada dua arah koneksi, dan hasilnya beda jauh
+
+| | Cara | Butuh IP publik / port forward? |
+|---|---|---|
+| ❌ **Listen masuk** | server buka port, orang lain mengetuk | **YA** — inilah jalur yang butuh VPS |
+| ✅ **Dial keluar** | kamu yang menghubungi server | **TIDAK** — NAT/firewall tidak masalah |
+
+Jalur `synz.zone.id` (§3–§4) adalah jalur **listen masuk**. Itu sebabnya dia
+butuh IP publik. **Kalau tujuannya "orang lain enak", jalur ini salah** —
+kebanyakan orang tidak punya IP publik, tidak bisa port forward, dan tidak punya
+domain.
+
+### Fondasinya SUDAH ADA: `gateway/relay/`
+
+Gw periksa kode repo ini, dan **relay-nya sudah dial-keluar**:
+
+```
+$ grep -cE "listen\(|serve_forever|start_server|bind\(" gateway/relay/*.py
+  -> 0 di SEMUA file relay
+```
+
+Kutipan dari `gateway/relay/ws_transport.py` baris 3:
+
+> *"The gateway **dials OUT** to the connector's relay endpoint over a WebSocket…"*
+
+Dan diuji, mesin ini bisa dial keluar:
+```
+keluar ke 1.1.1.1:443   -> OK
+keluar ke github.com:443 -> OK
+```
+
+Artinya: **`gateway/relay/` sudah menyelesaikan masalah "tanpa VPS" — nol
+dependency baru, sudah teruji di produksi** (dipakai untuk WhatsApp/Telegram).
+
+### Jadi ada 3 jalur, pilih sesuai kebutuhan
+
+| Jalur | Butuh VPS? | Butuh domain? | Cocok untuk |
+|---|---|---|---|
+| **A. Relay (`gateway/relay/`)** | ❌ tidak | ❌ tidak | **orang random — paling gampang** |
+| **B. Cloudflare Tunnel** | ❌ tidak | ❌ tidak (`*.trycloudflare.com`) | yang mau hostname sendiri tanpa domain |
+| **C. `synz.zone.id` (listen masuk)** | ✅ ya | ✅ ya | kamu, karena kamu punya IP publik |
+
+**Untuk "buat orang lain enak": pakai jalur A.** Orang lain cukup:
+
+```bash
+pip install synapse-agent          # sama seperti biasa
+synapse peerlink identity          # dapat peer id
+synapse peerlink mode invite       # buka pintu
+synapse peerlink invite --peer "Budi"
+```
+
+Tanpa VPS, tanpa domain, tanpa port forward, tanpa Cloudflare. Dia duduk di
+belakang NAT rumahan pun tetap bisa — karena **dia yang menghubungi relay**,
+bukan relay yang menghubungi dia.
+
+### Konsekuensi jujur ke desain
+
+Ini berarti FASE 2 sebaiknya **memakai `gateway/relay/` sebagai transport
+utama**, dan `synz.zone.id` (jalur C) jadi **opsi untuk yang punya IP publik
+saja**. `synz.zone.id` tetap berguna buat kamu, tapi dia **bukan** jalur yang
+bikin orang random gampang — dan itu justru pertanyaanmu.
+
+Yang **tetap wajib di semua jalur**: **E2EE**. Kalau lewat relay, relay itu
+perantara — dan aturan dari dokumen Peer Link tetap berlaku: *"TLS saja TIDAK
+cukup kalau lewat perantara."*

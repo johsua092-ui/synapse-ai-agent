@@ -325,9 +325,11 @@ def _cmd_endpoint(args: argparse.Namespace) -> int:
             "No address minted yet. Run 'synapse peerlink endpoint' to create one.",
         )
     address = registry.own_address(create=not getattr(args, "peek", False))
+    url = registry.own_url(create=not getattr(args, "peek", False))
     payload = {
         "hostname": hostname,
         "address": address,
+        "url": url,
         "address_mode": registry.mode,
         "base_domain": registry.base_domain,
         "certificate": certificate_note(
@@ -336,14 +338,15 @@ def _cmd_endpoint(args: argparse.Namespace) -> int:
     }
     text = (
         f"Your Peer Link address\n"
+        f"  url      : {url}\n"
         f"  address  : {address}\n"
         f"  hostname : {hostname}\n"
         f"  mode     : {registry.mode}\n"
         f"  base     : {registry.base_domain}\n"
         f"\n"
-        f"  Share this with the peer you are linking with. The label is random,\n"
-        f"  so it cannot be guessed from your peer id — but it is NOT a secret\n"
-        f"  lock: admission is still decided by mode + your explicit approval.\n"
+        f"  Share the url with the peer you are linking with. The label is\n"
+        f"  random, so it cannot be guessed from your peer id — but it is NOT a\n"
+        f"  secret lock: admission is still decided by mode + your approval.\n"
         f"\n"
         f"  TLS note : {payload['certificate']}"
     )
@@ -357,11 +360,12 @@ def _cmd_rotate(args: argparse.Namespace) -> int:
     base = getattr(args, "base_domain", None) or _default_base_domain()
     mode = getattr(args, "address_mode", None) or _default_address_mode()
     registry = EndpointRegistry(_data_dir(), base, mode)
-    hostname = registry.rotate()
+    address = registry.rotate()
+    url = registry.own_url(create=False)
     return _emit(
         args,
-        {"hostname": hostname, "address_mode": registry.mode},
-        f"New address: {hostname}\nThe previous address no longer resolves.",
+        {"url": url, "address": address, "address_mode": registry.mode},
+        f"New address: {url}\nThe previous address no longer resolves.",
     )
 
 

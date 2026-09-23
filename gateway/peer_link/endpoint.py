@@ -181,6 +181,31 @@ def public_address(
     return f"{domain}{PATH_PREFIX}{label}"
 
 
+def address_url(
+    label: str,
+    base_domain: str = DEFAULT_BASE_DOMAIN,
+    mode: str = DEFAULT_ADDRESS_MODE,
+    *,
+    scheme: str = "https",
+) -> str:
+    """Full URL for *label* — the form a peer actually dials.
+
+    ``subdomain`` -> ``https://<label>.<base_domain>/``
+    ``path``      -> ``https://<base_domain>{PATH_PREFIX}<label>``
+
+    Subdomain mode gets a trailing slash so the two shapes are consistent: both
+    are a complete authority plus a path that can be handed to a HTTP client
+    unchanged. HTTPS is the default and the only value worth using — a peer
+    address over plain HTTP leaks the label and everything after it.
+    """
+    if scheme != "https":
+        raise ValueError(f"refusing non-HTTPS peer scheme: {scheme!r}")
+    address = public_address(label, base_domain, mode)
+    if mode == "subdomain":
+        return f"{scheme}://{address}/"
+    return f"{scheme}://{address}"
+
+
 def _normalise_domain(value: object) -> str:
     """Lower-case, dot-trimmed DNS name (no other interpretation)."""
     return (str(value) if value is not None else "").strip().strip(".").lower()
@@ -372,6 +397,13 @@ class EndpointRegistry:
         if label is None:
             return None
         return public_address(label, self._base_domain, self._mode)
+
+    def own_url(self, *, create: bool = True) -> Optional[str]:
+        """Full ``https://`` URL for this instance — what a peer dials."""
+        label = self._minted_label(create=create)
+        if label is None:
+            return None
+        return address_url(label, self._base_domain, self._mode)
 
     def rotate(self) -> str:
         """Mint a new label, invalidating the old address."""

@@ -26,6 +26,7 @@ from gateway.peer_link.endpoint import (
     LABEL_ALPHABET,
     LABEL_LENGTH,
     EndpointRegistry,
+    address_url,
     certificate_note,
     generate_label,
     hostname_for,
@@ -386,6 +387,46 @@ class TestRememberAddress:
         reg = EndpointRegistry(tmp_path)
         with pytest.raises(ValueError):
             reg.remember_address("", "xyz.example.com")
+
+
+class TestAddressUrl:
+    """The full URL is the shape a human actually pastes to a peer."""
+
+    def test_subdomain_url(self):
+        url = address_url("abc123", "aikernel.qzz.io", "subdomain")
+        assert url == "https://abc123.aikernel.qzz.io/"
+
+    def test_path_url(self):
+        url = address_url("abc123", "synz.zone.id", "path")
+        assert url == "https://synz.zone.id/peer/abc123"
+
+    def test_http_is_refused(self):
+        """A peer address over plain HTTP leaks the label and its traffic."""
+        with pytest.raises(ValueError):
+            address_url("abc123", "synz.zone.id", "path", scheme="http")
+
+    def test_unsafe_label_refused(self):
+        with pytest.raises(ValueError):
+            address_url("../../etc", "synz.zone.id", "path")
+
+    def test_registry_own_url_matches_address(self, tmp_path):
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        url = reg.own_url()
+        assert url == f"https://{reg.own_address()}"
+        assert url.startswith("https://synz.zone.id/peer/")
+
+    def test_registry_own_url_is_none_when_nothing_minted(self, tmp_path):
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        assert reg.own_url(create=False) is None
+
+    def test_rotate_changes_url_in_path_mode(self, tmp_path):
+        """rotate() must invalidate the old URL in path mode too."""
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        first = reg.own_url()
+        reg.rotate()
+        second = reg.own_url(create=False)
+        assert first != second
+        assert second.startswith("https://synz.zone.id/peer/")
 
 
 class TestPeerEndpoints:
