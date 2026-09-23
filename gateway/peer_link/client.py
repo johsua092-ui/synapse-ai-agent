@@ -224,6 +224,49 @@ class PeerLinkClient:
         )
 
 
+#: Fragment key carrying an invite code inside a share link (``<url>#c=CODE``).
+SHARE_CODE_PARAM = "c"
+
+
+def build_share_link(url: str, code: str) -> str:
+    """Compose one string carrying both the address and the invite code.
+
+    The code rides in the URL **fragment** on purpose. Fragments are never sent
+    to the server, so the code cannot land in an access log on the way to the
+    peer, and a screenshot of the QR cannot leak it to whoever hosts the
+    address. It is the same reasoning that keeps secrets out of query strings.
+    """
+    base = (url or "").strip().rstrip("/")
+    secret = (code or "").strip()
+    if not base:
+        return secret
+    if not secret:
+        return base
+    return f"{base}#{SHARE_CODE_PARAM}={secret}"
+
+
+def split_share_link(text: str) -> tuple[str, str]:
+    """Split a share link back into ``(url, code)`` — inverse of the above.
+
+    Tolerates a bare code (no URL) by returning it in the second slot, so the
+    caller can tell the user which half is missing instead of failing vaguely.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return "", ""
+    if "://" not in raw and "/" not in raw:
+        return "", raw  # looks like a bare invite code
+    parsed = urllib.parse.urlparse(raw)
+    code = ""
+    if parsed.fragment:
+        fragment = urllib.parse.parse_qs(parsed.fragment)
+        values = fragment.get(SHARE_CODE_PARAM) or fragment.get("code") or []
+        code = (values[0] if values else "").strip()
+    # Drop the fragment: it is for the human, never for the wire.
+    clean = urllib.parse.urlunparse(parsed._replace(fragment=""))
+    return clean, code
+
+
 def normalise_peer_url(url: str) -> str:
     """Turn what a human pastes into a URL we can POST to.
 

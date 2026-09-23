@@ -206,15 +206,67 @@ def _cmd_invite(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+
+    share_link = ""
+    if getattr(args, "qr", False):
+        share_link = _share_link_for(code)
+
     if getattr(args, "json", False):
-        print(json.dumps({"code": code, "platform": "peerlink"}, indent=2))
+        out = {"code": code, "platform": "peerlink"}
+        if share_link:
+            out["share_link"] = share_link
+        print(json.dumps(out, indent=2))
         return 0
+
     print(f"Invite code: {code}")
+    if share_link:
+        _print_qr_block(share_link)
     print()
     print("Send this to the other person over a DIFFERENT channel")
     print("(WhatsApp, Signal, in person). It expires in 1 hour.")
     print("It does not grant access on its own — you still approve them.")
     return 0
+
+
+def _share_link_for(code: str) -> str:
+    """Compose our own share link (address + code) for QR rendering.
+
+    Returns ``""`` when we have no address yet — a QR of a bare code would be
+    worse than useless, since the scanner would have nothing to dial.
+    """
+    from gateway.peer_link.client import build_share_link
+    from gateway.peer_link.endpoint import EndpointRegistry
+
+    try:
+        registry = EndpointRegistry(
+            _data_dir(),
+            _default_base_domain(),
+            _default_address_mode(),
+        )
+        url = registry.own_url(create=True)
+    except Exception:  # noqa: BLE001 - no address yet is a normal state
+        return ""
+    if not url:
+        return ""
+    return build_share_link(str(url), code)
+
+
+def _print_qr_block(share_link: str) -> None:
+    """Print the QR when ``qrcode`` is available; stay silent when it is not.
+
+    Silence rather than an error message: the plain link printed by the caller
+    is always enough, and a scary warning about an optional renderer would make
+    a working command look broken.
+    """
+    from gateway.peer_link.qr import render_qr
+
+    art = render_qr(share_link)
+    if not art:
+        return
+    print()
+    print("Scan this to link (carries the address AND the code):")
+    print(art)
+    print(f"  {share_link}")
 
 
 def _cmd_pending(args: argparse.Namespace) -> int:
@@ -434,18 +486,23 @@ def _cmd_connect(args: argparse.Namespace) -> int:
     This is the command a stranger runs. It needs nothing but the URL: no
     account, no port forwarding, no domain of their own.
     """
-    from gateway.peer_link.client import connect, normalise_peer_url
+    from gateway.peer_link.client import connect, normalise_peer_url, split_share_link
 
     raw = getattr(args, "url", None) or ""
+    # A share link carries the invite code in its fragment. Split it off before
+    # normalising, so the code is sent in the handshake and never in the URL we
+    # POST to (a fragment is not transmitted; a query string would be logged).
+    raw_url, embedded_code = split_share_link(raw)
+    code = getattr(args, "code", None) or embedded_code
     try:
-        url = normalise_peer_url(raw)
+        url = normalise_peer_url(raw_url)
     except ValueError as exc:
         print(f"peerlink: {exc}", file=sys.stderr)
         return 2
 
     ident = _load_identity(create=True)
     timeout = float(getattr(args, "timeout", None) or 15.0)
-    result = connect(ident, url, timeout=timeout)
+    result = connect(ident, url, invite_code=code, timeout=timeout)
 
     payload = {
         "ok": result.ok,
@@ -454,6 +511,7 @@ def _cmd_connect(args: argparse.Namespace) -> int:
         "state": result.state,
         "authenticated": result.authenticated,
         "reason": result.reason,
+        "used_invite_code": bool(code),
     }
     if getattr(args, "json", False):
         print(json.dumps(payload, indent=2, ensure_ascii=False))
@@ -468,6 +526,8 @@ def _cmd_connect(args: argparse.Namespace) -> int:
     print(f"  their peer id : {result.peer_id}")
     print(f"  authenticated : {result.authenticated}")
     print(f"  state         : {result.state}")
+    if code:
+        print("  invite code   : accepted")
     if result.state == "quarantined":
         print()
         print("  They still have to approve you on their side before anything")
@@ -527,6 +587,7 @@ def build_peerlink_parser(subparsers) -> None:
             "  synapse peerlink mode invite\n"
             "  synapse peerlink endpoint\n"
             "  synapse peerlink serve\n"
+            "  synapse peerlink invite --peer Budi --qr\n"
             "  synapse peerlink connect <peer-url>\n"
             "  synapse peerlink pending\n"
             "  synapse peerlink approve pl1abc...\n"
@@ -559,6 +620,8 @@ def build_peerlink_parser(subparsers) -> None:
     p_invite = sub.add_parser("invite", help="Mint an invite code to share")
     p_invite.add_argument("--peer", default="", help="Label for who this is for")
     p_invite.add_argument("--note", default="", help=argparse.SUPPRESS)
+    p_invite.add_argument("--qr", action="store_true",
+                          help="Also render a scannable QR of address + code")
     p_invite.add_argument("--json", action="store_true")
 
     p_pending = sub.add_parser("pending", help="Peers waiting for your decision")
@@ -612,6 +675,8 @@ def build_peerlink_parser(subparsers) -> None:
     p_connect = sub.add_parser(
         "connect", help="Link to a peer URL (needs nothing but the URL)")
     p_connect.add_argument("url", help="Peer URL, e.g. https://synz.zone.id/peer/abc")
+    p_connect.add_argument("--code", default=None,
+                           help="Invite code (auto-read from a share link's #c=)")
     p_connect.add_argument("--timeout", type=float, default=None,
                            help="Per-request timeout in seconds (default 15)")
     p_connect.add_argument("--json", action="store_true")

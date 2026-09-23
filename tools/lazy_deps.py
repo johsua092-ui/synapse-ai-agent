@@ -252,6 +252,13 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     # as the `teams` extra in pyproject for packagers / explicit installs.
     "platform.teams": ("microsoft-teams-apps==2.0.13.4", "aiohttp==3.14.3"),  # aiohttp 3.14.3: prior CVEs + GHSA-cq5v-8q36-5273/GHSA-mfx4-hv73-q22v/GHSA-mq44-7p77-q5h7
 
+    # ─── Peer Link ─────────────────────────────────────────────────────────
+    # QR rendering for `synapse peerlink invite --qr` / `endpoint --qr`.
+    # Optional by design: without it the commands print the plain link, which
+    # is always enough to connect. Same pin as the messaging/dingtalk/feishu
+    # extras so a user who already has any of those gets no second copy.
+    "peer_link.qr": ("qrcode==7.4.2",),
+
     # ─── Terminal backends ─────────────────────────────────────────────────
     "terminal.modal": ("modal==1.3.4",),
     "terminal.daytona": ("daytona==0.155.0",),
