@@ -644,6 +644,110 @@ def _cmd_inbox(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_trusted_peer(args: argparse.Namespace, policy):
+    """Helper: resolve peer_id_or_url to (to_peer_id, peer_url) from trusted list."""
+    target: str = getattr(args, "peer_id_or_url", "")
+    if target.startswith("http"):
+        to_peer_id = getattr(args, "to_peer_id", None) or ""
+        if not to_peer_id:
+            return None, None, "pass --to <peer_id> when using a raw URL"
+        return to_peer_id, target, None
+    matches = [p for p in policy.trusted() if p["peer_id"].startswith(target)]
+    if not matches:
+        return None, None, f"no trusted peer matching {target!r} — run `synapse peerlink list`"
+    if len(matches) > 1:
+        return None, None, f"ambiguous prefix {target!r} — be more specific"
+    peer = matches[0]
+    to_peer_id = peer["peer_id"]
+    peer_url = peer.get("address") or peer.get("url") or ""
+    if not peer_url:
+        return to_peer_id, None, f"no address for peer {to_peer_id} — ask them to share their URL"
+    if not peer_url.startswith("http"):
+        peer_url = f"https://{peer_url}"
+    return to_peer_id, peer_url, None
+
+
+def _cmd_debate(args: argparse.Namespace) -> int:
+    """Run an autonomous N-round debate with a trusted peer."""
+    import json as _json
+    from pathlib import Path
+    from gateway.peer_link.mailbox import PeerMailbox
+    from gateway.peer_link.session import PeerSession
+
+    identity = _load_identity(create=False)
+    if identity is None:
+        print("peerlink: no identity yet", file=sys.stderr)
+        return 1
+
+    policy = _load_policy()
+    to_peer_id, peer_url, err = _resolve_trusted_peer(args, policy)
+    if err:
+        print(f"peerlink: {err}", file=sys.stderr)
+        return 1
+
+    mailbox_path = _data_dir() / "mailbox.json"
+    mailbox = PeerMailbox(mailbox_path)
+    session = PeerSession(identity, to_peer_id, peer_url, mailbox,
+                          timeout=getattr(args, "timeout", None) or 20.0)
+
+    opening = " ".join(args.prompt)
+    rounds = getattr(args, "rounds", 3)
+    transcript = []
+
+    def on_turn(round_n, side, text):
+        entry = {"round": round_n, "side": side, "text": text}
+        transcript.append(entry)
+        if not getattr(args, "json", False):
+            label = {"local": "You→", "remote": "Peer←",
+                     "local_reply": "You→", "error": "ERR "}.get(side, side)
+            preview = text[:120].replace("\n", " ")
+            print(f"[{round_n}/{rounds}] {label} {preview}")
+
+    result_transcript = session.debate(opening, rounds=rounds, on_turn=on_turn)
+
+    if getattr(args, "json", False):
+        print(_json.dumps(result_transcript))
+    else:
+        print(f"\nDebate complete — {len(result_transcript)} turns.")
+    return 0
+
+
+def _cmd_skill_share(args: argparse.Namespace) -> int:
+    """Pack and send a local skill to a trusted peer."""
+    import json as _json
+    from gateway.peer_link.session import PeerSession
+    from gateway.peer_link.mailbox import PeerMailbox
+
+    identity = _load_identity(create=False)
+    if identity is None:
+        print("peerlink: no identity yet", file=sys.stderr)
+        return 1
+
+    policy = _load_policy()
+    to_peer_id, peer_url, err = _resolve_trusted_peer(args, policy)
+    if err:
+        print(f"peerlink: {err}", file=sys.stderr)
+        return 1
+
+    mailbox_path = _data_dir() / "mailbox.json"
+    mailbox = PeerMailbox(mailbox_path)
+    session = PeerSession(identity, to_peer_id, peer_url, mailbox)
+
+    skill_name = args.skill_name
+    result = session.send_skill(skill_name)
+    payload = {"ok": result.ok, "skill": skill_name, "reason": result.reason}
+
+    if getattr(args, "json", False):
+        print(_json.dumps(payload))
+        return 0 if result.ok else 1
+
+    if result.ok:
+        print(f"✓ Skill {skill_name!r} sent to {to_peer_id[:20]}...")
+    else:
+        print(f"✗ Failed: {result.reason}", file=sys.stderr)
+    return 0 if result.ok else 1
+
+
 _ACTIONS: Dict[str, Callable[[argparse.Namespace], int]] = {
     "identity": _cmd_identity,
     "mode": _cmd_mode,
@@ -660,6 +764,8 @@ _ACTIONS: Dict[str, Callable[[argparse.Namespace], int]] = {
     "connect": _cmd_connect,
     "send": _cmd_send,
     "inbox": _cmd_inbox,
+    "debate": _cmd_debate,
+    "skill-share": _cmd_skill_share,
 }
 
 
@@ -815,5 +921,27 @@ def build_peerlink_parser(subparsers) -> None:
     p_inbox.add_argument("--drain", action="store_true",
                          help="Remove messages after reading")
     p_inbox.add_argument("--json", action="store_true")
+
+    p_debate = sub.add_parser(
+        "debate", help="Run autonomous N-round debate with a trusted peer")
+    p_debate.add_argument(
+        "peer_id_or_url",
+        help="Peer id prefix or https:// peer URL")
+    p_debate.add_argument(
+        "prompt",
+        nargs="+",
+        help="Opening prompt sent to the remote peer")
+    p_debate.add_argument("--rounds", type=int, default=3,
+                          help="Number of full send/receive cycles (default 3)")
+    p_debate.add_argument("--timeout", type=float, default=None)
+    p_debate.add_argument("--json", action="store_true")
+
+    p_skill_share = sub.add_parser(
+        "skill-share", help="Send one of your skills to a trusted peer")
+    p_skill_share.add_argument(
+        "peer_id_or_url",
+        help="Peer id prefix or https:// peer URL")
+    p_skill_share.add_argument("skill_name", help="Skill name to share")
+    p_skill_share.add_argument("--json", action="store_true")
 
     parser.set_defaults(func=cmd_peerlink)
