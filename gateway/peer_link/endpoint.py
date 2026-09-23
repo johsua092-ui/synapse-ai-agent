@@ -23,14 +23,22 @@ and Certificate Transparency are public systems. What makes it safe is:
 Do not rely on the label alone as a security boundary — that is exactly the
 "security by obscurity" trap. It is a discovery-cost multiplier, not a lock.
 
-**Certificate caveat (matters, and bites people):** a wildcard TLS certificate
-``*.example.com`` covers *one* label level below the **zone apex**. The trap is
-that "one level" is measured from the apex, *not* by counting the labels in the
-name. ``aikernel.qzz.io`` is a genuine three-label apex, so
-``<label>.aikernel.qzz.io`` is covered; ``synz.zone.id`` is a *hostname inside*
-the ``zone.id`` zone, so ``<label>.synz.zone.id`` is not. Counting labels cannot
-tell those two apart — delegation can, and :func:`certificate_note` says exactly
-how to check rather than guessing.
+**Two addressing modes, because the DNS you own decides which one works:**
+
+  * ``subdomain`` — ``<label>.<base_domain>``. Every peer gets its own name,
+    but the free wildcard certificate that covers them reaches exactly ONE
+    label below the **zone apex**. ``aikernel.qzz.io`` is a genuine apex, so
+    it works; ``synz.zone.id`` is a *hostname inside* the ``zone.id`` zone, so
+    ``<label>.synz.zone.id`` is one level too deep and fails TLS validation.
+  * ``path`` — ``<base_domain>{PATH_PREFIX}<label>``. All peers share ONE
+    hostname and are told apart by the path, so a single ordinary certificate
+    is enough. This is the mode that works when you do not own the apex of
+    ``base_domain`` (``synz.zone.id``) or when the free plan forbids extra
+    subdomains.
+
+Counting labels cannot tell an apex from a hostname inside somebody else's
+zone — delegation can, and :func:`certificate_note` says exactly how to check
+rather than guessing.
 """
 
 from __future__ import annotations
@@ -66,6 +74,22 @@ LABEL_LENGTH = 26
 #: apex and does. Override per deployment with ``peer_link.base_domain`` in
 #: ``config.yaml``.
 DEFAULT_BASE_DOMAIN = "aikernel.qzz.io"
+
+#: Path segment that separates the shared hostname from a peer's label in
+#: ``path`` mode: ``https://example.com/peer/<label>``. All peers share one
+#: hostname, so one ordinary certificate covers every peer — the reason this
+#: mode exists. See :func:`public_address`.
+PATH_PREFIX = "/peer/"
+
+#: Addressing modes. ``subdomain`` publishes ``<label>.<base_domain>`` and
+#: needs the base domain to be a zone apex you control (free wildcard cert);
+#: ``path`` publishes ``<base_domain>/peer/<label>`` and needs only one name.
+ADDRESS_MODES = ("subdomain", "path")
+
+#: Default mode. ``subdomain`` is the richer shape (a distinct name per peer),
+#: so it stays the default; switch to ``path`` in ``config.yaml`` when the base
+#: domain is not an apex you own.
+DEFAULT_ADDRESS_MODE = "subdomain"
 
 
 def generate_label(length: int = LABEL_LENGTH) -> str:
@@ -124,6 +148,39 @@ def hostname_for(label: str, base_domain: str = DEFAULT_BASE_DOMAIN) -> str:
     return f"{label}.{domain}"
 
 
+def validate_address_mode(mode: object) -> bool:
+    """True iff *mode* is a known addressing mode."""
+    return isinstance(mode, str) and mode in ADDRESS_MODES
+
+
+def public_address(
+    label: str,
+    base_domain: str = DEFAULT_BASE_DOMAIN,
+    mode: str = DEFAULT_ADDRESS_MODE,
+) -> str:
+    """Compose the public address for *label*, honouring the addressing mode.
+
+    ``subdomain`` -> ``<label>.<base_domain>`` — each peer gets its own name.
+    ``path``      -> ``<base_domain>{PATH_PREFIX}<label>`` — every peer shares
+    the ONE hostname *base_domain* and is told apart by the path, which is what
+    makes a single ordinary certificate sufficient.
+
+    The label is validated in both modes, so a corrupted value cannot smuggle a
+    ``/``, a ``..`` or a wildcard into the address and redirect a client to
+    another authority.
+    """
+    if not validate_address_mode(mode):
+        raise ValueError(f"unknown address mode: {mode!r}")
+    if mode == "subdomain":
+        return hostname_for(label, base_domain)
+    domain = _normalise_domain(base_domain)
+    if not validate_label(label):
+        raise ValueError(f"unsafe label: {label!r}")
+    if not validate_domain(domain):
+        raise ValueError(f"unsafe base domain: {base_domain!r}")
+    return f"{domain}{PATH_PREFIX}{label}"
+
+
 def _normalise_domain(value: object) -> str:
     """Lower-case, dot-trimmed DNS name (no other interpretation)."""
     return (str(value) if value is not None else "").strip().strip(".").lower()
@@ -132,18 +189,24 @@ def _normalise_domain(value: object) -> str:
 def certificate_note(
     base_domain: str = DEFAULT_BASE_DOMAIN,
     zone_apex: Optional[str] = None,
+    mode: str = DEFAULT_ADDRESS_MODE,
 ) -> str:
-    """Explain the TLS-certificate implication of *base_domain*.
+    """Explain the TLS-certificate implication of *base_domain* for *mode*.
 
-    The rule that decides whether this works for free is **how many labels
-    *base_domain* sits below the zone apex you registered** — not how many
-    labels the name happens to have:
+    In ``path`` mode every peer shares the ONE hostname *base_domain*, so a
+    single ordinary certificate for that name is enough — the apex question is
+    irrelevant, and this says so plainly.
+
+    In ``subdomain`` mode the rule that decides whether it works for free is
+    **how many labels *base_domain* sits below the zone apex you registered** —
+    not how many labels the name happens to have:
 
       * ``base_domain == zone_apex`` — ``<label>.<base_domain>`` is one label
         below the apex, so the free wildcard ``*.<zone_apex>`` covers it.
       * ``base_domain`` is itself a subdomain of the apex (``synz.zone.id``
         inside zone ``zone.id``) — ``<label>.<base_domain>`` is two levels
-        below, which a one-level wildcard does **not** reach.
+        below, which a one-level wildcard does **not** reach. Use ``path`` mode
+        instead, or register ``base_domain`` as its own zone.
 
     A three-label base domain is therefore not automatically broken:
     ``aikernel.qzz.io`` is a genuine three-label apex and works, while
@@ -154,6 +217,17 @@ def certificate_note(
     domain = _normalise_domain(base_domain)
     if not validate_domain(domain):
         return f"'{base_domain}' is not a valid DNS name."
+
+    if mode == "path":
+        return (
+            f"Path mode: every peer shares the single hostname '{domain}', so "
+            f"one ordinary certificate for '{domain}' covers all of them — no "
+            f"wildcard and no apex delegation needed. Issue it for exactly "
+            f"'{domain}' (e.g. Let's Encrypt HTTP-01) and reverse-proxy "
+            f"'{PATH_PREFIX}<label>' to this instance."
+        )
+    if not validate_address_mode(mode):
+        return f"'{mode}' is not a known addressing mode."
 
     apex = _normalise_domain(zone_apex)
     if not apex:
@@ -184,8 +258,10 @@ def certificate_note(
             f"'{domain}' sits {depth} label(s) below the zone apex '{apex}', so "
             f"'<label>.{domain}' is {depth + 1} level(s) below the apex. A free "
             f"wildcard '*.{apex}' reaches only ONE level and will NOT cover it. "
-            f"Publish peers directly under the apex ('<label>.{apex}'), or "
-            f"register '{domain}' as its own zone."
+            f"Fix it either way: switch to path mode "
+            f"(peer_link.address_mode: path) so every peer shares the single "
+            f"name '{domain}', or publish peers directly under the apex "
+            f"('<label>.{apex}'), or register '{domain}' as its own zone."
         )
     return (
         f"'{domain}' is {abs(depth)} label(s) above the zone apex '{apex}' — a "
@@ -205,9 +281,13 @@ class EndpointRegistry:
         self,
         state_dir: "str | os.PathLike[str]",
         base_domain: str = DEFAULT_BASE_DOMAIN,
+        mode: str = DEFAULT_ADDRESS_MODE,
     ) -> None:
+        if not validate_address_mode(mode):
+            raise ValueError(f"unknown address mode: {mode!r}")
         self._dir = Path(state_dir)
         self._base_domain = base_domain
+        self._mode = mode
         self._path = self._dir / "endpoints.json"
 
     # ----- storage ------------------------------------------------------
@@ -240,32 +320,70 @@ class EndpointRegistry:
     def base_domain(self) -> str:
         return self._base_domain
 
-    def own_hostname(self, *, create: bool = True) -> Optional[str]:
-        """Return this instance's hostname, minting a label on first call.
+    @property
+    def mode(self) -> str:
+        """Addressing mode: ``subdomain`` or ``path``."""
+        return self._mode
 
-        ``create=False`` reads without minting, so read-only commands
-        (``peerlink status``) never mutate state as a side effect.
-        """
+    def _minted_label(self, *, create: bool) -> Optional[str]:
+        """Return our stored label, minting one when *create* is true."""
         data = self._load()
         current = data.get("self")
         if isinstance(current, dict):
             label = current.get("label")
             if isinstance(label, str) and validate_label(label):
-                return hostname_for(label, self._base_domain)
+                return label
         if not create:
             return None
         label = generate_label()
-        data["self"] = {"label": label, "base_domain": self._base_domain}
+        data["self"] = {
+            "label": label,
+            "base_domain": self._base_domain,
+            "mode": self._mode,
+        }
         self._save(data)
+        return label
+
+    def own_hostname(self, *, create: bool = True) -> Optional[str]:
+        """Return the hostname clients dial, minting a label on first call.
+
+        ``subdomain`` mode returns ``<label>.<base_domain>`` — a name unique to
+        this instance. ``path`` mode returns *base_domain* itself, because every
+        peer shares that one hostname and is separated by the path instead.
+
+        ``create=False`` reads without minting, so read-only commands
+        (``peerlink status``) never mutate state as a side effect.
+        """
+        label = self._minted_label(create=create)
+        if label is None:
+            return None
+        if self._mode == "path":
+            return _normalise_domain(self._base_domain)
         return hostname_for(label, self._base_domain)
+
+    def own_address(self, *, create: bool = True) -> Optional[str]:
+        """Like :meth:`own_hostname`, but honours the addressing mode.
+
+        In ``path`` mode this is ``<base_domain>/peer/<label>`` rather than a
+        bare hostname, so callers that publish an address to a peer should use
+        this one. ``own_hostname`` remains the host-only view.
+        """
+        label = self._minted_label(create=create)
+        if label is None:
+            return None
+        return public_address(label, self._base_domain, self._mode)
 
     def rotate(self) -> str:
         """Mint a new label, invalidating the old address."""
         data = self._load()
         label = generate_label()
-        data["self"] = {"label": label, "base_domain": self._base_domain}
+        data["self"] = {
+            "label": label,
+            "base_domain": self._base_domain,
+            "mode": self._mode,
+        }
         self._save(data)
-        return hostname_for(label, self._base_domain)
+        return public_address(label, self._base_domain, self._mode)
 
     # ----- peers' endpoints ---------------------------------------------
 
@@ -284,6 +402,37 @@ class EndpointRegistry:
             raise ValueError(f"unsafe hostname: {hostname!r}")
         data = self._load()
         data["peers"][peer_id] = host
+        self._save(data)
+
+    def remember_address(self, peer_id: str, address: str) -> None:
+        """Record a peer's advertised address, which may include a path.
+
+        Accepts both shapes:
+
+          * ``xyz.example.com``            — subdomain mode
+          * ``example.com/peer/<label>``   — path mode
+
+        The host half is validated with :meth:`remember`'s rules; the path half
+        must match ``PATH_PREFIX`` followed by a single safe label. Anything
+        else is refused, so a stored peer address cannot point a client at an
+        unintended authority or escape into a different path.
+        """
+        if not peer_id:
+            raise ValueError("peer_id is required")
+        value = (address or "").strip().lower()
+        host, sep, path = value.partition("/")
+        label, _, domain = host.partition(".")
+        if not validate_label(label) or not validate_domain(domain):
+            raise ValueError(f"unsafe hostname: {address!r}")
+        if sep:
+            if not path.startswith(PATH_PREFIX.lstrip("/")):
+                raise ValueError(f"unsafe address path: {address!r}")
+            tail = path[len(PATH_PREFIX.lstrip("/")):]
+            if not validate_label(tail):
+                raise ValueError(f"unsafe address label: {address!r}")
+            value = f"{host}{PATH_PREFIX}{tail}"
+        data = self._load()
+        data["peers"][peer_id] = value
         self._save(data)
 
     def lookup(self, peer_id: str) -> Optional[str]:

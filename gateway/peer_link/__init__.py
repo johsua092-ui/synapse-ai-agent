@@ -14,11 +14,16 @@ Layers:
 """
 
 from gateway.peer_link.endpoint import (
+    ADDRESS_MODES,
+    DEFAULT_ADDRESS_MODE,
     DEFAULT_BASE_DOMAIN,
+    PATH_PREFIX,
     EndpointRegistry,
     certificate_note,
     generate_label,
     hostname_for,
+    public_address,
+    validate_address_mode,
     validate_domain,
     validate_label,
 )
@@ -51,10 +56,15 @@ __all__ = [
     "solve_work",
     "verify_work",
     "DEFAULT_BASE_DOMAIN",
+    "DEFAULT_ADDRESS_MODE",
+    "ADDRESS_MODES",
+    "PATH_PREFIX",
     "EndpointRegistry",
     "certificate_note",
     "generate_label",
     "hostname_for",
+    "public_address",
+    "validate_address_mode",
     "validate_label",
     "validate_domain",
 ]

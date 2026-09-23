@@ -28,7 +28,8 @@ synapse peerlink identity
 
 # 2. Lihat alamatmu (acak, stabil, tidak bisa ditebak dari peer id)
 synapse peerlink endpoint
-#   hostname : piug6mzzysaxygv9hmnenyjq4g.aikernel.qzz.io
+#   address  : synz.zone.id/peer/pdef6crymbycnjmbm5fuhmjc4v
+#   hostname : synz.zone.id
 
 # 3. Buka pintu — hanya untuk yang punya kode undangan
 synapse peerlink mode invite
@@ -57,16 +58,16 @@ Lalu **kamu** menjalankan `approve`. Baru setelah itu dia dipercaya.
 
 ---
 
-## 2. Jawaban: "bisa beda-beda subdomain, dan tidak ada yang tahu?"
+## 2. Jawaban: "bisa beda-beda alamat, dan tidak ada yang tahu?"
 
 **Bisa — dan sudah jalan.** Bukti nyata:
 
 ```
 $ synapse peerlink endpoint
-  hostname : piug6mzzysaxygv9hmnenyjq4g.aikernel.qzz.io
+  address  : synz.zone.id/peer/pdef6crymbycnjmbm5fuhmjc4v
 
 $ synapse peerlink rotate
-New address: dhhrxmcxnqqxmbs8ggygn33g9t.aikernel.qzz.io
+New address: synz.zone.id/peer/s2uft4im5jsxscy7byyia9223z
 ```
 
 - Label **acak 26 karakter** dari 32 simbol → ~130 bit entropi. 50 instance
@@ -75,6 +76,10 @@ New address: dhhrxmcxnqqxmbs8ggygn33g9t.aikernel.qzz.io
   tetap rahasia. Sudah ada tesnya (`test_unguessable_from_peer_id`).
 - **Stabil**: di-mint sekali, disimpan, sama setelah restart.
 - **`rotate`** mengganti alamat kapan saja.
+
+Kalau kamu punya apex zone sendiri (`aikernel.qzz.io`), mode `subdomain` memberi
+**satu nama per peer** (`<label>.aikernel.qzz.io`). Kalau tidak (`synz.zone.id`),
+mode `path` memberi **satu path per peer** — lihat §3.
 
 ### Tapi jujur: "tidak ada yang tahu" ada batasnya
 
@@ -91,10 +96,10 @@ itu jebakan *security by obscurity*.
 
 ---
 
-## 3. ⚠️ JEBAKAN TLS — dan cara keluar buat `synz.zone.id`
+## 3. ⚠️ JEBAKAN TLS — dan kenapa Peer Link punya **dua mode alamat**
 
 Ini bagian yang paling gampang salah, jadi gw tulis di depan. **Gw sendiri
-sempat salah di sini**, jadi gw jelaskan aturan yang benar.
+sempat salah di sini** (dua kali), jadi gw jelaskan aturan yang benar.
 
 ### Aturannya: wildcard diukur dari *apex zone*, bukan dari jumlah titik
 
@@ -112,99 +117,162 @@ Perhatikan: `aikernel.qzz.io` punya **3 label** tapi **✅ jalan**, sedangkan
 itu menyesatkan** — yang menentukan adalah: *nama itu apex zone, atau hostname
 di dalam zone orang lain?*
 
-**Kasus kamu (sudah gw ukur pakai DNS, bukan tebakan):**
+### Kasus `synz.zone.id` (sudah gw ukur pakai DNS, bukan tebakan)
 
 ```
+$ dig +short NS zone.id
+vip7.alidns.com.                   # <- NS milik Alibaba, bukan punya kamu
 $ dig +short NS synz.zone.id
-dns.webkus.com.                    # <- NS milik orang lain, bukan punya kamu
+dns.webkus.com.                    # <- bukan delegasi, cuma NS hosting bersama
 $ dig +short A synz.zone.id
-dns.webkus.com. 216.176.239.254    # <- ini CNAME ke hosting bersama
+216.176.239.254                    # <- webkus shared hosting
+$ dig +short A apapun-acak.zone.id
+... CNAME dns.webkus.com.          # <- SEMUA nama diarahkan sama: ini wildcard
 ```
 
-→ `synz.zone.id` **bukan zona**, cuma hostname di dalam `zone.id` (NS-nya
-`alidns.com`). Jadi `blablabla.synz.zone.id` **tidak akan** dapat sertifikat
-gratis. **Tidak ada cara "daftarkan synz.zone.id sebagai zone"** — kamu bukan
-pemilik `zone.id`, jadi kamu tidak bisa menambah record NS untuk mendelegasikan
-`synz` ke Cloudflare.
+→ `synz.zone.id` **bukan zona**, cuma hostname di dalam `zone.id`. Karena itu
+`<label>.synz.zone.id` **tidak akan** dapat sertifikat gratis.
 
-### Solusinya: pakai domain yang **sudah kamu miliki sebagai zona**
+**Cloudflare juga tidak bisa ditempel ke sini** — gw cek panel `my.zone.id`
+(dari bundle JS-nya), dropdown DNS-nya memang punya tipe `NS`, tapi ada catatan
+resmi panel:
 
-Kamu **sudah punya** yang benar — `aikernel.qzz.io`. Gw buktikan sudah jalan:
+> *"NS records are **only** available for premium nett.to domain."*
+
+Jadi NS dikunci hanya untuk domain `nett.to` premium. Tanpa NS, tidak ada jalur
+delegasi ke Cloudflare. (Cloudflare sendiri **mau** — `zone.id` ada di Public
+Suffix List — yang menolak adalah panel `zone.id`.)
+
+### Solusinya: **mode `path`** — satu hostname untuk semua peer
+
+Karena `<label>.synz.zone.id` tidak bisa, Peer Link **tidak** memaksa bentuk itu.
+Ada dua mode alamat:
+
+| Mode | Bentuk alamat | Sertifikat yang dibutuhkan |
+|---|---|---|
+| `subdomain` | `<label>.<base_domain>` | wildcard `*.<apex>` — butuh base domain = apex milikmu |
+| **`path`** | `<base_domain>/peer/<label>` | **satu sertifikat biasa untuk `<base_domain>`** |
+
+Di mode `path`, **semua peer berbagi satu hostname** dan dibedakan lewat path.
+Satu sertifikat Let's Encrypt biasa sudah cukup — tidak butuh wildcard, tidak
+butuh delegasi NS, tidak butuh Cloudflare.
+
+Yang **tetap** kamu dapat: label acak 26 karakter yang tidak bisa ditebak dari
+peer id. Jadi kehilangan wildcard **bukan** kehilangan keamanan — proteksi
+aslinya tetap **E2EE + approval manual**, bukan kerahasiaan nama.
+
+### Setel `synz.zone.id`
+
+```yaml
+peer_link:
+  base_domain: synz.zone.id
+  address_mode: path           # <- karena kamu tidak punya apex zone.id
+```
+
+Hasilnya:
 
 ```
-$ dig +short NS aikernel.qzz.io
-angelina.ns.cloudflare.com.        # <- NS Cloudflare, punya kamu
-yoxall.ns.cloudflare.com.
-$ dig +short SOA aikernel.qzz.io
-angelina.ns.cloudflare.com. ...    # <- ada SOA = benar-benar zona
-
-# dan sertifikat wildcard-nya SUDAH terbit:
-$ echo | openssl s_client -connect 9router.aikernel.qzz.io:443 2>/dev/null \
-    | openssl x509 -noout -ext subjectAltName
-    DNS:aikernel.qzz.io, DNS:*.aikernel.qzz.io     # <- wildcard ADA
+$ synapse peerlink endpoint
+Your Peer Link address
+  address  : synz.zone.id/peer/pdef6crymbycnjmbm5fuhmjc4v
+  hostname : synz.zone.id
+  mode     : path
+  base     : synz.zone.id
 ```
 
-Artinya **`<label>.aikernel.qzz.io` langsung bisa dipakai, gratis, tanpa beli
-apa pun.** Ini yang gw set jadi default sekarang.
+### DNS + sertifikat (2 langkah, di panel `my.zone.id`)
 
-**Urutan pilihan (dari yang paling gampang):**
+**Langkah 1 — A record** (subdomain `synz`):
 
-1. **Pakai `aikernel.qzz.io`** ← rekomendasi, sudah siap, wildcard sudah ada.
-2. Kalau tetap mau `synz.zone.id`: minta pemilik `zone.id` menambahkan **NS
-   record** `synz.zone.id` → nameserver Cloudflare kamu (butuh kerjasama mereka),
-   **atau** pindahkan `synz.zone.id` ke penyedia yang izinkan kelola DNS penuh.
-3. Beli domain sendiri (mis. `synz.id`), daftarkan sebagai zone di Cloudflare →
-   wildcard `*.synz.id` menutupi semuanya.
-4. Advanced Certificate Manager (bayar) — bisa multi-tingkat, tapi tidak perlu
-   karena opsi 1 gratis.
+```
+hostname : @            # artinya synz.zone.id itu sendiri
+type     : A
+content  : <IP-publik-server-kamu>
+```
+
+Ini **boleh di plan Free** — panel bilang *"Can set A/CNAME records on @ or www
+hostnames only"*, dan `@` = hostname subdomain itu.
+
+**Langkah 2 — sertifikat TLS**, pakai **Let's Encrypt HTTP-01**:
+
+```bash
+certbot --nginx -d synz.zone.id
+```
+
+Butuh port 80 masuk (untuk validasi). **DNS-01 tidak bisa** — plan Free `zone.id`
+tidak mengizinkan record `TXT`.
+
+**Bukti jalur ini nyata** (bukan teori) — user `zone.id` lain sudah melakukannya:
+
+```
+$ dig +short A blogs.zone.id
+216.198.79.1                     # <- IP Vercel, BUKAN webkus: server sendiri
+# dan sertifikatnya terbit dari Let's Encrypt: *.blogs.zone.id, blogs.zone.id
+```
+
+Dari 4.830 sertifikat `.zone.id` di Certificate Transparency, **4.796 diterbitkan
+Let's Encrypt** — jadi ini CA mayoritas di sana.
+
+### Kalau nanti mau wildcard lagi
+
+Urutan pilihan:
+
+1. **Upgrade Premium `zone.id` (Rp 10.000/th)** → plan Premium bilang *"Can set
+   A/CNAME records on any hostnames (subdomains)"*. Masih perlu cek apakah NS
+   ikut dibuka; kalau ya, baru bisa delegasi ke Cloudflare.
+2. **Daftar `synz.nett.to` premium** → panel bilang NS **diizinkan** untuk
+   `nett.to` premium, jadi delegasi NS ke Cloudflare bisa.
+3. **Pakai `aikernel.qzz.io`** → NS Cloudflare milikmu, cert wildcard sudah
+   terbit. Ini tetap opsi paling siap kalau kamu berubah pikiran.
+4. **Beli domain sendiri** (mis. `synz.id`) → daftarkan sebagai zone Cloudflare
+   → wildcard `*.synz.id` menutupi semuanya.
 
 Cek sendiri kapan saja:
 
 ```bash
 dig +short NS <base-domain-kamu>
 # nameserver penyediamu      -> itu zona, wildcard menutupinya
-# host asing / kosong        -> hostname di zone orang lain, TLS akan gagal
+# host asing / kosong        -> hostname di zone orang lain, pakai mode path
 ```
 
 `synapse peerlink endpoint` **tidak menebak** — kalau `zone_apex` belum diisi di
 config, dia mencetak perintah `dig` di atas supaya kamu cek sendiri; kalau
-`zone_apex` sudah diisi, dia langsung bilang **"aman"** atau **"akan gagal"**.
+`zone_apex` sudah diisi, dia langsung bilang **"aman"** atau **"akan gagal"**
+(sekaligus menyarankan pindah ke mode `path`).
 
 ---
 
-## 4. Setup Cloudflare Tunnel (setelah zone siap)
+## 4. Reverse proxy (mode `path`)
 
-Ringkas — detailnya di dokumen Cloudflare.
+Karena mode `path` memakai **satu** hostname, tidak perlu Cloudflare Tunnel dan
+tidak perlu record DNS per peer. Cukup arahkan `/peer/<label>` ke instance:
 
-```bash
-# 1. Install cloudflared, login
-cloudflared tunnel login
+```nginx
+server {
+    listen 443 ssl;
+    server_name synz.zone.id;
 
-# 2. Buat tunnel
-cloudflared tunnel create synapse-peerlink
+    ssl_certificate     /etc/letsencrypt/live/synz.zone.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/synz.zone.id/privkey.pem;
 
-# 3. Route wildcard: SEMUA subdomain -> satu tunnel
-cloudflared tunnel route dns synapse-peerlink "*.aikernel.qzz.io"
-
-# 4. config.yml
-#    tunnel: <id>
-#    credentials-file: /root/.cloudflared/<id>.json
-#    ingress:
-#      - hostname: "*.aikernel.qzz.io"
-#        service: http://localhost:<port-peerlink>
-#      - service: http_status:404
-
-# 5. Jalan
-cloudflared tunnel run synapse-peerlink
+    # Peer Link: satu path untuk semua peer
+    location /peer/ {
+        proxy_pass         http://127.0.0.1:<port-peerlink>;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    $http_upgrade;   # WebSocket
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host       $host;
+        proxy_set_header   X-Real-IP  $remote_addr;
+    }
+}
 ```
 
-Wildcard DNS (`*.aikernel.qzz.io`) berarti **kamu tidak perlu menambah record
-tiap peer baru** — setiap instance cukup memilih label acaknya sendiri.
-
-**Catatan keamanan:** Cloudflare **memutus TLS di edge-nya** — artinya
-Cloudflare *bisa* melihat trafikmu. Ini persis kasus "TLS saja TIDAK cukup
-kalau lewat perantara". Karena itu **E2EE lapisan aplikasi wajib**, dan itu
-sudah tersedia (`cryptography` sudah ada, nol dependency baru).
+**Catatan keamanan:** kalau kamu **memakai Cloudflare** (opsi wildcard di atas),
+Cloudflare memutus TLS di edge-nya — artinya Cloudflare *bisa* melihat trafikmu.
+Ini persis kasus "TLS saja TIDAK cukup kalau lewat perantara". Karena itu
+**E2EE lapisan aplikasi wajib**, dan itu sudah tersedia (`cryptography` sudah
+ada, nol dependency baru). Di mode `path` **tanpa** Cloudflare, TLS berakhir di
+server kamu sendiri — lebih sederhana dan tidak ada perantara.
 
 ---
 
@@ -214,12 +282,16 @@ Setting perilaku ada di `config.yaml`, bukan environment variable:
 
 ```yaml
 peer_link:
-  base_domain: aikernel.qzz.io
-  zone_apex: aikernel.qzz.io   # opsional: bikin pesan TLS jadi pasti
+  base_domain: synz.zone.id
+  address_mode: path           # subdomain (default) atau path
+  zone_apex: zone.id           # opsional: bikin pesan TLS jadi pasti
 ```
 
-Kalau tidak diisi, defaultnya `aikernel.qzz.io`. `zone_apex` opsional — kalau
-kosong, `peerlink endpoint` menyuruh kamu cek pakai `dig` (tidak menebak).
+- `base_domain` — default `aikernel.qzz.io` kalau tidak diisi.
+- `address_mode` — `subdomain` (default) atau `path`. Nilai tidak dikenal
+  **tidak** membuat error; dia balik ke default, jadi typo tidak merusak command.
+- `zone_apex` — opsional. Kalau kosong, `peerlink endpoint` menyuruh kamu cek
+  pakai `dig` (tidak menebak).
 
 ---
 
@@ -230,6 +302,8 @@ kosong, `peerlink endpoint` menyuruh kamu cek pakai `dig` (tidak menebak).
 | `synapse peerlink identity` | peer id kamu (boleh dibagikan) |
 | `synapse peerlink endpoint` | alamat acak kamu (mint kalau belum ada) |
 | `synapse peerlink endpoint --peek` | lihat saja, jangan mint |
+| `synapse peerlink endpoint --address-mode path` | paksa mode path untuk sesi ini |
+| `synapse peerlink endpoint --base-domain X` | ganti base domain untuk sesi ini |
 | `synapse peerlink rotate` | ganti alamat (yang lama mati) |
 | `synapse peerlink mode` | lihat mode |
 | `synapse peerlink mode invite` | buka pintu (undangan saja) |

@@ -29,6 +29,8 @@ from gateway.peer_link.endpoint import (
     certificate_note,
     generate_label,
     hostname_for,
+    public_address,
+    validate_address_mode,
     validate_domain,
     validate_label,
 )
@@ -232,6 +234,158 @@ class TestEndpointRegistry:
         assert hostname is not None
         assert hostname.endswith(".mydomain.net")
         assert reg.base_domain == "mydomain.net"
+
+
+class TestPublicAddress:
+    """``path`` mode exists because the base domain may not be an apex we own.
+
+    ``synz.zone.id`` is a hostname inside the ``zone.id`` zone, so
+    ``<label>.synz.zone.id`` is too deep for a free one-level wildcard. Sharing
+    one hostname and telling peers apart by path needs only an ordinary cert.
+    """
+
+    def test_subdomain_mode_is_bare_hostname(self):
+        assert public_address("abc", "example.com", "subdomain") == "abc.example.com"
+
+    def test_path_mode_is_hostname_plus_path(self):
+        assert public_address("abc", "synz.zone.id", "path") == "synz.zone.id/peer/abc"
+
+    def test_default_mode_is_subdomain(self):
+        assert public_address("abc", "example.com") == "abc.example.com"
+
+    def test_path_mode_rejects_unsafe_label(self):
+        """A label that could escape the path must not compose at all."""
+        for bad in ["../evil", "a/b", "a.b", "*", "UPPER", ""]:
+            with pytest.raises(ValueError):
+                public_address(bad, "synz.zone.id", "path")
+
+    def test_path_mode_rejects_unsafe_domain(self):
+        for bad in ["", "a/b", "*.evil.com", "has space"]:
+            with pytest.raises(ValueError):
+                public_address("abc", bad, "path")
+
+    def test_rejects_unknown_mode(self):
+        for bad in ["", "hostname", "PATH", None, 123]:
+            with pytest.raises(ValueError):
+                public_address("abc", "example.com", bad)
+
+
+class TestValidateAddressMode:
+    def test_accepts_known_modes(self):
+        assert validate_address_mode("subdomain") is True
+        assert validate_address_mode("path") is True
+
+    @pytest.mark.parametrize("bad", ["", "Path", "dns", None, 1, ["path"]])
+    def test_rejects_unknown(self, bad):
+        assert validate_address_mode(bad) is False
+
+
+class TestCertificateNotePathMode:
+    def test_path_mode_says_one_cert_covers_all(self):
+        note = certificate_note("synz.zone.id", "zone.id", "path")
+        assert "single hostname" in note
+        assert "no wildcard" in note
+        assert "will NOT cover" not in note
+
+    def test_path_mode_ignores_apex_question(self):
+        """Even without knowing the apex, path mode is a definite answer."""
+        note = certificate_note("synz.zone.id", None, "path")
+        assert "single hostname" in note
+        assert "dig +short NS" not in note
+
+    def test_subdomain_verdict_offers_path_escape(self):
+        """The failing case must point at the fix, not just the problem."""
+        note = certificate_note("synz.zone.id", "zone.id", "subdomain")
+        assert "will NOT cover" in note
+        assert "address_mode: path" in note
+
+    def test_unknown_mode_is_reported(self):
+        assert "not a known addressing mode" in certificate_note(
+            "example.com", "example.com", "bogus"
+        )
+
+
+class TestEndpointRegistryPathMode:
+    def test_path_mode_address_shape(self, tmp_path):
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        address = reg.own_address()
+        assert address is not None
+        assert address.startswith("synz.zone.id/peer/")
+        assert reg.mode == "path"
+
+    def test_own_hostname_still_bare_in_path_mode(self, tmp_path):
+        """In path mode every peer shares the base domain as the hostname."""
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        hostname = reg.own_hostname()
+        assert hostname == "synz.zone.id"
+        assert "/" not in hostname
+
+    def test_address_stable_across_calls(self, tmp_path):
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        assert reg.own_address() == reg.own_address()
+
+    def test_rotate_returns_full_address(self, tmp_path):
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        old = reg.own_address()
+        new = reg.rotate()
+        assert new != old
+        assert new.startswith("synz.zone.id/peer/")
+        assert reg.own_address() == new
+
+    def test_mode_persisted_in_file(self, tmp_path):
+        EndpointRegistry(tmp_path, "synz.zone.id", "path").own_address()
+        raw = json.loads((tmp_path / "endpoints.json").read_text(encoding="utf-8"))
+        assert raw["self"]["mode"] == "path"
+
+    def test_rejects_unknown_mode(self, tmp_path):
+        with pytest.raises(ValueError):
+            EndpointRegistry(tmp_path, "synz.zone.id", "bogus")
+
+    def test_path_mode_peek_does_not_create(self, tmp_path):
+        reg = EndpointRegistry(tmp_path, "synz.zone.id", "path")
+        assert reg.own_address(create=False) is None
+        assert not (tmp_path / "endpoints.json").exists()
+
+
+class TestRememberAddress:
+    def test_remembers_subdomain_shape(self, tmp_path):
+        reg = EndpointRegistry(tmp_path)
+        reg.remember_address("pl1a", "xyz.example.com")
+        assert reg.lookup("pl1a") == "xyz.example.com"
+
+    def test_remembers_path_shape(self, tmp_path):
+        reg = EndpointRegistry(tmp_path)
+        reg.remember_address("pl1a", "synz.zone.id/peer/abc")
+        assert reg.lookup("pl1a") == "synz.zone.id/peer/abc"
+
+    def test_normalises_case_and_space(self, tmp_path):
+        reg = EndpointRegistry(tmp_path)
+        reg.remember_address("pl1a", "  Synz.Zone.ID/peer/ABC  ")
+        assert reg.lookup("pl1a") == "synz.zone.id/peer/abc"
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "a.b/c",
+            "synz.zone.id/other/abc",   # wrong prefix
+            "synz.zone.id/peer/../etc",  # traversal in the path
+            "synz.zone.id/peer/",        # empty label
+            "synz.zone.id/peer/a.b",     # dot escapes the path segment
+            "..",
+            "*",
+            "a b",
+            "",
+        ],
+    )
+    def test_rejects_unsafe(self, tmp_path, bad):
+        reg = EndpointRegistry(tmp_path)
+        with pytest.raises(ValueError):
+            reg.remember_address("pl1a", bad)
+
+    def test_requires_peer_id(self, tmp_path):
+        reg = EndpointRegistry(tmp_path)
+        with pytest.raises(ValueError):
+            reg.remember_address("", "xyz.example.com")
 
 
 class TestPeerEndpoints:

@@ -72,6 +72,22 @@ def _default_zone_apex() -> str:
     return str(_peer_link_config().get("zone_apex") or "").strip()
 
 
+def _default_address_mode() -> str:
+    """Addressing mode, from ``peer_link.address_mode`` in ``config.yaml``.
+
+    ``subdomain`` (the default) publishes ``<label>.<base_domain>`` and needs a
+    base domain that is a zone apex you control. ``path`` publishes
+    ``<base_domain>/peer/<label>`` — one shared hostname, one ordinary
+    certificate — for when the base domain is a subdomain of somebody else's
+    zone (``synz.zone.id``). An unknown value falls back to the default rather
+    than raising, so a typo cannot brick the command.
+    """
+    from gateway.peer_link.endpoint import DEFAULT_ADDRESS_MODE, validate_address_mode
+
+    value = str(_peer_link_config().get("address_mode") or "").strip().lower()
+    return value if validate_address_mode(value) else DEFAULT_ADDRESS_MODE
+
+
 def _load_identity(create: bool = True):
     """Load (or lazily create) this instance's Ed25519 identity."""
     from gateway.peer_link.identity import PeerIdentity
@@ -299,7 +315,8 @@ def _cmd_endpoint(args: argparse.Namespace) -> int:
     from gateway.peer_link.endpoint import EndpointRegistry, certificate_note
 
     base = getattr(args, "base_domain", None) or None
-    registry = EndpointRegistry(_data_dir(), base or _default_base_domain())
+    mode = getattr(args, "address_mode", None) or _default_address_mode()
+    registry = EndpointRegistry(_data_dir(), base or _default_base_domain(), mode)
     hostname = registry.own_hostname(create=not getattr(args, "peek", False))
     if hostname is None:
         return _emit(
@@ -307,21 +324,26 @@ def _cmd_endpoint(args: argparse.Namespace) -> int:
             {"hostname": None, "note": "no address minted yet"},
             "No address minted yet. Run 'synapse peerlink endpoint' to create one.",
         )
+    address = registry.own_address(create=not getattr(args, "peek", False))
     payload = {
         "hostname": hostname,
+        "address": address,
+        "address_mode": registry.mode,
         "base_domain": registry.base_domain,
         "certificate": certificate_note(
-            registry.base_domain, _default_zone_apex() or None
+            registry.base_domain, _default_zone_apex() or None, registry.mode
         ),
     }
     text = (
         f"Your Peer Link address\n"
+        f"  address  : {address}\n"
         f"  hostname : {hostname}\n"
+        f"  mode     : {registry.mode}\n"
         f"  base     : {registry.base_domain}\n"
         f"\n"
-        f"  Share this with the peer you are linking with. It is random, so it\n"
-        f"  cannot be guessed from your peer id — but it is NOT a secret lock:\n"
-        f"  admission is still decided by mode + your explicit approval.\n"
+        f"  Share this with the peer you are linking with. The label is random,\n"
+        f"  so it cannot be guessed from your peer id — but it is NOT a secret\n"
+        f"  lock: admission is still decided by mode + your explicit approval.\n"
         f"\n"
         f"  TLS note : {payload['certificate']}"
     )
@@ -333,11 +355,12 @@ def _cmd_rotate(args: argparse.Namespace) -> int:
     from gateway.peer_link.endpoint import EndpointRegistry
 
     base = getattr(args, "base_domain", None) or _default_base_domain()
-    registry = EndpointRegistry(_data_dir(), base)
+    mode = getattr(args, "address_mode", None) or _default_address_mode()
+    registry = EndpointRegistry(_data_dir(), base, mode)
     hostname = registry.rotate()
     return _emit(
         args,
-        {"hostname": hostname},
+        {"hostname": hostname, "address_mode": registry.mode},
         f"New address: {hostname}\nThe previous address no longer resolves.",
     )
 
@@ -444,11 +467,16 @@ def build_peerlink_parser(subparsers) -> None:
                             help="Read only; never mint a new address")
     p_endpoint.add_argument("--base-domain", default=None,
                             help="Override the base domain for this call")
+    p_endpoint.add_argument("--address-mode", default=None,
+                            choices=["subdomain", "path"],
+                            help="Override the addressing mode for this call")
     p_endpoint.add_argument("--json", action="store_true")
 
     p_rotate = sub.add_parser(
         "rotate", help="Mint a new address (invalidates the old one)")
     p_rotate.add_argument("--base-domain", default=None)
+    p_rotate.add_argument("--address-mode", default=None,
+                          choices=["subdomain", "path"])
     p_rotate.add_argument("--json", action="store_true")
 
     p_status = sub.add_parser("status", help="Show Peer Link status")
