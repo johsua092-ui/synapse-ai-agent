@@ -369,6 +369,112 @@ def _cmd_rotate(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    """Run the listener. This is the command that makes a peer URL real.
+
+    Everything else in ``peerlink`` composes an address; this is the only
+    command that makes something *answer* at it. It blocks until Ctrl-C, so it
+    is deliberately not the default action of anything else.
+
+    Refuses to start while the mode is ``closed`` — that refusal lives in
+    :class:`PeerLinkServer`, so the CLI cannot bypass it.
+    """
+    from gateway.peer_link.endpoint import EndpointRegistry
+    from gateway.peer_link.server import DEFAULT_PORT, PeerLinkServer
+
+    ident = _load_identity(create=True)
+    policy = _load_policy()
+    base = getattr(args, "base_domain", None) or _default_base_domain()
+    mode = getattr(args, "address_mode", None) or _default_address_mode()
+    registry = EndpointRegistry(_data_dir(), base, mode)
+    if ident is None:  # create=True, so only reachable if the write failed
+        print("peerlink: could not create a peer identity", file=sys.stderr)
+        return 1
+
+    host = getattr(args, "host", None) or "0.0.0.0"
+    port = getattr(args, "port", None) or DEFAULT_PORT
+    # The *label*, not own_hostname(): in path mode the hostname is the shared
+    # base domain, and the listener must match on the part that is ours.
+    label = registry.own_label(create=True)
+    url = registry.own_url(create=False)
+
+    server = PeerLinkServer(ident, policy, host=host, port=port, label=label)
+    bound_host, bound_port = server.address
+    print(f"Peer Link listening on {bound_host}:{bound_port}")
+    print(f"  public url : {url}")
+    print(f"  mode       : {policy.mode.value}")
+    print(f"  our peer id: {ident.peer_id}")
+    print()
+    print("  Nothing is trusted automatically — new peers land in quarantine")
+    print("  and wait for `synapse peerlink approve <peer-id>`.")
+    print()
+    # The listener speaks plain HTTP by design: terminating TLS in Python would
+    # mean shipping a certificate-loading, cipher-configuring, renewal-tracking
+    # server, which nginx already does better. So the warning is unconditional —
+    # an https:// public URL in front of a plain listener means someone still
+    # has to put a TLS terminator there, and silently implying otherwise is how
+    # a peer ends up dialling a name that hands out plaintext.
+    print("  NOTE: this listener speaks plain HTTP. The https:// URL above")
+    print("  only works once a TLS terminator (nginx, caddy, …) sits in front")
+    print("  of it and proxies /peer/<label> to this port.")
+    print()
+    print("  Ctrl-C to stop.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nstopping…")
+    finally:
+        server.stop()
+    return 0
+
+
+def _cmd_connect(args: argparse.Namespace) -> int:
+    """Dial a peer URL and complete the mutual handshake.
+
+    This is the command a stranger runs. It needs nothing but the URL: no
+    account, no port forwarding, no domain of their own.
+    """
+    from gateway.peer_link.client import connect, normalise_peer_url
+
+    raw = getattr(args, "url", None) or ""
+    try:
+        url = normalise_peer_url(raw)
+    except ValueError as exc:
+        print(f"peerlink: {exc}", file=sys.stderr)
+        return 2
+
+    ident = _load_identity(create=True)
+    timeout = float(getattr(args, "timeout", None) or 15.0)
+    result = connect(ident, url, timeout=timeout)
+
+    payload = {
+        "ok": result.ok,
+        "url": url,
+        "peer_id": result.peer_id,
+        "state": result.state,
+        "authenticated": result.authenticated,
+        "reason": result.reason,
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0 if result.ok else 1
+
+    if not result.ok:
+        print(f"Could not link with {url}")
+        print(f"  reason: {result.reason}")
+        return 1
+
+    print(f"Linked with {url}")
+    print(f"  their peer id : {result.peer_id}")
+    print(f"  authenticated : {result.authenticated}")
+    print(f"  state         : {result.state}")
+    if result.state == "quarantined":
+        print()
+        print("  They still have to approve you on their side before anything")
+        print("  can be shared. That decision is theirs, not the AI's.")
+    return 0
+
+
 _ACTIONS: Dict[str, Callable[[argparse.Namespace], int]] = {
     "identity": _cmd_identity,
     "mode": _cmd_mode,
@@ -381,6 +487,8 @@ _ACTIONS: Dict[str, Callable[[argparse.Namespace], int]] = {
     "status": _cmd_status,
     "endpoint": _cmd_endpoint,
     "rotate": _cmd_rotate,
+    "serve": _cmd_serve,
+    "connect": _cmd_connect,
 }
 
 
@@ -390,7 +498,8 @@ def cmd_peerlink(args: argparse.Namespace) -> int:
     handler = _ACTIONS.get(action or "")
     if handler is None:
         print("Usage: synapse peerlink <identity|mode|invite|pending|list|"
-              "approve|block|revoke|status|endpoint|rotate>", file=sys.stderr)
+              "approve|block|revoke|status|endpoint|rotate|serve|connect>",
+              file=sys.stderr)
         return 2
     try:
         return handler(args)
@@ -416,18 +525,20 @@ def build_peerlink_parser(subparsers) -> None:
             "Examples:\n"
             "  synapse peerlink identity\n"
             "  synapse peerlink mode invite\n"
-            "  synapse peerlink invite --note \"Budi\"\n"
+            "  synapse peerlink endpoint\n"
+            "  synapse peerlink serve\n"
+            "  synapse peerlink connect <peer-url>\n"
             "  synapse peerlink pending\n"
             "  synapse peerlink approve pl1abc...\n"
             "  synapse peerlink block pl1abc...\n"
-            "  synapse peerlink endpoint\n"
             "  synapse peerlink status\n"
             "\n"
             "Modes: closed (default) | invite | public_gated | public_open\n"
             "\n"
             "Set the address base in config.yaml:\n"
             "  peer_link:\n"
-            "    base_domain: aikernel.qzz.io\n"
+            "    base_domain: synz.zone.id\n"
+            "    address_mode: path\n"
             "Exit codes: 0 ok, 1 error, 2 usage error."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -485,5 +596,24 @@ def build_peerlink_parser(subparsers) -> None:
 
     p_status = sub.add_parser("status", help="Show Peer Link status")
     p_status.add_argument("--json", action="store_true")
+
+    p_serve = sub.add_parser(
+        "serve", help="Run the listener (makes your peer URL actually answer)")
+    p_serve.add_argument("--host", default=None,
+                         help="Bind address (default 0.0.0.0)")
+    p_serve.add_argument("--port", type=int, default=None,
+                         help="Bind port (default 8443)")
+    p_serve.add_argument("--base-domain", default=None,
+                         help="Override the base domain for this call")
+    p_serve.add_argument("--address-mode", default=None,
+                         choices=["subdomain", "path"],
+                         help="Override the addressing mode for this call")
+
+    p_connect = sub.add_parser(
+        "connect", help="Link to a peer URL (needs nothing but the URL)")
+    p_connect.add_argument("url", help="Peer URL, e.g. https://synz.zone.id/peer/abc")
+    p_connect.add_argument("--timeout", type=float, default=None,
+                           help="Per-request timeout in seconds (default 15)")
+    p_connect.add_argument("--json", action="store_true")
 
     parser.set_defaults(func=cmd_peerlink)

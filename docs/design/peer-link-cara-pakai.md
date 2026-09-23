@@ -1,460 +1,272 @@
-# CARA PAKAI — Peer Link
+# Peer Link — cara pakai (versi "cuma modal domain")
 
-Panduan praktis. Baca ini setelah `docs/design/peer-link.md`.
+Dokumen ini menjawab satu pertanyaan: **kalau gw cuma punya domain, orang lain
+gimana caranya nyambung?**
 
----
-
-## 0. Yang perlu kamu tahu dulu (jujur)
-
-**Fitur ini MATI secara default.** Nol port terbuka, nol listener. Sampai kamu
-menjalankan `synapse peerlink mode`, tidak ada apa pun yang mendengarkan.
-
-**Belum ada transport jaringan.** Identitas, admission, karantina, dan
-penamaan alamat sudah jalan dan teruji (130 tes). Tapi belum ada socket yang
-benar-benar menerima koneksi dari instance lain — itu FASE berikutnya. Jadi
-perintah di bawah ini **bisa dipakai sekarang** untuk menyiapkan identitas,
-alamat, dan kebijakan; menyambungnya ke jaringan belum.
+Jawaban singkatnya: **orang lain cuma butuh satu perintah.** Tapi ada satu hal
+yang harus ada dulu di sisi kamu — dan itu bukan hosting, bukan VPS baru, bukan
+biaya tambahan. Itu **satu proses** di mesin yang sudah kamu punya.
 
 ---
 
-## 1. Alur lengkap: dua orang mau pair
+## 1. Kenapa domain saja tidak cukup (jujur)
 
-### Di sisi kamu (instance A)
+Domain itu **alamat**, bukan **yang menjawab**. Analoginya:
+
+| | Analogi | Status |
+|---|---|---|
+| `synz.zone.id` | nomor rumah | kamu punya |
+| port 443 | pintu depan | sudah terbuka |
+| **program yang dengerin** | **orang di dalam rumah** | **harus ada** |
+
+Kalau kamu arahkan domain ke mesin kamu tapi **tidak ada program yang
+dengerin**, orang yang connect akan ketemu web lain yang kebetulan sudah
+menempati port itu — bukan Synapse kamu.
+
+Itu bukan pendapat, itu terukur. Sebelum fitur ini ada:
+
+```
+$ curl https://synz.zone.id/peer/tes
+404        ← dijawab 216.176.239.254 (webkus), bukan Synapse
+```
+
+Dan di dalam kode, tidak ada satu pun yang mendengarkan:
+
+```
+$ grep -cE "listen\(|serve_forever|start_server|bind\(" gateway/relay/*.py
+0
+```
+
+Perintah `synapse peerlink serve` yang ada sekarang **menutup celah itu**.
+
+### Kabar baiknya
+
+Mesin yang kamu pakai sekarang **sudah** punya semua yang dibutuhkan:
+
+| Yang kamu kira perlu beli | Kenyataannya |
+|---|---|
+| VPS | sudah ada — `213.163.196.48` |
+| Hosting | tidak perlu |
+| Port forwarding | port 443 sudah terbuka dari luar |
+| Web server | nginx sudah jalan |
+
+Jadi **"cuma modal domain" itu benar** — bukan karena domainnya ajaib, tapi
+karena mesinnya sudah ada. Yang kurang cuma prosesnya, dan itu satu perintah.
+
+---
+
+## 2. Siapa yang melakukan apa
+
+Ini bagian yang paling penting untuk dipahami, karena di sinilah
+"cuma modal domain" jadi masuk akal:
+
+| | Siapa | Perlu apa |
+|---|---|---|
+| **Kamu** (yang punya domain) | nyalain listener | domain + mesin ini |
+| **Orang lain** | `connect` saja | **cuma URL** |
+
+Orang lain **tidak perlu**: VPS, domain sendiri, port forwarding, akun, daftar,
+bayar. Mereka jalan satu perintah, selesai. Ini yang bikin "enak buat orang
+lain" — bebannya ada di kamu, dan beban itu sudah lunas karena mesinnya ada.
+
+---
+
+## 3. Setup di sisi kamu (sekali saja)
+
+### 3.1 Arahkan domain ke mesin ini
+
+Di panel DNS `my.zone.id`:
+
+```
+Type  : A
+Host  : @            (atau "synz" kalau mau synz.synz.zone.id)
+Value : 213.163.196.48
+```
+
+Cek sudah benar:
 
 ```bash
-# 1. Lihat identitasmu (peer id ini boleh dibagikan bebas)
-synapse peerlink identity
-#   our peer id : pl1xkbc2p23vlooz4zunrxqwpzv6kz6galv
-
-# 2. Lihat alamatmu (acak, stabil, tidak bisa ditebak dari peer id)
-synapse peerlink endpoint
-#   url      : https://synz.zone.id/peer/da843snmcp23mazb29uz7gmt6e
-#   address  : synz.zone.id/peer/da843snmcp23mazb29uz7gmt6e
-#   hostname : synz.zone.id
-
-# 3. Buka pintu — hanya untuk yang punya kode undangan
-synapse peerlink mode invite
-
-# 4. Bikin kode undangan, kirim ke temanmu LEWAT JALUR LAIN
-#    (WhatsApp, Telegram, tatap muka — bukan lewat Peer Link)
-synapse peerlink invite --peer "Budi"
-#   invite code : SCS9ZZSV
-
-# 5. Temanmu mengetuk. Kamu lihat siapa yang menunggu.
-synapse peerlink pending
-
-# 6. KAMU yang memutuskan. AI tidak pernah auto-approve.
-synapse peerlink approve pl1temanmu...
+dig +short synz.zone.id
+# harus keluar: 213.163.196.48
 ```
 
-### Di sisi temanmu (instance B)
+### 3.2 Ambil sertifikat TLS (gratis)
 
-```bash
-synapse peerlink identity      # dia lihat peer id-nya
-synapse peerlink endpoint      # dia lihat alamatnya
-# dia mengetuk alamatmu + kirim peer id + kode undangan
-```
-
-Lalu **kamu** menjalankan `approve`. Baru setelah itu dia dipercaya.
-
----
-
-## 2. Jawaban: "bisa beda-beda alamat, dan tidak ada yang tahu?"
-
-**Bisa — dan sudah jalan.** Bukti nyata:
-
-```
-$ synapse peerlink endpoint
-  url      : https://synz.zone.id/peer/da843snmcp23mazb29uz7gmt6e
-
-$ synapse peerlink rotate
-New address: https://synz.zone.id/peer/2k5qtjafiyb2vmbrcvpnpn5vwt
-The previous address no longer resolves.
-```
-
-- Label **acak 26 karakter** dari 32 simbol → ~130 bit entropi. 50 instance
-  diuji, **nol tabrakan**.
-- Label **tidak diturunkan** dari peer id. Peer id kamu publik; label kamu
-  tetap rahasia. Sudah ada tesnya (`test_unguessable_from_peer_id`).
-- **Stabil**: di-mint sekali, disimpan, sama setelah restart.
-- **`rotate`** mengganti alamat kapan saja.
-
-Kalau kamu punya apex zone sendiri (`aikernel.qzz.io`), mode `subdomain` memberi
-**satu nama per peer** (`<label>.aikernel.qzz.io`). Kalau tidak (`synz.zone.id`),
-mode `path` memberi **satu path per peer** — lihat §3.
-
-### Tapi jujur: "tidak ada yang tahu" ada batasnya
-
-DNS dan Certificate Transparency itu **publik**. Kalau seseorang menebak-nebak
-nama, dia bisa menemukan alamatmu. Label acak membuat itu **mahal**, bukan
-mustahil. Jadi:
-
-> **Alamat acak = penambah biaya pencarian, BUKAN kunci.**
-
-Yang benar-benar melindungi adalah: **E2EE** (isi percakapan tidak bisa dibaca
-siapa pun di tengah) + **admission** (alamat ditemukan pun tetap tidak bisa
-masuk tanpa kamu setujui). Jangan bergantung pada kerahasiaan alamat saja —
-itu jebakan *security by obscurity*.
-
----
-
-## 3. ⚠️ JEBAKAN TLS — dan kenapa Peer Link punya **dua mode alamat**
-
-Ini bagian yang paling gampang salah, jadi gw tulis di depan. **Gw sendiri
-sempat salah di sini** (dua kali), jadi gw jelaskan aturan yang benar.
-
-### Aturannya: wildcard diukur dari *apex zone*, bukan dari jumlah titik
-
-Sertifikat wildcard `*.X` menutup **satu tingkat tepat di bawah `X`** — dan `X`
-harus **apex zone** (nama yang NS-nya punya kamu), bukan sembarang hostname.
-
-| Hostname | Zone apex | Wildcard gratis nutup? |
-|---|---|---|
-| `abc.aikernel.qzz.io` | `aikernel.qzz.io` | ✅ ya |
-| `abc.zone.id` | `zone.id` | ✅ ya |
-| `abc.synz.zone.id` | `zone.id` | ❌ **tidak** |
-
-Perhatikan: `aikernel.qzz.io` punya **3 label** tapi **✅ jalan**, sedangkan
-`synz.zone.id` juga **3 label** tapi **❌ gagal**. Jadi **menghitung jumlah titik
-itu menyesatkan** — yang menentukan adalah: *nama itu apex zone, atau hostname
-di dalam zone orang lain?*
-
-### Kasus `synz.zone.id` (sudah gw ukur pakai DNS, bukan tebakan)
-
-```
-$ dig +short NS zone.id
-vip7.alidns.com.                   # <- NS milik Alibaba, bukan punya kamu
-$ dig +short NS synz.zone.id
-dns.webkus.com.                    # <- bukan delegasi, cuma NS hosting bersama
-$ dig +short A synz.zone.id
-216.176.239.254                    # <- webkus shared hosting
-$ dig +short A apapun-acak.zone.id
-... CNAME dns.webkus.com.          # <- SEMUA nama diarahkan sama: ini wildcard
-```
-
-→ `synz.zone.id` **bukan zona**, cuma hostname di dalam `zone.id`. Karena itu
-`<label>.synz.zone.id` **tidak akan** dapat sertifikat gratis.
-
-**Cloudflare juga tidak bisa ditempel ke sini** — gw cek panel `my.zone.id`
-(dari bundle JS-nya), dropdown DNS-nya memang punya tipe `NS`, tapi ada catatan
-resmi panel:
-
-> *"NS records are **only** available for premium nett.to domain."*
-
-Jadi NS dikunci hanya untuk domain `nett.to` premium. Tanpa NS, tidak ada jalur
-delegasi ke Cloudflare. (Cloudflare sendiri **mau** — `zone.id` ada di Public
-Suffix List — yang menolak adalah panel `zone.id`.)
-
-### Solusinya: **mode `path`** — satu hostname untuk semua peer
-
-Karena `<label>.synz.zone.id` tidak bisa, Peer Link **tidak** memaksa bentuk itu.
-Ada dua mode alamat:
-
-| Mode | Bentuk alamat | Sertifikat yang dibutuhkan |
-|---|---|---|
-| `subdomain` | `<label>.<base_domain>` | wildcard `*.<apex>` — butuh base domain = apex milikmu |
-| **`path`** | `<base_domain>/peer/<label>` | **satu sertifikat biasa untuk `<base_domain>`** |
-
-Di mode `path`, **semua peer berbagi satu hostname** dan dibedakan lewat path.
-Satu sertifikat Let's Encrypt biasa sudah cukup — tidak butuh wildcard, tidak
-butuh delegasi NS, tidak butuh Cloudflare.
-
-Yang **tetap** kamu dapat: label acak 26 karakter yang tidak bisa ditebak dari
-peer id. Jadi kehilangan wildcard **bukan** kehilangan keamanan — proteksi
-aslinya tetap **E2EE + approval manual**, bukan kerahasiaan nama.
-
-### Setel `synz.zone.id`
-
-```yaml
-peer_link:
-  base_domain: synz.zone.id
-  address_mode: path           # <- karena kamu tidak punya apex zone.id
-```
-
-Hasilnya:
-
-```
-$ synapse peerlink endpoint
-Your Peer Link address
-  address  : synz.zone.id/peer/pdef6crymbycnjmbm5fuhmjc4v
-  hostname : synz.zone.id
-  mode     : path
-  base     : synz.zone.id
-```
-
-### DNS + sertifikat (2 langkah, di panel `my.zone.id`)
-
-**Langkah 1 — A record** (subdomain `synz`):
-
-```
-hostname : @            # artinya synz.zone.id itu sendiri
-type     : A
-content  : <IP-publik-server-kamu>
-```
-
-Ini **boleh di plan Free** — panel bilang *"Can set A/CNAME records on @ or www
-hostnames only"*, dan `@` = hostname subdomain itu.
-
-**Langkah 2 — sertifikat TLS**, pakai **Let's Encrypt HTTP-01**:
+Satu sertifikat untuk satu nama. Tidak perlu wildcard, tidak perlu DNS-01:
 
 ```bash
 certbot --nginx -d synz.zone.id
 ```
 
-Butuh port 80 masuk (untuk validasi). **DNS-01 tidak bisa** — plan Free `zone.id`
-tidak mengizinkan record `TXT`.
+> **Kenapa bukan Cloudflare?** Sudah diuji: 4 cara, semua gagal di
+> `synz.zone.id`. Dan DNS-01 tidak bisa di paket gratis (panel menolak TXT).
+> HTTP-01 lewat Let's Encrypt jalan — 4.796 dari 4.830 sertifikat `.zone.id`
+> memang Let's Encrypt.
 
-**Bukti jalur ini nyata** (bukan teori) — user `zone.id` lain sudah melakukannya:
-
-```
-$ dig +short A blogs.zone.id
-216.198.79.1                     # <- IP Vercel, BUKAN webkus: server sendiri
-# dan sertifikatnya terbit dari Let's Encrypt: *.blogs.zone.id, blogs.zone.id
-```
-
-Dari 4.830 sertifikat `.zone.id` di Certificate Transparency, **4.796 diterbitkan
-Let's Encrypt** — jadi ini CA mayoritas di sana.
-
-### Kalau nanti mau wildcard lagi
-
-Urutan pilihan:
-
-1. **Upgrade Premium `zone.id` (Rp 10.000/th)** → plan Premium bilang *"Can set
-   A/CNAME records on any hostnames (subdomains)"*. Masih perlu cek apakah NS
-   ikut dibuka; kalau ya, baru bisa delegasi ke Cloudflare.
-2. **Daftar `synz.nett.to` premium** → panel bilang NS **diizinkan** untuk
-   `nett.to` premium, jadi delegasi NS ke Cloudflare bisa.
-3. **Pakai `aikernel.qzz.io`** → NS Cloudflare milikmu, cert wildcard sudah
-   terbit. Ini tetap opsi paling siap kalau kamu berubah pikiran.
-4. **Beli domain sendiri** (mis. `synz.id`) → daftarkan sebagai zone Cloudflare
-   → wildcard `*.synz.id` menutupi semuanya.
-
-Cek sendiri kapan saja:
-
-```bash
-dig +short NS <base-domain-kamu>
-# nameserver penyediamu      -> itu zona, wildcard menutupinya
-# host asing / kosong        -> hostname di zone orang lain, pakai mode path
-```
-
-`synapse peerlink endpoint` **tidak menebak** — kalau `zone_apex` belum diisi di
-config, dia mencetak perintah `dig` di atas supaya kamu cek sendiri; kalau
-`zone_apex` sudah diisi, dia langsung bilang **"aman"** atau **"akan gagal"**
-(sekaligus menyarankan pindah ke mode `path`).
-
----
-
-## 4. Reverse proxy (mode `path`)
-
-Karena mode `path` memakai **satu** hostname, tidak perlu Cloudflare Tunnel dan
-tidak perlu record DNS per peer. Cukup arahkan `/peer/<label>` ke instance:
+### 3.3 Suruh nginx meneruskan `/peer/` ke Synapse
 
 ```nginx
-server {
-    listen 443 ssl;
-    server_name synz.zone.id;
-
-    ssl_certificate     /etc/letsencrypt/live/synz.zone.id/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/synz.zone.id/privkey.pem;
-
-    # Peer Link: satu path untuk semua peer
-    location /peer/ {
-        proxy_pass         http://127.0.0.1:<port-peerlink>;
-        proxy_http_version 1.1;
-        proxy_set_header   Upgrade    $http_upgrade;   # WebSocket
-        proxy_set_header   Connection "upgrade";
-        proxy_set_header   Host       $host;
-        proxy_set_header   X-Real-IP  $remote_addr;
-    }
+location /peer/ {
+    proxy_pass http://127.0.0.1:8443;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
 
-**Catatan keamanan:** kalau kamu **memakai Cloudflare** (opsi wildcard di atas),
-Cloudflare memutus TLS di edge-nya — artinya Cloudflare *bisa* melihat trafikmu.
-Ini persis kasus "TLS saja TIDAK cukup kalau lewat perantara". Karena itu
-**E2EE lapisan aplikasi wajib**, dan itu sudah tersedia (`cryptography` sudah
-ada, nol dependency baru). Di mode `path` **tanpa** Cloudflare, TLS berakhir di
-server kamu sendiri — lebih sederhana dan tidak ada perantara.
-
----
-
-## 5. Set base domain
-
-Setting perilaku ada di `config.yaml`, bukan environment variable:
-
-```yaml
-peer_link:
-  base_domain: synz.zone.id
-  address_mode: path           # subdomain (default) atau path
-  zone_apex: zone.id           # opsional: bikin pesan TLS jadi pasti
-```
-
-- `base_domain` — default `aikernel.qzz.io` kalau tidak diisi.
-- `address_mode` — `subdomain` (default) atau `path`. Nilai tidak dikenal
-  **tidak** membuat error; dia balik ke default, jadi typo tidak merusak command.
-- `zone_apex` — opsional. Kalau kosong, `peerlink endpoint` menyuruh kamu cek
-  pakai `dig` (tidak menebak).
-
----
-
-## 6. Referensi perintah
-
-| Perintah | Fungsi |
-|---|---|
-| `synapse peerlink identity` | peer id kamu (boleh dibagikan) |
-| `synapse peerlink endpoint` | alamat acak kamu (mint kalau belum ada) |
-| `synapse peerlink endpoint --peek` | lihat saja, jangan mint |
-| `synapse peerlink endpoint --address-mode path` | paksa mode path untuk sesi ini |
-| `synapse peerlink endpoint --base-domain X` | ganti base domain untuk sesi ini |
-| `synapse peerlink rotate` | ganti alamat (yang lama mati) |
-| `synapse peerlink mode` | lihat mode |
-| `synapse peerlink mode invite` | buka pintu (undangan saja) |
-| `synapse peerlink invite --peer Budi` | bikin kode undangan |
-| `synapse peerlink pending` | siapa yang menunggu keputusanmu |
-| `synapse peerlink approve <peer_id>` | terima (keputusanmu) |
-| `synapse peerlink block <peer_id>` | tolak permanen |
-| `synapse peerlink list` | peer dipercaya + diblokir |
-| `synapse peerlink status` | ringkasan |
-
-Semua perintah menerima `--json` untuk scripting.
-
----
-
-## 7. Mode
-
-| Mode | Arti |
-|---|---|
-| `closed` | **default** — tidak ada yang bisa masuk |
-| `invite` | hanya pemegang kode undangan |
-| `public_gated` | siapa saja, wajib proof-of-work, lalu karantina |
-| `public_open` | siapa saja (tidak disarankan) |
-
-**Di semua mode, tidak ada yang otomatis dipercaya.** Peer baru selalu masuk
-karantina sampai kamu `approve`.
-
----
-
-## 8. ⚠️ JUJUR: apa yang SUDAH jalan dan apa yang BELUM
-
-Bagian ini penting, biar kamu tidak menyangka lebih dari kenyataannya.
-
-**SUDAH jalan (bisa kamu jalankan sekarang):**
-
-| Bagian | Status | Bukti |
-|---|---|---|
-| Identitas Ed25519 + peer id | ✅ | `synapse peerlink identity` |
-| Alamat acak (subdomain & path) | ✅ | `synapse peerlink endpoint` |
-| Rotate alamat | ✅ | `synapse peerlink rotate` |
-| Mode admission + default `closed` | ✅ | `synapse peerlink mode` |
-| Kode undangan (pakai `PairingStore` lama) | ✅ | `synapse peerlink invite` |
-| Karantina + approve/block/revoke | ✅ | `synapse peerlink pending` |
-| Perbaikan DoS per-platform (additive) | ✅ | `BUKTI_DOS.py` |
-| 200 tes lulus | ✅ | `pytest` |
-
-**BELUM ada — dan ini yang harus kamu tau:**
-
-| Bagian | Status |
-|---|---|
-| **Server yang benar-benar listen di port** | ❌ belum |
-| **Client yang mengetuk alamat peer** | ❌ belum |
-| **Sinkronisasi data antar peer** | ❌ belum |
-| **Barter skill/experience** | ❌ belum |
-| **E2EE antar-peer** | ❌ belum (tapi `cryptography` sudah tersedia) |
-
-**Artinya secara konkret:** hari ini `synapse peerlink endpoint` **membuat
-alamat**, tapi **belum ada proses yang melayani URL itu**. Kalau kamu buka
-`https://synz.zone.id/peer/da843...` sekarang, yang menjawab adalah **webkus**
-(hosting lama), bukan Synapse-mu.
-
-```
-$ curl -o /dev/null -w "%{http_code} %{remote_ip}\n" https://synz.zone.id/peer/tes
-404 216.176.239.254     # <- masih webkus, bukan server kamu
-```
-
-Ini **sesuai desain** (fondasi dulu, transport menyusul), tapi gw nggak mau
-kamu ngira-ngira. Urutan kerja yang benar:
-
-1. ✅ **FASE 1 (selesai):** identitas, alamat, policy, undangan, CLI.
-2. ⏳ **FASE 2 (berikutnya):** server yang listen + client yang mengetuk —
-   memakai `gateway/relay/` yang sudah ada (`RelayTransport`, `ws_transport.py`),
-   jadi **nol dependency baru**.
-3. ⏳ **FASE 3:** sinkronisasi data.
-4. ⏳ **FASE 4:** barter skill/experience.
-
-**Yang bisa kamu siapkan SEKARANG** (biar FASE 2 langsung jalan):
-A record `synz` → IP server, lalu `certbot --nginx -d synz.zone.id`, lalu
-blok `location /peer/` seperti di §4. Setelah itu tinggal FASE 2 nyambung.
-
----
-
-## 9. 🔑 TANPA VPS — dan kenapa ini yang bikin orang lain gampang
-
-Pertanyaan yang benar: **kalau orang lain mau ikut, apakah mereka harus punya
-VPS / IP publik / domain sendiri?** Jawabannya **TIDAK**, dan kuncinya sudah ada
-di repo ini.
-
-### Kenapa: ada dua arah koneksi, dan hasilnya beda jauh
-
-| | Cara | Butuh IP publik / port forward? |
-|---|---|---|
-| ❌ **Listen masuk** | server buka port, orang lain mengetuk | **YA** — inilah jalur yang butuh VPS |
-| ✅ **Dial keluar** | kamu yang menghubungi server | **TIDAK** — NAT/firewall tidak masalah |
-
-Jalur `synz.zone.id` (§3–§4) adalah jalur **listen masuk**. Itu sebabnya dia
-butuh IP publik. **Kalau tujuannya "orang lain enak", jalur ini salah** —
-kebanyakan orang tidak punya IP publik, tidak bisa port forward, dan tidak punya
-domain.
-
-### Fondasinya SUDAH ADA: `gateway/relay/`
-
-Gw periksa kode repo ini, dan **relay-nya sudah dial-keluar**:
-
-```
-$ grep -cE "listen\(|serve_forever|start_server|bind\(" gateway/relay/*.py
-  -> 0 di SEMUA file relay
-```
-
-Kutipan dari `gateway/relay/ws_transport.py` baris 3:
-
-> *"The gateway **dials OUT** to the connector's relay endpoint over a WebSocket…"*
-
-Dan diuji, mesin ini bisa dial keluar:
-```
-keluar ke 1.1.1.1:443   -> OK
-keluar ke github.com:443 -> OK
-```
-
-Artinya: **`gateway/relay/` sudah menyelesaikan masalah "tanpa VPS" — nol
-dependency baru, sudah teruji di produksi** (dipakai untuk WhatsApp/Telegram).
-
-### Jadi ada 3 jalur, pilih sesuai kebutuhan
-
-| Jalur | Butuh VPS? | Butuh domain? | Cocok untuk |
-|---|---|---|---|
-| **A. Relay (`gateway/relay/`)** | ❌ tidak | ❌ tidak | **orang random — paling gampang** |
-| **B. Cloudflare Tunnel** | ❌ tidak | ❌ tidak (`*.trycloudflare.com`) | yang mau hostname sendiri tanpa domain |
-| **C. `synz.zone.id` (listen masuk)** | ✅ ya | ✅ ya | kamu, karena kamu punya IP publik |
-
-**Untuk "buat orang lain enak": pakai jalur A.** Orang lain cukup:
+### 3.4 Nyalakan
 
 ```bash
-pip install synapse-agent          # sama seperti biasa
-synapse peerlink identity          # dapat peer id
-synapse peerlink mode invite       # buka pintu
-synapse peerlink invite --peer "Budi"
+synapse peerlink identity          # lihat peer id kamu (boleh dibagikan)
+synapse peerlink mode invite       # buka pintu, undangan saja
+synapse peerlink endpoint          # URL publik kamu
+synapse peerlink serve             # jalankan — biarkan hidup
 ```
 
-Tanpa VPS, tanpa domain, tanpa port forward, tanpa Cloudflare. Dia duduk di
-belakang NAT rumahan pun tetap bisa — karena **dia yang menghubungi relay**,
-bukan relay yang menghubungi dia.
+`serve` akan menampilkan URL kamu, misalnya:
 
-### Konsekuensi jujur ke desain
+```
+Peer Link listening on 0.0.0.0:8443
+  public url : https://synz.zone.id/peer/axcx825x9eqc5yw9bezpj4z49v
+  mode       : invite
+  our peer id: pl1zbnoinwul2qidnuwkdg3dzhkjdmcrfw4
+```
 
-Ini berarti FASE 2 sebaiknya **memakai `gateway/relay/` sebagai transport
-utama**, dan `synz.zone.id` (jalur C) jadi **opsi untuk yang punya IP publik
-saja**. `synz.zone.id` tetap berguna buat kamu, tapi dia **bukan** jalur yang
-bikin orang random gampang — dan itu justru pertanyaanmu.
+**URL itulah yang kamu kirim ke orang lain.**
 
-Yang **tetap wajib di semua jalur**: **E2EE**. Kalau lewat relay, relay itu
-perantara — dan aturan dari dokumen Peer Link tetap berlaku: *"TLS saja TIDAK
-cukup kalau lewat perantara."*
+---
+
+## 4. Di sisi orang lain (satu perintah)
+
+```bash
+synapse peerlink connect https://synz.zone.id/peer/axcx825x9eqc5yw9bezpj4z49v
+```
+
+Selesai. Outputnya:
+
+```
+Linked with https://synz.zone.id/peer/axcx825x9eqc5yw9bezpj4z49v
+  their peer id : pl1zbnoinwul2qidnuwkdg3dzhkjdmcrfw4
+  authenticated : True
+  state         : quarantined
+
+  They still have to approve you on their side before anything
+  can be shared. That decision is theirs, not the AI's.
+```
+
+Perhatikan `state: quarantined`. **Itu memang begitu seharusnya.** Terhubung
+bukan berarti dipercaya.
+
+---
+
+## 5. Kamu yang memutuskan
+
+```bash
+synapse peerlink pending                  # siapa yang nunggu
+synapse peerlink approve pl1yfnkujdq...   # LU yang mutusin
+synapse peerlink block   pl1yfnkujdq...   # atau tolak permanen
+synapse peerlink list                     # siapa saja yang sudah dipercaya
+```
+
+Tidak ada jalur di mana AI menerima peer sendiri. Satu-satunya cara seseorang
+jadi dipercaya adalah kamu mengetik `approve`.
+
+---
+
+## 6. Mode — pilih sesuai kebutuhan
+
+| Mode | Siapa boleh mengetuk | Untuk siapa |
+|---|---|---|
+| `closed` | tidak ada (default) | fitur mati |
+| `invite` | yang punya kode undangan | **disarankan** |
+| `public_gated` | siapa saja, tapi harus bayar PoW | publik |
+| `public_open` | siapa saja | jangan dipakai |
+
+Kalau mode `closed`, `serve` **menolak jalan**. Itu bukan sekadar dokumentasi —
+percobaannya:
+
+```
+$ synapse peerlink serve
+peerlink: refusing to listen while admission mode is 'closed';
+run `synapse peerlink mode invite` (or public_gated) first
+```
+
+---
+
+## 7. Kalau alamatnya bocor
+
+Label itu acak (26 karakter, ~130 bit), jadi tidak bisa ditebak dari peer id
+kamu. Tapi **jangan anggap itu kunci rahasia** — DNS dan Certificate
+Transparency itu publik, jadi alamat bisa ketemu.
+
+Yang benar-benar melindungi adalah **mode + persetujuan kamu**. Kalau alamat
+bocor:
+
+```bash
+synapse peerlink rotate     # alamat baru, alamat lama mati
+```
+
+---
+
+## 8. Yang sudah terbukti, dan yang belum
+
+Dijalankan nyata, bukan diklaim (`/root/work/BUKTI_SERVER.py`, exit 0):
+
+| # | Yang diuji | Hasil |
+|---|---|---|
+| 1 | Dua identitas Ed25519 berbeda, tanpa registry | OK |
+| 2 | Mode `closed` menolak listen | OK |
+| 3 | Listener benar-benar bind & jawab | OK |
+| 4 | `/peerlink/health` tidak bocorkan apa pun | OK |
+| 5 | Dua instance saling terautentikasi lewat socket | OK |
+| 6 | Pendatang masuk karantina, bukan auto-trusted | OK |
+| 7 | PoW 12 bit diminta | OK |
+| 8 | Promosi hanya oleh pemilik | OK |
+| 9 | Blokir berlaku langsung | OK |
+| 10 | Impersonasi / replay / MITM ditolak | OK |
+| 11 | Server berhenti bersih | OK |
+
+Serangan yang **gagal** (dan alasannya jelas, bukan crash):
+
+```
+mengaku peer_id orang lain -> HTTP 403 peer id does not match public key
+confirm tanpa hello        -> HTTP 400 no handshake in progress
+versi protokol asing       -> HTTP 409 unsupported protocol version
+signature server dipalsukan-> ok=False peer could not prove it holds the key
+```
+
+### ⚠️ Yang BELUM
+
+| Belum | Kenapa penting |
+|---|---|
+| TLS di dalam proses ini | listener bicara HTTP polos; TLS di nginx (langkah 3.2) |
+| Sinkronisasi data | handshake dulu; ini fase berikutnya |
+| Barter skill / pengalaman | fase berikutnya |
+| Transport antar-peer (E2EE) | belum final |
+| Jalan otomatis saat boot | sekarang harus dijalankan manual |
+
+**Jangan dibaca sebagai "sudah selesai".** Yang selesai adalah: dua instance
+bisa **saling mengenali dan memutuskan**. Belum ada pertukaran data.
+
+---
+
+## 9. Ringkasan satu layar
+
+```
+KAMU (sekali):
+  dig +short synz.zone.id            → 213.163.196.48
+  certbot --nginx -d synz.zone.id
+  nginx: location /peer/ → 127.0.0.1:8443
+  synapse peerlink mode invite
+  synapse peerlink endpoint          → https://synz.zone.id/peer/<acak>
+  synapse peerlink serve             → biarkan hidup
+
+ORANG LAIN (satu perintah):
+  synapse peerlink connect https://synz.zone.id/peer/<acak>
+
+KAMU:
+  synapse peerlink pending
+  synapse peerlink approve <peer-id>
+```
+
+**Biaya tambahan: nol. Hosting baru: tidak ada. Mesin: yang sudah ada.**

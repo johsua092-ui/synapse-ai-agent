@@ -369,6 +369,15 @@ class EndpointRegistry:
         self._save(data)
         return label
 
+    def own_label(self, *, create: bool = True) -> Optional[str]:
+        """Return our own random label — the ``<label>`` in ``/peer/<label>``.
+
+        Distinct from :meth:`own_hostname`, which in ``path`` mode is the *base
+        domain* (shared by every peer). A listener needs the label, not the
+        hostname, because the label is the part it matches requests against.
+        """
+        return self._minted_label(create=create)
+
     def own_hostname(self, *, create: bool = True) -> Optional[str]:
         """Return the hostname clients dial, minting a label on first call.
 
