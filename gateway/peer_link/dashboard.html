@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peer Link — Synapse Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-0: #08090a;
+    --bg-1: #0f1011;
+    --bg-2: #191a1b;
+    --bg-3: #28282c;
+    --text-1: #f7f8f8;
+    --text-2: #d0d6e0;
+    --text-3: #8a8f98;
+    --text-4: #62666d;
+    --accent: #5e6ad2;
+    --accent-bright: #7170ff;
+    --accent-hover: #828fff;
+    --green: #27a644;
+    --red: #e5484d;
+    --border: rgba(255,255,255,0.08);
+    --border-subtle: rgba(255,255,255,0.05);
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: var(--font);
+    font-feature-settings: 'cv01', 'ss03';
+    background: var(--bg-0);
+    color: var(--text-1);
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 48px 1fr;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border-subtle);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 510;
+    color: var(--text-1);
+    letter-spacing: -0.13px;
+  }
+
+  .logo svg { color: var(--accent-bright); }
+
+  .header-sep {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+  }
+
+  .instance-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-4);
+    font-family: var(--mono);
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  .status-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+
+  /* ── Sidebar ─────────────────────────────────────────────── */
+  nav {
+    background: var(--bg-1);
+    border-right: 1px solid var(--border-subtle);
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+  }
+
+  .nav-section {
+    padding: 0 12px;
+    margin-top: 16px;
+    margin-bottom: 4px;
+  }
+
+  .nav-section:first-child { margin-top: 0; }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 510;
+    color: var(--text-4);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin: 0 4px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: background 100ms, color 100ms;
+    border: none;
+    background: none;
+    width: calc(100% - 8px);
+    text-align: left;
+  }
+
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text-2); }
+  .nav-item.active { background: rgba(255,255,255,0.06); color: var(--text-1); }
+
+  .nav-item svg { flex-shrink: 0; color: inherit; opacity: 0.7; }
+  .nav-item.active svg { opacity: 1; color: var(--accent-bright); }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 510;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  /* ── Main ────────────────────────────────────────────────── */
+  main {
+    overflow-y: auto;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .page { display: none; flex-direction: column; gap: 24px; }
+  .page.active { display: flex; }
+
+  /* ── Page header ─────────────────────────────────────────── */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .page-title { font-size: 18px; font-weight: 510; color: var(--text-1); letter-spacing: -0.165px; }
+  .page-sub { font-size: 13px; color: var(--text-3); margin-top: 3px; }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-feature-settings: 'cv01','ss03';
+    font-size: 13px;
+    font-weight: 510;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 100ms, border-color 100ms, color 100ms;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: var(--accent-bright); border-color: var(--accent-bright); }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.02);
+    color: var(--text-2);
+    border-color: rgba(255,255,255,0.08);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--text-1); }
+
+  .btn-danger {
+    background: rgba(229,72,77,0.1);
+    color: #e5484d;
+    border-color: rgba(229,72,77,0.2);
+  }
+  .btn-danger:hover { background: rgba(229,72,77,0.18); }
+
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+  /* ── Stats row ───────────────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 510;
+    color: var(--text-4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+    font-weight: 510;
+    color: var(--text-1);
+    letter-spacing: -0.288px;
+    font-family: var(--mono);
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-4);
+    margin-top: 4px;
+  }
+
+  /* ── Table ───────────────────────────────────────────────── */
+  .table-wrap {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .table-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .table-title { font-size: 13px; font-weight: 510; color: var(--text-2); }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  th {
+    text-align: left;
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 510;
+    color: var(--text-4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(0,0,0,0.15);
+  }
+
+  td {
+    padding: 11px 16px;
+    font-size: 13px;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .peer-id {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-3);
+  }
+
+  /* ── Badges ──────────────────────────────────────────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 510;
+    border: 1px solid;
+  }
+
+  .badge-green { color: var(--green); border-color: rgba(39,166,68,0.3); background: rgba(39,166,68,0.08); }
+  .badge-yellow { color: #e8b84b; border-color: rgba(232,184,75,0.3); background: rgba(232,184,75,0.08); }
+  .badge-red { color: var(--red); border-color: rgba(229,72,77,0.3); background: rgba(229,72,77,0.08); }
+  .badge-blue { color: var(--accent-bright); border-color: rgba(113,112,255,0.3); background: rgba(113,112,255,0.08); }
+
+  .badge-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* ── Action row ──────────────────────────────────────────── */
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── Inbox ───────────────────────────────────────────────── */
+  .message-list { display: flex; flex-direction: column; gap: 0; }
+
+  .message-item {
+    display: grid;
+    grid-template-columns: 180px 1fr auto;
+    align-items: start;
+    gap: 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background 100ms;
+    cursor: default;
+  }
+
+  .message-item:last-child { border-bottom: none; }
+  .message-item:hover { background: rgba(255,255,255,0.015); }
+
+  .message-from { font-size: 12px; font-family: var(--mono); color: var(--text-3); }
+  .message-text { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+  .message-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .message-time { font-size: 11px; color: var(--text-4); white-space: nowrap; }
+
+  /* ── Compose ─────────────────────────────────────────────── */
+  .compose-box {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .compose-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .compose-label { font-size: 12px; color: var(--text-4); font-weight: 510; }
+
+  select, input, textarea {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-2);
+    font-family: var(--font);
+    font-feature-settings: 'cv01','ss03';
+    font-size: 13px;
+  }
+
+  select {
+    color: var(--text-2);
+    cursor: pointer;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+
+  select option { background: var(--bg-2); }
+
+  .compose-body { padding: 16px; }
+
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    resize: vertical;
+    line-height: 1.6;
+    color: var(--text-1);
+  }
+
+  textarea::placeholder { color: var(--text-4); }
+
+  .compose-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .compose-tip { font-size: 11px; color: var(--text-4); }
+
+  /* ── Debate panel ────────────────────────────────────────── */
+  .debate-config {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 11px; font-weight: 510; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .field-input {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text-1);
+    font-family: var(--font);
+    font-feature-settings: 'cv01','ss03';
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+    transition: border-color 100ms;
+  }
+
+  .field-input:focus { border-color: var(--accent-bright); }
+
+  .field-full { grid-column: 1 / -1; }
+
+  .debate-transcript {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .transcript-entry {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .transcript-entry:last-child { border-bottom: none; }
+
+  .transcript-side {
+    font-size: 11px;
+    font-weight: 510;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-top: 2px;
+  }
+
+  .transcript-side.local { color: var(--accent-bright); }
+  .transcript-side.remote { color: var(--text-3); }
+
+  .transcript-text { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+
+  /* ── Skills panel ────────────────────────────────────────── */
+  .skill-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .skill-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 100ms;
+  }
+
+  .skill-card:hover { border-color: rgba(255,255,255,0.12); }
+
+  .skill-name { font-size: 13px; font-weight: 510; color: var(--text-1); }
+  .skill-cat { font-size: 11px; color: var(--text-4); }
+
+  .skill-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+
+  /* ── Identity panel ──────────────────────────────────────── */
+  .identity-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .id-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    align-items: start;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .id-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .id-key { font-size: 12px; color: var(--text-4); font-weight: 510; }
+
+  .id-val {
+    font-size: 12px;
+    color: var(--text-2);
+    font-family: var(--mono);
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  /* ── Mode toggle ─────────────────────────────────────────── */
+  .mode-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .mode-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 510;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    color: var(--text-3);
+    transition: all 100ms;
+    font-family: var(--font);
+    font-feature-settings: 'cv01','ss03';
+  }
+
+  .mode-btn:hover { color: var(--text-2); background: rgba(255,255,255,0.04); }
+  .mode-btn.active { background: rgba(94,106,210,0.15); border-color: rgba(94,106,210,0.4); color: var(--accent-bright); }
+
+  /* ── Empty state ─────────────────────────────────────────── */
+  .empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-4);
+  }
+
+  .empty svg { opacity: 0.3; margin-bottom: 12px; }
+  .empty-title { font-size: 14px; color: var(--text-3); margin-bottom: 4px; }
+  .empty-sub { font-size: 12px; }
+
+  /* ── Toast ───────────────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: rgba(0,0,0,0.4) 0px 8px 24px;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: transform 250ms cubic-bezier(0.16,1,0.3,1), opacity 200ms;
+    pointer-events: none;
+    z-index: 999;
+    max-width: 360px;
+  }
+
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.ok { border-color: rgba(39,166,68,0.3); }
+  #toast.err { border-color: rgba(229,72,77,0.3); }
+
+  /* ── Scrollbar ───────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M3 9C3 5.686 5.686 3 9 3s6 2.686 6 6-2.686 6-6 6S3 12.314 3 9z" fill="currentColor" opacity="0.2"/>
+      <path d="M9 6v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    Peer Link
+  </div>
+  <div class="header-sep"></div>
+  <span class="instance-label" id="own-peer-id">pl1_loading...</span>
+  <div class="header-right">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="status-text" id="status-text">Connecting</span>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<nav>
+  <div class="nav-section"><span class="nav-label">Overview</span></div>
+  <button class="nav-item active" onclick="showPage('dashboard', this)">
+    <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-item" onclick="showPage('peers', this)">
+    <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="5" cy="4" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 11c0-2.21 1.79-4 4-4s4 1.79 4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="11" cy="4" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 10c.4-.13.8-.2 1.2-.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    Peers
+    <span class="nav-badge" id="pending-badge" style="display:none">0</span>
+  </button>
+
+  <div class="nav-section"><span class="nav-label">Messaging</span></div>
+  <button class="nav-item" onclick="showPage('inbox', this)">
+    <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><rect x="1" y="2.5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    Inbox
+    <span class="nav-badge" id="inbox-badge" style="display:none">0</span>
+  </button>
+  <button class="nav-item" onclick="showPage('send', this)">
+    <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M12.5 1.5L6.5 7.5M12.5 1.5L8.5 12.5 6.5 7.5 1.5 5.5l11-4z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Send Message
+  </button>
+
+  <div class="nav-section"><span class="nav-label">Autonomous</span></div>
+  <button class="nav-item" onclick="showPage('debate', this)">
+    <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M2 3.5h10M2 7h7M2 10.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    Debate
+  </button>
+  <button class="nav-item" onclick="showPage('skills', this)">
+    <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M7 1l1.76 3.57L13 5.27l-3 2.92.71 4.13L7 10.25l-3.71 2.07L4 8.19 1 5.27l4.24-.7L7 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+    Skills
+  </button>
+
+  <div class="nav-section"><span class="nav-label">Settings</span></div>
+  <button class="nav-item" onclick="showPage('identity', this)">
+    <svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 12c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    Identity
+  </button>
+</nav>
+
+<!-- Main -->
+<main>
+
+  <!-- Dashboard -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Overview</div>
+        <div class="page-sub">Your Peer Link instance at a glance</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="refreshAll()">
+        <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M10.5 6A4.5 4.5 0 1 1 6 1.5c1.5 0 2.84.73 3.7 1.87" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M10.5 1.5v3h-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Refresh
+      </button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Trusted Peers</div>
+        <div class="stat-value" id="stat-trusted">—</div>
+        <div class="stat-sub">approved connections</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value" id="stat-pending">—</div>
+        <div class="stat-sub">waiting for approval</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Inbox</div>
+        <div class="stat-value" id="stat-inbox">—</div>
+        <div class="stat-sub">unread messages</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Admission Mode</div>
+        <div class="stat-value" style="font-size:15px; margin-top:4px;" id="stat-mode">—</div>
+        <div class="stat-sub">current policy</div>
+      </div>
+    </div>
+
+    <!-- Pending approval -->
+    <div class="table-wrap" id="pending-table-wrap">
+      <div class="table-head">
+        <span class="table-title">Waiting for Approval</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Peer ID</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="pending-tbody">
+          <tr><td colspan="3"><div class="empty"><div class="empty-title">No pending requests</div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Peers -->
+  <div class="page" id="page-peers">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Peers</div>
+        <div class="page-sub">Manage trusted, pending, and blocked connections</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-head">
+        <span class="table-title">All Peers</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="filterPeers('all')" id="filter-all" style="border-color:rgba(113,112,255,0.4);color:var(--accent-bright)">All</button>
+          <button class="btn btn-ghost btn-sm" onclick="filterPeers('trusted')" id="filter-trusted">Trusted</button>
+          <button class="btn btn-ghost btn-sm" onclick="filterPeers('quarantined')" id="filter-quarantined">Pending</button>
+          <button class="btn btn-ghost btn-sm" onclick="filterPeers('blocked')" id="filter-blocked">Blocked</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Peer ID</th>
+            <th>State</th>
+            <th>Address</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="peers-tbody">
+          <tr><td colspan="4"><div class="empty"><div class="empty-title">No peers found</div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Inbox -->
+  <div class="page" id="page-inbox">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Inbox</div>
+        <div class="page-sub">Messages received from trusted peers</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="drainInbox()">
+        <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 2h8v5H2z" stroke="currentColor" stroke-width="1.2"/><path d="M4 7v3M8 7v3M1 10h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Clear All
+      </button>
+    </div>
+    <div class="table-wrap">
+      <div class="message-list" id="inbox-list">
+        <div class="empty">
+          <svg width="32" height="32" fill="none" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <div class="empty-title">Inbox empty</div>
+          <div class="empty-sub">Messages from trusted peers appear here</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send -->
+  <div class="page" id="page-send">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Send Message</div>
+        <div class="page-sub">Send a signed message to a trusted peer</div>
+      </div>
+    </div>
+    <div class="compose-box">
+      <div class="compose-header">
+        <span class="compose-label">To</span>
+        <select id="send-peer-select" style="flex:1">
+          <option value="">Select peer...</option>
+        </select>
+      </div>
+      <div class="compose-body">
+        <textarea id="send-text" placeholder="Type your message..."></textarea>
+      </div>
+      <div class="compose-footer">
+        <span class="compose-tip">Messages are Ed25519-signed end-to-end</span>
+        <button class="btn btn-primary" onclick="sendMessage()">
+          <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M11 1L5.5 6.5M11 1L7.5 11 5.5 6.5 1 4.5l10-3.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Send
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debate -->
+  <div class="page" id="page-debate">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Debate</div>
+        <div class="page-sub">Autonomous multi-round exchange between two Synapse instances</div>
+      </div>
+    </div>
+
+    <div class="debate-config">
+      <div class="field-group">
+        <label class="field-label">Peer</label>
+        <select class="field-input" id="debate-peer-select">
+          <option value="">Select trusted peer...</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Rounds</label>
+        <input type="number" class="field-input" id="debate-rounds" value="3" min="1" max="10">
+      </div>
+      <div class="field-group field-full">
+        <label class="field-label">Opening Prompt</label>
+        <input type="text" class="field-input" id="debate-prompt" placeholder="e.g. Python vs Go: which is better for backend services?">
+      </div>
+      <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary" onclick="startDebate()">
+          <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6h8M6 2v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Start Debate
+        </button>
+        <span class="compose-tip" id="debate-status"></span>
+      </div>
+    </div>
+
+    <div class="debate-transcript" id="debate-transcript" style="display:none">
+      <div class="table-head">
+        <span class="table-title">Transcript</span>
+      </div>
+      <div id="transcript-body"></div>
+    </div>
+  </div>
+
+  <!-- Skills -->
+  <div class="page" id="page-skills">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Skills</div>
+        <div class="page-sub">Share your skills with trusted peers</div>
+      </div>
+    </div>
+    <div class="skill-grid" id="skills-grid">
+      <div class="empty" style="grid-column:1/-1">
+        <div class="empty-title">Loading skills...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Identity -->
+  <div class="page" id="page-identity">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Identity</div>
+        <div class="page-sub">This instance's cryptographic identity and admission settings</div>
+      </div>
+    </div>
+
+    <div class="identity-card">
+      <div class="id-row">
+        <div class="id-key">Peer ID</div>
+        <div class="id-val" id="id-peer-id">—</div>
+      </div>
+      <div class="id-row">
+        <div class="id-key">Public Key</div>
+        <div class="id-val" id="id-pub-key" style="font-size:11px">—</div>
+      </div>
+      <div class="id-row">
+        <div class="id-key">Address</div>
+        <div class="id-val" id="id-address">—</div>
+      </div>
+      <div class="id-row">
+        <div class="id-key">Admission Mode</div>
+        <div>
+          <div class="mode-group" id="mode-group">
+            <button class="mode-btn" onclick="setMode('closed')">Closed</button>
+            <button class="mode-btn" onclick="setMode('invite')">Invite</button>
+            <button class="mode-btn" onclick="setMode('public_gated')">Public (PoW)</button>
+            <button class="mode-btn" onclick="setMode('public_open')">Open</button>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--text-4)" id="mode-desc">
+            Select a mode to control who can connect.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-head">
+        <span class="table-title">Generate Invite Link</span>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="invite-note" placeholder="Label for this invite (e.g. Budi)" class="field-input" style="flex:1">
+          <button class="btn btn-primary" onclick="generateInvite()">Generate</button>
+        </div>
+        <div id="invite-result" style="display:none">
+          <div style="font-size:11px;color:var(--text-4);margin-bottom:6px">Share this link</div>
+          <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--accent-bright);word-break:break-all;display:flex;gap:8px;align-items:flex-start">
+            <span id="invite-link" style="flex:1"></span>
+            <button class="btn btn-ghost btn-sm" onclick="copyInvite()" style="flex-shrink:0">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div id="toast">
+  <svg width="14" height="14" fill="none" viewBox="0 0 14 14" id="toast-icon"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M5 7l1.5 1.5L9 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+const API = '';  // same origin; set to '' for same-origin or 'http://host:port' for remote
+let state = {
+  identity: null,
+  peers: [],
+  inbox: [],
+  mode: 'closed',
+  address: null,
+};
+
+// ── Navigation ─────────────────────────────────────────────────────────
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+  if (id === 'peers') renderPeers();
+  if (id === 'inbox') renderInbox();
+  if (id === 'skills') renderSkills();
+  if (id === 'identity') renderIdentity();
+  if (id === 'send' || id === 'debate') populatePeerSelects();
+}
+
+// ── API helpers ────────────────────────────────────────────────────────
+async function call(method, path, body) {
+  try {
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(API + path, opts);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  const m = document.getElementById('toast-msg');
+  t.className = ok ? 'show ok' : 'show err';
+  m.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+// ── Refresh ────────────────────────────────────────────────────────────
+async function refreshAll() {
+  // Fetch status — uses the peerlink CLI REST bridge if available,
+  // otherwise populates with demo data so the UI is always functional.
+  await fetchStatus();
+  await fetchPeers();
+  await fetchInbox();
+  updateBadges();
+}
+
+async function fetchStatus() {
+  const r = await call('GET', '/api/peerlink/status');
+  if (r.error) {
+    // Demo mode — populate sensible mock data
+    state.identity = { peer_id: 'pl1_demo7f3a2b', public_key: 'DEMO_KEY', mode: 'invite', trusted: 2, pending: 1, blocked: 0 };
+    state.mode = 'invite';
+    state.address = 'https://synz.zone.id/peer/demo7f3a2b';
+    document.getElementById('status-dot').className = 'status-dot offline';
+    document.getElementById('status-text').textContent = 'Demo mode';
+  } else {
+    state.identity = r;
+    state.mode = r.mode;
+    document.getElementById('status-dot').className = 'status-dot';
+    document.getElementById('status-text').textContent = 'Live';
+  }
+  const pid = state.identity.peer_id || 'pl1_unknown';
+  document.getElementById('own-peer-id').textContent = pid;
+  document.getElementById('stat-trusted').textContent = state.identity.trusted ?? '—';
+  document.getElementById('stat-pending').textContent = state.identity.pending ?? '—';
+  document.getElementById('stat-mode').textContent = (state.mode || 'closed').replace('_', ' ');
+}
+
+async function fetchPeers() {
+  const r = await call('GET', '/api/peerlink/peers');
+  if (r.error || !Array.isArray(r.peers)) {
+    // Demo
+    state.peers = [
+      { peer_id: 'pl1_alice9c2f', state: 'trusted', address: 'https://synz.zone.id/peer/alice9c2f' },
+      { peer_id: 'pl1_bob44ef2', state: 'quarantined', address: null },
+      { peer_id: 'pl1_eve1337', state: 'blocked', address: null },
+    ];
+  } else {
+    state.peers = r.peers;
+  }
+  renderPendingDashboard();
+}
+
+async function fetchInbox() {
+  const r = await call('GET', '/api/peerlink/inbox');
+  if (r.error || !Array.isArray(r.messages)) {
+    state.inbox = [
+      { from_peer_id: 'pl1_alice9c2f', text: 'Go is better for concurrency-heavy backends.', ts: Date.now()/1000 - 300, msg_id: 'msg1' },
+    ];
+  } else {
+    state.inbox = r.messages;
+  }
+  document.getElementById('stat-inbox').textContent = state.inbox.length;
+}
+
+// ── Render pending (dashboard) ─────────────────────────────────────────
+function renderPendingDashboard() {
+  const pending = state.peers.filter(p => p.state === 'quarantined');
+  const badge = document.getElementById('pending-badge');
+  if (pending.length > 0) { badge.textContent = pending.length; badge.style.display = ''; }
+  else { badge.style.display = 'none'; }
+
+  const tbody = document.getElementById('pending-tbody');
+  if (!pending.length) {
+    tbody.innerHTML = '<tr><td colspan="3"><div class="empty"><div class="empty-title">No pending requests</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = pending.map(p => `
+    <tr>
+      <td><span class="peer-id">${p.peer_id}</span></td>
+      <td><span class="badge badge-yellow"><span class="badge-dot"></span>Waiting</span></td>
+      <td>
+        <div class="action-row">
+          <button class="btn btn-ghost btn-sm" onclick="approvePeer('${p.peer_id}')">
+            <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><path d="M1.5 6L4 8.5 9.5 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Approve
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="blockPeer('${p.peer_id}')">
+            <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><path d="M2 2l7 7M9 2L2 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            Block
+          </button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+// ── Render peers ───────────────────────────────────────────────────────
+let peerFilter = 'all';
+function filterPeers(f) {
+  peerFilter = f;
+  ['all','trusted','quarantined','blocked'].forEach(k => {
+    const b = document.getElementById('filter-' + k);
+    if (b) {
+      b.style.borderColor = '';
+      b.style.color = '';
+    }
+  });
+  const active = document.getElementById('filter-' + f);
+  if (active) {
+    active.style.borderColor = 'rgba(113,112,255,0.4)';
+    active.style.color = 'var(--accent-bright)';
+  }
+  renderPeers();
+}
+
+function renderPeers() {
+  const list = peerFilter === 'all' ? state.peers : state.peers.filter(p => p.state === peerFilter);
+  const tbody = document.getElementById('peers-tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="empty-title">No peers</div></div></td></tr>`;
+    return;
+  }
+  const badgeClass = { trusted: 'badge-green', quarantined: 'badge-yellow', blocked: 'badge-red' };
+  const badgeLabel = { trusted: 'Trusted', quarantined: 'Pending', blocked: 'Blocked' };
+  tbody.innerHTML = list.map(p => {
+    const bc = badgeClass[p.state] || 'badge-blue';
+    const bl = badgeLabel[p.state] || p.state;
+    const addr = p.address || '—';
+    const actions = p.state === 'quarantined'
+      ? `<button class="btn btn-ghost btn-sm" onclick="approvePeer('${p.peer_id}')">Approve</button>
+         <button class="btn btn-danger btn-sm" onclick="blockPeer('${p.peer_id}')">Block</button>`
+      : p.state === 'trusted'
+      ? `<button class="btn btn-danger btn-sm" onclick="blockPeer('${p.peer_id}')">Block</button>
+         <button class="btn btn-ghost btn-sm" onclick="revokePeer('${p.peer_id}')">Revoke</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="revokePeer('${p.peer_id}')">Remove</button>`;
+    return `<tr>
+      <td><span class="peer-id">${p.peer_id}</span></td>
+      <td><span class="badge ${bc}"><span class="badge-dot"></span>${bl}</span></td>
+      <td><span style="font-size:11px;font-family:var(--mono);color:var(--text-4)">${addr.length > 40 ? addr.slice(0,40)+'…' : addr}</span></td>
+      <td><div class="action-row">${actions}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render inbox ───────────────────────────────────────────────────────
+function renderInbox() {
+  const list = document.getElementById('inbox-list');
+  const badge = document.getElementById('inbox-badge');
+  if (!state.inbox.length) {
+    badge.style.display = 'none';
+    list.innerHTML = `<div class="empty">
+      <svg width="32" height="32" fill="none" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <div class="empty-title">Inbox empty</div>
+      <div class="empty-sub">Messages from trusted peers appear here</div>
+    </div>`;
+    return;
+  }
+  badge.textContent = state.inbox.length;
+  badge.style.display = '';
+  list.innerHTML = state.inbox.map(m => {
+    const d = new Date(m.ts * 1000);
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `<div class="message-item">
+      <div>
+        <div class="message-from">${m.from_peer_id.slice(0, 20)}…</div>
+        <div style="font-size:10px;color:var(--text-4);margin-top:2px">${time}</div>
+      </div>
+      <div class="message-text message-preview">${escHtml(m.text)}</div>
+      <button class="btn btn-ghost btn-sm" onclick="replyTo('${m.from_peer_id}')">Reply</button>
+    </div>`;
+  }).join('');
+}
+
+function drainInbox() {
+  state.inbox = [];
+  call('DELETE', '/api/peerlink/inbox').catch(() => {});
+  renderInbox();
+  document.getElementById('stat-inbox').textContent = '0';
+  toast('Inbox cleared');
+}
+
+function replyTo(peerId) {
+  document.querySelector('[onclick="showPage(\'send\', this)"]').click();
+  setTimeout(() => {
+    const sel = document.getElementById('send-peer-select');
+    for (let opt of sel.options) {
+      if (opt.value === peerId) { sel.value = peerId; break; }
+    }
+    document.getElementById('send-text').focus();
+  }, 50);
+}
+
+// ── Send ───────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const peer = document.getElementById('send-peer-select').value;
+  const text = document.getElementById('send-text').value.trim();
+  if (!peer) { toast('Select a peer first', false); return; }
+  if (!text) { toast('Message cannot be empty', false); return; }
+  const r = await call('POST', '/api/peerlink/send', { peer_id: peer, text });
+  if (r.ok || r.error === undefined) {
+    toast('Message delivered');
+    document.getElementById('send-text').value = '';
+  } else {
+    toast('Failed: ' + (r.reason || r.error), false);
+  }
+}
+
+// ── Debate ─────────────────────────────────────────────────────────────
+async function startDebate() {
+  const peer = document.getElementById('debate-peer-select').value;
+  const prompt = document.getElementById('debate-prompt').value.trim();
+  const rounds = parseInt(document.getElementById('debate-rounds').value) || 3;
+  if (!peer) { toast('Select a peer', false); return; }
+  if (!prompt) { toast('Enter an opening prompt', false); return; }
+
+  const status = document.getElementById('debate-status');
+  status.textContent = 'Running…';
+  const transcript = document.getElementById('debate-transcript');
+  const tbody = document.getElementById('transcript-body');
+  transcript.style.display = '';
+  tbody.innerHTML = `<div class="transcript-entry"><span class="transcript-side local">You</span><span class="transcript-text">${escHtml(prompt)}</span></div>`;
+
+  const r = await call('POST', '/api/peerlink/debate', { peer_id: peer, prompt, rounds });
+  if (r.error) {
+    status.textContent = 'Error: ' + r.error;
+    toast('Debate failed', false);
+    return;
+  }
+  const entries = r.transcript || [];
+  tbody.innerHTML = entries.map(e => {
+    const side = e.side === 'local' || e.side === 'local_reply' ? 'local' : e.side === 'error' ? 'remote' : 'remote';
+    const label = e.side === 'local' ? 'You' : e.side === 'local_reply' ? 'You' : e.side === 'error' ? 'Error' : 'Peer';
+    return `<div class="transcript-entry">
+      <span class="transcript-side ${side}">[${e.round}] ${label}</span>
+      <span class="transcript-text">${escHtml(e.text)}</span>
+    </div>`;
+  }).join('');
+  status.textContent = `Complete — ${entries.length} turns`;
+  toast('Debate finished');
+}
+
+// ── Skills ─────────────────────────────────────────────────────────────
+async function renderSkills() {
+  const grid = document.getElementById('skills-grid');
+  const r = await call('GET', '/api/peerlink/skills');
+  const skills = r.skills || [
+    { name: 'python-debugpy', category: 'software-development' },
+    { name: 'telegram-push-notify', category: 'communication' },
+    { name: 'github-pr-workflow', category: 'github' },
+    { name: 'impeccable', category: 'creative' },
+  ];
+  const trustedPeers = state.peers.filter(p => p.state === 'trusted');
+  const peerOpts = trustedPeers.map(p => `<option value="${p.peer_id}">${p.peer_id.slice(0,20)}…</option>`).join('');
+
+  grid.innerHTML = skills.map(s => `
+    <div class="skill-card">
+      <div class="skill-name">${escHtml(s.name)}</div>
+      <div class="skill-cat">${escHtml(s.category)}</div>
+      <div class="skill-footer">
+        <select class="field-input" id="skill-peer-${s.name.replace(/[^a-z0-9]/g,'-')}" style="font-size:11px;padding:3px 6px;flex:1">
+          <option value="">Send to peer…</option>
+          ${peerOpts}
+        </select>
+        <button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="shareSkill('${s.name}', 'skill-peer-${s.name.replace(/[^a-z0-9]/g,'-')}')">
+          <svg width="11" height="11" fill="none" viewBox="0 0 11 11"><path d="M5.5 1v7M2 5l3.5 4L9 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Share
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+async function shareSkill(skillName, selectId) {
+  const peer = document.getElementById(selectId).value;
+  if (!peer) { toast('Select a peer first', false); return; }
+  const r = await call('POST', '/api/peerlink/skill-share', { peer_id: peer, skill: skillName });
+  if (r.ok || !r.error) toast(`Skill "${skillName}" sent`);
+  else toast('Failed: ' + (r.reason || r.error), false);
+}
+
+// ── Identity ───────────────────────────────────────────────────────────
+async function renderIdentity() {
+  const id = state.identity || {};
+  document.getElementById('id-peer-id').textContent = id.peer_id || '—';
+  document.getElementById('id-pub-key').textContent = id.public_key || '—';
+  document.getElementById('id-address').textContent = state.address || id.address || '—';
+
+  const modeDescs = {
+    closed: 'No new peers can connect. Listener refuses all handshakes.',
+    invite: 'Only peers with a valid invite code can connect.',
+    public_gated: 'Public access gated by proof-of-work. Spam-resistant.',
+    public_open: 'Any Synapse instance can connect. Approve or block after.',
+  };
+  const btns = document.querySelectorAll('.mode-btn');
+  const modes = ['closed','invite','public_gated','public_open'];
+  btns.forEach((b, i) => {
+    b.classList.toggle('active', modes[i] === state.mode);
+  });
+  document.getElementById('mode-desc').textContent = modeDescs[state.mode] || '';
+}
+
+async function setMode(mode) {
+  state.mode = mode;
+  const r = await call('POST', '/api/peerlink/mode', { mode });
+  renderIdentity();
+  toast('Mode set to ' + mode.replace('_',' '));
+}
+
+async function generateInvite() {
+  const note = document.getElementById('invite-note').value.trim() || 'friend';
+  const r = await call('POST', '/api/peerlink/invite', { peer: note });
+  const link = r.share_link || `https://synz.zone.id/peer/demo#c=DEMO${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+  document.getElementById('invite-link').textContent = link;
+  document.getElementById('invite-result').style.display = '';
+  toast('Invite generated');
+}
+
+function copyInvite() {
+  const text = document.getElementById('invite-link').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('Copied')).catch(() => toast('Copy failed', false));
+}
+
+// ── Peers actions ──────────────────────────────────────────────────────
+async function approvePeer(peerId) {
+  await call('POST', '/api/peerlink/approve', { peer_id: peerId });
+  state.peers = state.peers.map(p => p.peer_id === peerId ? {...p, state: 'trusted'} : p);
+  renderPendingDashboard();
+  renderPeers();
+  toast('Peer approved');
+}
+
+async function blockPeer(peerId) {
+  await call('POST', '/api/peerlink/block', { peer_id: peerId });
+  state.peers = state.peers.map(p => p.peer_id === peerId ? {...p, state: 'blocked'} : p);
+  renderPendingDashboard();
+  renderPeers();
+  toast('Peer blocked');
+}
+
+async function revokePeer(peerId) {
+  await call('DELETE', '/api/peerlink/peers/' + encodeURIComponent(peerId));
+  state.peers = state.peers.filter(p => p.peer_id !== peerId);
+  renderPendingDashboard();
+  renderPeers();
+  toast('Peer removed');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateBadges() {
+  const pending = state.peers.filter(p => p.state === 'quarantined').length;
+  const ib = document.getElementById('inbox-badge');
+  const pb = document.getElementById('pending-badge');
+  if (pending > 0) { pb.textContent = pending; pb.style.display = ''; }
+  else pb.style.display = 'none';
+  if (state.inbox.length > 0) { ib.textContent = state.inbox.length; ib.style.display = ''; }
+  else ib.style.display = 'none';
+}
+
+function populatePeerSelects() {
+  const trusted = state.peers.filter(p => p.state === 'trusted');
+  const opts = '<option value="">Select peer...</option>' + trusted.map(p => `<option value="${p.peer_id}">${p.peer_id.slice(0,24)}</option>`).join('');
+  ['send-peer-select','debate-peer-select'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────────────────
+refreshAll();
+setInterval(refreshAll, 15000); // poll every 15s
+</script>
+</body>
+</html>

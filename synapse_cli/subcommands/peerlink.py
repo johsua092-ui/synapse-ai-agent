@@ -445,8 +445,6 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
     host = getattr(args, "host", None) or "0.0.0.0"
     port = getattr(args, "port", None) or DEFAULT_PORT
-    # The *label*, not own_hostname(): in path mode the hostname is the shared
-    # base domain, and the listener must match on the part that is ours.
     label = registry.own_label(create=True)
     url = registry.own_url(create=False)
 
@@ -460,21 +458,36 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     print("  Nothing is trusted automatically — new peers land in quarantine")
     print("  and wait for `synapse peerlink approve <peer-id>`.")
     print()
-    # The listener speaks plain HTTP by design: terminating TLS in Python would
-    # mean shipping a certificate-loading, cipher-configuring, renewal-tracking
-    # server, which nginx already does better. So the warning is unconditional —
-    # an https:// public URL in front of a plain listener means someone still
-    # has to put a TLS terminator there, and silently implying otherwise is how
-    # a peer ends up dialling a name that hands out plaintext.
+
+    # --- Dashboard ---
+    dashboard = getattr(args, "dashboard", False)
+    dash_port = getattr(args, "dashboard_port", None) or 7070
+    if dashboard:
+        try:
+            from gateway.peer_link.dashboard_server import DashboardServer
+            import pathlib
+            html_path = pathlib.Path(__file__).parent.parent.parent / "gateway" / "peer_link" / "dashboard.html"
+            dsrv = DashboardServer(
+                ident, policy, server.mailbox,
+                host="127.0.0.1",
+                port=dash_port,
+                html_path=html_path,
+            )
+            dsrv.start(background=True)
+            print(f"  dashboard  : http://127.0.0.1:{dsrv.port}/dashboard")
+        except Exception as exc:
+            print(f"  dashboard failed to start: {exc}", file=sys.stderr)
+        print()
+
     print("  NOTE: this listener speaks plain HTTP. The https:// URL above")
-    print("  only works once a TLS terminator (nginx, caddy, …) sits in front")
+    print("  only works once a TLS terminator (nginx, caddy, ...) sits in front")
     print("  of it and proxies /peer/<label> to this port.")
     print()
     print("  Ctrl-C to stop.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nstopping…")
+        print("\nstopping...")
     finally:
         server.stop()
     return 0
@@ -888,6 +901,10 @@ def build_peerlink_parser(subparsers) -> None:
     p_serve.add_argument("--address-mode", default=None,
                          choices=["subdomain", "path"],
                          help="Override the addressing mode for this call")
+    p_serve.add_argument("--dashboard", action="store_true",
+                         help="Also open the web control panel (default port 7070)")
+    p_serve.add_argument("--dashboard-port", type=int, default=None,
+                         help="Port for the web dashboard (default 7070)")
 
     p_connect = sub.add_parser(
         "connect", help="Link to a peer URL (needs nothing but the URL)")
