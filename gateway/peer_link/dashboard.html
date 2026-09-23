@@ -952,7 +952,13 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────
-const API = '';  // same origin; set to '' for same-origin or 'http://host:port' for remote
+// Auto-detect prefix: kalau halaman dimuat dari /dashboard, prefix juga /dashboard
+const _base = (() => {
+  const p = window.location.pathname;
+  const m = p.match(/^(\/dashboard)/);
+  return m ? m[1] : '';
+})();
+const API = _base;  // prefix: '/dashboard' atau '' (direct port)
 let state = {
   identity: null,
   peers: [],
@@ -1305,7 +1311,7 @@ async function setMode(mode) {
 async function generateInvite() {
   const note = document.getElementById('invite-note').value.trim() || 'friend';
   const r = await call('POST', '/api/peerlink/invite', { peer: note });
-  const link = r.share_link || `https://synz.zone.id/peer/demo#c=DEMO${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+  const link = r.share_link || `http://${window.location.host}/peer/unknown#c=UNKNOWN`;
   document.getElementById('invite-link').textContent = link;
   document.getElementById('invite-result').style.display = '';
   toast('Invite generated');
