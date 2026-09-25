@@ -1,0 +1,41 @@
+name: synapse_mobile
+description: "Synapse Mobile"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # Routing (padanan react-router)
+  go_router: ^14.6.2
+  # State (padanan nanostores)
+  flutter_riverpod: ^2.6.1
+  # Transport (padanan WebSocket /events desktop)
+  web_socket_channel: ^3.0.1
+  http: ^1.2.2
+  # Simpan kredensial (JANGAN plaintext)
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.3
+  # Markdown (padanan streamdown + shiki)
+  flutter_markdown: ^0.7.4
+  # Ikon SAMA dengan desktop (Tabler)
+  tabler_icons: ^0.0.1
+  # i18n
+  intl: ^0.20.3
+  image_picker: ^1.1.2
+  file_picker: ^10.3.10
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

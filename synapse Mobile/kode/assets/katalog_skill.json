@@ -1,0 +1,862 @@
+{
+ "skills": [
+  {
+   "name": "agent-evolution",
+   "description": "Spawn specialized agents, auto-refactor, self-evolve.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "airtable",
+   "description": "Airtable REST API via curl. Records CRUD, filters, upserts.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "android-studio-workflow",
+   "description": "Build, deploy, verify Android apps; audit jobsheets.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "architecture-diagram",
+   "description": "Dark-themed SVG architecture/cloud/infra diagrams as HTML.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "arduino-music-player",
+   "description": "Use when building/fixing Arduino MIDI tone-player songs.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "arxiv",
+   "description": "Search arXiv papers by keyword, author, category, or ID.",
+   "category": "research",
+   "installed": false
+  },
+  {
+   "name": "ascii-art",
+   "description": "ASCII art: pyfiglet, cowsay, boxes, image-to-ascii.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "ascii-video",
+   "description": "ASCII video: convert video/audio to colored ASCII MP4/GIF.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "auto-continuation",
+   "description": "Auto-continue truncated AI responses.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "auto-deployment",
+   "description": "Deploy apps to Vercel, Netlify, AWS, Fly.io.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "autonomous-notification",
+   "description": "Send Telegram/Discord alerts on completion or failure.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "babftss-kontrak",
+   "description": "Use on any Babftss task. Baca kontrak permanen dulu.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "backend-developer",
+   "description": "Build robust APIs, auth, and optimized databases.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "baoyu-infographic",
+   "description": "Infographics: 21 layouts x 21 styles (信息图, 可视化).",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "blocked-page-recovery",
+   "description": "Recover blocked/paywalled/WAF'd pages via fallbacks.",
+   "category": "research",
+   "installed": false
+  },
+  {
+   "name": "blogwatcher",
+   "description": "Monitor blogs and RSS/Atom feeds via blogwatcher-cli tool.",
+   "category": "research",
+   "installed": false
+  },
+  {
+   "name": "box",
+   "description": "Box manages cloud files, sharing, search, and metadata.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "brainstorming",
+   "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "browser-automation-isolation",
+   "description": "Drive a browser without disturbing the user's session.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "claude-brain-integration",
+   "description": "Configure Claude as coding brain with Haiku fallback.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "claude-code",
+   "description": "Delegate coding to Claude Code CLI (features, PRs).",
+   "category": "autonomous-ai-agents",
+   "installed": false
+  },
+  {
+   "name": "claude-design",
+   "description": "Design one-off HTML artifacts (landing, deck, prototype).",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "code-chunking",
+   "description": "Split large code tasks into small modular files.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "codebase-inspection",
+   "description": "Inspect codebases w/ pygount: LOC, languages, ratios.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "codex",
+   "description": "Delegate coding to OpenAI Codex CLI (features, PRs).",
+   "category": "autonomous-ai-agents",
+   "installed": false
+  },
+  {
+   "name": "comfyui",
+   "description": "Generate images, video, and audio via diffusion workflows.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "competitor-news-monitor",
+   "description": "Watch named companies for material news; cited digests.",
+   "category": "research",
+   "installed": false
+  },
+  {
+   "name": "computer-use",
+   "description": "Drive the desktop in the background without stealing focus.",
+   "category": "autonomous-ai-agents",
+   "installed": false
+  },
+  {
+   "name": "continuous-learning",
+   "description": "Learn from errors, build knowledge base over time.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "database-operations",
+   "description": "Manage SQL/NoSQL databases: CRUD, migrations, backups.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "derived-document-audit",
+   "description": "Audit derived docs/prompts vs source and reality.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "design-md",
+   "description": "Author/validate/export Google's DESIGN.md token spec files.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "devops-cloud-engineer",
+   "description": "Deploy apps to Vercel, Netlify, Railway, Docker.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "diff-editing",
+   "description": "Edit files via SEARCH/REPLACE diffs only.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "dispatching-parallel-agents",
+   "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "docker-container-manager",
+   "description": "Manage Docker containers: build, run, compose.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "document-to-action-items",
+   "description": "Extract cited obligations, deadlines, tasks from documents.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "docx",
+   "description": "Create, read, edit, template, and review Word .docx files.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "dogfood",
+   "description": "Exploratory QA of web apps: find bugs, evidence, reports.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "dynamic-tool-synthesis",
+   "description": "Auto-generate new skills and API connectors.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "email-inbox-triage",
+   "description": "Triage an inbox: prioritize threads, draft replies safely.",
+   "category": "email",
+   "installed": false
+  },
+  {
+   "name": "excalidraw",
+   "description": "Hand-drawn Excalidraw JSON diagrams (arch, flow, seq).",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "executing-plans",
+   "description": "Use when you have a written implementation plan to execute in a separate session with review checkpoints",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "finishing-a-development-branch",
+   "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "flutter-mobile-development",
+   "description": "Build/deploy Flutter mobile apps on Windows; 2-mode UI.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "frontend-developer",
+   "description": "Build modern responsive accessible web UIs.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "frontend-env-resilience",
+   "description": "Fix SPA white-screen from SDK init crash on missing env.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "game-asset-extraction",
+   "description": "Reuse assets from installed games in web/3D projects.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "gif-search",
+   "description": "Search/download GIFs from Tenor via curl + jq.",
+   "category": "media",
+   "installed": false
+  },
+  {
+   "name": "git-workflow-patterns",
+   "description": "Resolve rebase conflicts and force-push safely.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "github-auth",
+   "description": "GitHub auth setup: HTTPS tokens, SSH keys, gh CLI login.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "github-code-review",
+   "description": "Review PRs: diffs, inline comments via gh or REST.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "github-folder-sync",
+   "description": "Sync local folder to GitHub when git fetch hangs.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "github-issue-to-pr",
+   "description": "Carry a GitHub issue to a verified PR with honest CI state.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "github-issues",
+   "description": "Create, triage, label, assign GitHub issues via gh or REST.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "github-pr-workflow",
+   "description": "GitHub PR lifecycle: branch, commit, open, CI, merge.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "github-repo-management",
+   "description": "Clone/create/fork repos; manage remotes, releases.",
+   "category": "github",
+   "installed": false
+  },
+  {
+   "name": "google-drive",
+   "description": "Google Drive access (OAuth) setup and operations: list, search, upload, download, folders, and sharing via the Drive REST API (requests-only, no heavy Google SDK).",
+   "category": "google-drive",
+   "installed": false
+  },
+  {
+   "name": "google-workspace",
+   "description": "Gmail, Calendar, Drive, Docs, Sheets via gws CLI or Python.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "grounded-citations",
+   "description": "Ground answers and documents in cited, verifiable sources.",
+   "category": "research",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-brandkit",
+   "description": "Create and extend complete visual brand systems through the Higgsfield CLI and bundled deterministic local tooling: palettes, SVG logo marks, typography, mockups, social graphics, packaging, signage, merchandise, posters, presentation decks, and editable PPTX/PDF brandbooks. Preserves official supplied assets, persists approvals locally, and regenerates only dependent outputs. Use when: \"create a brand kit\", \"make a visual identity\", \"design a logo and brandbook\", \"apply this logo to branded assets\", \"make packaging or signage\", or \"extend our existing branding\". Chain with higgsfield-generate for general image production and Marketing Studio brand-kits when importing website metadata for ads. NOT for unbranded image generation (use higgsfield-generate), product catalog photography (use higgsfield-product-photoshoot), website implementation (use higgsfield-websites), or native Figma/Canva/PSD/AI delivery.",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-generate",
+   "description": "Generate images/videos/3D assets/audio via Higgsfield AI. Defaults:\nGPT Image 2 for image/design/text, Seedance 2.0 for\nvideo, Nano Banana 2/Lite/Pro for character/reference\nimages, Marketing Studio for ads, Seed Audio 1.0 for audio.\nUse when: \"generate an image\", \"make a video\", \"animate\nthis photo\", \"image-to-video\", \"edit/stylize/remix this\nimage\", \"reframe this video\", \"edit this video from a\nsketch\", \"create a 3D model/GLB\", \"create a sound effect\",\n\"make music\", \"text-to-audio\", \"create an ad\", \"make a UGC\nvideo\", \"unboxing\", \"presenter video\", \"import product from\nURL\", or \"analyze video virality\". Supports generic generation,\nworkflows, Marketing Studio, and Virality Predictor.\nChain with higgsfield-soul-id for face/identity consistency.\nNOT for: Soul training, brand systems/brandbooks (use\nhiggsfield-brandkit), photoshoots, cards, YouTube thumbnails\n(use higgsfield-youtube-thumbnail), explainers (use\nhiggsfield-video-explainer), playable games/assets (use\nhiggsfield-game-generation), or TTS.",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-marketplace-cards",
+   "description": "Generate marketplace product image cards through Higgsfield: compliant\nmain image, secondary product images, and A+ style content modules. Use when\nthe user asks for marketplace listing images, product detail cards,\nsecondary product images, product infographics, lifestyle listing shots,\nA+ style content, marketplace image sets, or sales-ready product visuals.\nBackend owns marketplace compliance references and prompt templates; this skill\nonly routes user intent to the CLI.\nNOT for generic brand product photography without marketplace/listing context\n(use higgsfield-product-photoshoot), video generation or UGC ads (use\nhiggsfield-generate), or Soul Character training (use higgsfield-soul-id).",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-product-photoshoot",
+   "description": "Generate brand-quality product images through Higgsfield product-photoshoot\nprompt enhancement on GPT Image 2 / gpt_image_2. Entry point for professional\nbrand/product visuals.\nUse when: \"product photo\", \"studio shot\", \"lifestyle image\", \"Pinterest pin\",\n\"hero/banner\", \"carousel\", \"ad creative\", \"Meta ads\", \"virtual try-on\",\n\"model wearing\", \"person holding product\", \"closeup with hands\",\n\"levitating/floating/splash product\", \"CGI/surreal product\", \"restyle\",\n\"seasonal/aesthetic variation\", or any product, brand, or paid-social creative.\nModes: product_shot, lifestyle_scene, closeup_product_with_person,\nmoodboard_pin, hero_banner, social_carousel, ad_creative_pack,\nvirtual_model_tryout, conceptual_product, restyle. Backend assembles the final\nprompt; never freehand it.\nNOT for: no-product text-to-image (use higgsfield-generate), branded avatar\nvideo (use higgsfield-generate Marketing Studio), marketplace listing cards\n(use higgsfield-marketplace-cards), Soul Character training (use\nhiggsfield-soul-id).",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-soul-id",
+   "description": "Train a Soul Character — a personalized model on a person's face that\nHiggsfield uses for identity-faithful image and video generation.\nUse when: \"create my Soul\", \"train my face\", \"make my digital twin\",\n\"build me an avatar\", \"learn my appearance\", \"create a character of me\",\n\"set up identity for video\", \"I want my face in generated images\".\nChain: train Soul (one-time, returns reference_id) → use in\nhiggsfield-generate via `--soul-id <id>` with models like\n`text2image_soul_v2` or `soul_cinema_studio`.\nNOT for: one-shot face swaps (use higgsfield-generate with --image),\nnamed-character / non-photo avatars (use higgsfield-generate with prompt).",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-video-explainer",
+   "description": "Build a complete non-photoreal narrated explainer or story video from\nordered 10-second blocks: one narrator, one universal style key, one Seed\nAudio take and one Gemini Omni clip per block, then server-side assembly\nwith explainer_video. Use when: \"make an explainer video\", \"explain this in\na video\", \"turn this topic or document into a narrated video\", \"tell this\nstory as an animated video\", \"make a faceless narrated video\", or \"show me\nexplainer styles\". Supports live CMS presets, custom style references,\nmascot/faceless modes, two aspects, and optional burned subtitles. NOT for:\nphotoreal films, ads/UGC, talking heads, podcasts, motion typography reels,\none-off clips without narration, or editing a finished video.",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-websites",
+   "description": "Build, edit, and deploy full-stack websites, apps and games via the Higgsfield CLI (`higgsfield website …`). Each is a React 19 + TanStack Start SSR app in one Cloudflare Worker (D1/R2/KV/DO/Containers). THREE product types, picked via `--type` on create: `website` (standalone, no Higgsfield integration — references/website-flow.md), `app` (Sign in with Higgsfield + fnf SDK, Quanta — references/app-flow.md), `game` (realtime multiplayer rooms — references/game-flow.md). Routes to the right flow; each carries its own rules and deploy/publish gates.\nUse when: \"build me a website\", \"make a landing page\", \"create a web app\", \"build a SaaS dashboard / portfolio\", \"make me a game\", \"deploy this site\", \"publish\". Also owns GAME ART: \"make a spritesheet\", \"tileable texture\", \"animate a 3D character\", game music/SFX — see the game-* references.\nNOT for: single image/video/audio generation (higgsfield-generate), product photos (higgsfield-product-photoshoot), marketplace cards (higgsfield-marketplace-cards).",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "higgsfield-youtube-thumbnail",
+   "description": "Create high-click-through YouTube thumbnails and vertical video covers through the Higgsfield CLI. Builds a truthful information-gap concept, preserves up to three referenced identities, supports logos and controlled variants, renders the main image with Nano Banana Pro, and applies focused Seedream edits. Use when: \"make a YouTube thumbnail\", \"thumbnail for this video\", \"MrBeast-style cover\", \"Shorts cover\", or \"Instagram video cover\". Chain after any video workflow once its truthful topic and visual direction are known. NOT for producing the video itself (use higgsfield-generate), product catalog photos (use higgsfield-product-photoshoot), or marketplace cards (use higgsfield-marketplace-cards).",
+   "category": "",
+   "installed": false
+  },
+  {
+   "name": "himalaya",
+   "description": "Himalaya CLI: IMAP/SMTP email from terminal.",
+   "category": "email",
+   "installed": false
+  },
+  {
+   "name": "huggingface-hub",
+   "description": "HuggingFace hf CLI: search/download/upload models, datasets.",
+   "category": "mlops",
+   "installed": false
+  },
+  {
+   "name": "humanizer",
+   "description": "Humanize text: strip AI-isms and add real voice.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "inspecting-synapse-desktop-dom",
+   "description": "Read the live Synapse desktop DOM/CSS over CDP.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "install-github-skills-windows",
+   "description": "Use when installing GitHub skills/CLIs on Windows.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "leftover-work-recovery",
+   "description": "Use when a local fix works but remote still shows the bug.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "llama-cpp",
+   "description": "llama.cpp local GGUF inference + HF Hub model discovery.",
+   "category": "mlops",
+   "installed": false
+  },
+  {
+   "name": "llm-wiki",
+   "description": "Karpathy's LLM Wiki: build/query interlinked markdown KB.",
+   "category": "research",
+   "installed": false
+  },
+  {
+   "name": "manim-video",
+   "description": "Manim CE animations: 3Blue1Brown math/algo videos.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "maps",
+   "description": "Geocode, POIs, routes, timezones via OpenStreetMap/OSRM.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "max-token-management",
+   "description": "Maximize max_tokens output limit in config.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "measured-verification",
+   "description": "Verify by measurement; catch tests that pass falsely.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "meeting-action-items",
+   "description": "Turn meeting notes into cited decisions, owners, tickets.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "merge-reconciler",
+   "description": "Neutral third-party resolution of agent merge conflicts.",
+   "category": "autonomous-ai-agents",
+   "installed": false
+  },
+  {
+   "name": "nano-pdf",
+   "description": "Edit text in existing PDFs via natural-language prompts.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "neuromorphic-edge",
+   "description": "Offline AI execution, hardware-aware power mgmt.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "node-inspect-debugger",
+   "description": "Debug Node.js via --inspect + Chrome DevTools Protocol CLI.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "notion",
+   "description": "Notion API + ntn CLI: pages, databases, markdown, Workers.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "obsidian",
+   "description": "Read, search, create, and edit notes in the Obsidian vault.",
+   "category": "note-taking",
+   "installed": false
+  },
+  {
+   "name": "ocr-and-documents",
+   "description": "Extract text from PDFs/scans (pymupdf, marker-pdf).",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "opencode",
+   "description": "Delegate coding to OpenCode CLI (features, PR review).",
+   "category": "autonomous-ai-agents",
+   "installed": false
+  },
+  {
+   "name": "openhue",
+   "description": "Control Philips Hue lights, scenes, rooms via OpenHue CLI.",
+   "category": "smart-home",
+   "installed": false
+  },
+  {
+   "name": "p5js",
+   "description": "p5.js sketches: gen art, shaders, interactive, 3D.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "pdf",
+   "description": "Create, read, merge, fill, and secure PDF files.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "persistent-memory-management",
+   "description": "Use when the memory store is full or an add is rejected.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "plan",
+   "description": "Write a markdown plan to .synapse/plans/; no execution.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "popular-web-designs",
+   "description": "54 real design systems (Stripe, Linear, Vercel) as HTML/CSS.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "powerpoint",
+   "description": "Create, read, edit .pptx decks with python-pptx.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "praktikum-jobsheet-audit",
+   "description": "Audit jobsheet praktikum vs kondisi PC terpasang.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "predictive-observability",
+   "description": "Monitor systems, detect anomalies before crash.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "pretext",
+   "description": "Build creative browser demos with DOM-free text layout.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "proactive-intervention",
+   "description": "Background cron monitoring, auto-cleanup, suggestions.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "product-manager-scrum",
+   "description": "PRD writer & task prioritizer for dev planning.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "product-price-monitor",
+   "description": "Watch product, flight, or listing prices; alert on target.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "project-contract-compliance",
+   "description": "Use on user contract/rules files; honor without moralizing.",
+   "category": "autonomous-ai-agents",
+   "installed": false
+  },
+  {
+   "name": "qa-engineer",
+   "description": "QA testing: bug hunting, security audit, fuzzing.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "quantum-ready-logic",
+   "description": "Quantum computing interface for optimization.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "receiving-code-review",
+   "description": "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "requesting-code-review",
+   "description": "Pre-commit review: security scan, quality gates, auto-fix.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "roblox-studio-bridge",
+   "description": "Drive Roblox Studio programmatically via plugin bridge.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "sandbox-security",
+   "description": "Run code in isolated Docker sandbox for safety.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "sdlc-review",
+   "description": "Review Kanban handoffs and route verified outcomes.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "secure-frontend-api-keys",
+   "description": "Secure hardcoded API keys in frontend via backend proxy.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "session-librarian",
+   "description": "Organize sessions by prompt: find, rename, archive, prune.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "simplify-code",
+   "description": "Parallel 4-agent cleanup of recent code changes.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "sketch",
+   "description": "Throwaway HTML mockups: 2-3 design variants to compare.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "skill-library-management",
+   "description": "Use when triaging skills to load, or when names collide.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "songsee",
+   "description": "Audio spectrograms/features (mel, chroma, MFCC) via CLI.",
+   "category": "media",
+   "installed": false
+  },
+  {
+   "name": "songwriting-and-ai-music",
+   "description": "Songwriting craft and Suno AI music prompts.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "spike",
+   "description": "Throwaway experiments to validate an idea before build.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "subagent-driven-development",
+   "description": "Use when executing implementation plans with independent tasks in the current session",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "swarm-intelligence",
+   "description": "P2P agent knowledge sharing, distributed compute.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "synapse-agent",
+   "description": "Use, configure, theme, extend, and orchestrate Synapse Agent.",
+   "category": "autonomous-ai-agents",
+   "installed": false
+  },
+  {
+   "name": "synapse-agent-skill-authoring",
+   "description": "Author in-repo SKILL.md files: frontmatter and structure.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "synapse-update-maintenance",
+   "description": "Use when Synapse shows 'N commits behind' or update stalls.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "systematic-debugging",
+   "description": "4-phase root cause debugging: understand bugs before fixing.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "teams-meeting-pipeline",
+   "description": "Teams meeting summaries, job replay, Graph subscriptions.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "technical-writer",
+   "description": "Auto-generate README, API docs, and technical documentation.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "technical-writer-docs",
+   "description": "Auto-generate README, API docs, Swagger specs.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "test-driven-development",
+   "description": "TDD: enforce RED-GREEN-REFACTOR, tests before code.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "threejs-3d-editor",
+   "description": "Three.js 3D editor: outlines, camera, keyboard guards.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "threejs-control-monkeypatch",
+   "description": "Use when overriding Three.js TransformControls. Pola aman.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "threejs-react-integration",
+   "description": "Build interactive 3D web apps with Three.js and React.",
+   "category": "software-development",
+   "installed": false
+  },
+  {
+   "name": "touchdesigner-mcp",
+   "description": "Control TouchDesigner via twozero MCP.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "ui-ux-design-system",
+   "description": "Design aesthetic usable UIs with design systems.",
+   "category": "creative",
+   "installed": false
+  },
+  {
+   "name": "using-git-worktrees",
+   "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "using-superpowers",
+   "description": "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "vector-database-connector",
+   "description": "Vector DB operations: Chroma, Pinecone, FAISS embeddings.",
+   "category": "devops",
+   "installed": false
+  },
+  {
+   "name": "verification-before-completion",
+   "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "weekly-review-planning",
+   "description": "Weekly reset: commitments, stalled work, next-week plan.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "weights-and-biases",
+   "description": "W&B: log ML experiments, sweeps, model registry, dashboards.",
+   "category": "mlops",
+   "installed": false
+  },
+  {
+   "name": "writing-plans",
+   "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "writing-skills",
+   "description": "Use when creating new skills, editing existing skills, or verifying skills work before deployment",
+   "category": "superpowers",
+   "installed": false
+  },
+  {
+   "name": "xlsx",
+   "description": "Create, read, edit Excel .xlsx workbooks and CSVs.",
+   "category": "productivity",
+   "installed": false
+  },
+  {
+   "name": "youtube-content",
+   "description": "YouTube transcripts to summaries, threads, blogs.",
+   "category": "media",
+   "installed": false
+  }
+ ]
+}

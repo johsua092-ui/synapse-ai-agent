@@ -1,0 +1,201 @@
+════════════════════════════════════════════════════════════════════
+  SYNAPSE MOBILE — PANDUAN INSTALL & CARA PAKAI
+  Versi 0.6.0 (Universal — jalan di semua HP Android 7.0+)
+════════════════════════════════════════════════════════════════════
+
+Halo! Ini aplikasi Synapse Mobile. Ikuti panduan ini supaya bisa dipasang
+dengan lancar dan tidak kena blokir Play Protect.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 1 — SEBELUM INSTALL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File APK:
+  SynapseMobile_v0.6.0_UNIVERSAL.apk  (57,7 MB)
+
+Persyaratan HP:
+  • Android 7.0 (Nougat) atau lebih baru
+  • Ruang kosong minimal 200 MB
+  • (Opsional) Koneksi ke laptop yang menjalankan Synapse
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 2 — CARA INSTALL (3 LANGKAH)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LANGKAH 1 — Izinkan "Sumber tidak dikenal"
+  1. Buka Setelan (Settings) di HP
+  2. Cari "Aplikasi" atau "Keamanan"
+  3. Aktifkan "Instal aplikasi tidak dikenal" / "Unknown sources"
+     untuk aplikasi File Manager / Browser yang kamu pakai
+
+LANGKAH 2 — Install APK
+  1. Buka File Manager (Pengelola File)
+  2. Cari file: SynapseMobile_v0.6.0_UNIVERSAL.apk
+  3. Ketuk file tersebut
+  4. Ketuk "Install" / "Pasang"
+  5. Tunggu 10-30 detik
+
+LANGKAH 3 — Kalau muncul peringatan Play Protect
+  Peringatan: "Aplikasi tidak aman" / "Play Protect memblokir"
+  (INI WAJAR — karena APK ini tidak dari Play Store, bukan berarti virus)
+
+  Cara lewati:
+    a. Ketuk "Selengkapnya" / "More details"
+    b. Ketuk "Tetap instal" / "Install anyway"
+    c. Selesai ✅
+
+  Kalau tidak ada tombol "Tetap instal":
+    • Buka Play Store → profil → Play Protect → Setelan (gear)
+    • Matikan "Pindai aplikasi dengan Play Protect"
+    • Ulangi install
+    • (Setelah selesai, boleh dinyalakan lagi)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 3 — SAAT PERTAMA BUKA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Ketuk ikon "Synapse Mobile" (caduceus emas)
+2. Kalau diminta izin notifikasi → ketuk "Izinkan"
+   (supaya bisa dapat notifikasi saat tugas selesai)
+
+3. Kamu akan lihat 6 tab di bawah:
+   Chat | Skills | MCP | CLI | Notif | Setelan
+
+4. Buka tab "Skills" → akan LANGSUNG terlihat 143 skill
+   (tidak perlu koneksi — katalog sudah ada di dalam app)
+   Ketuk ikon "i" untuk lihat deskripsi lengkap.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 4 — MENYAMBUNGKAN KE SYNAPSE (untuk chat & install skill)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CATATAN: Tanpa langkah ini, app tetap bisa dibuka dan skill tetap terlihat,
+tapi belum bisa chat dan belum bisa install skill.
+
+LANGKAH 1 — Siapkan di laptop (host)
+  • Jalankan Synapse (gateway + api_server di port 8642)
+  • Sambungkan HP ke laptop dengan kabel USB
+  • Pilih mode "Transfer file (MTP)" di HP
+  • Di laptop jalankan:
+        adb reverse tcp:8642 tcp:8642
+
+LANGKAH 2 — Di HP
+  1. Buka Synapse Mobile → tab "Setelan"
+  2. Ketuk "Koneksi AI"
+  3. Isi:
+        Base URL : http://127.0.0.1:8642
+        API Key  : (minta ke pemilik laptop — 40 karakter)
+  4. Ketuk "Deteksi Model"
+     → harus muncul: "Terhubung ke synapse-agent v0.20.5"
+  5. Aktifkan model (toggle)
+  6. Ketuk "Simpan" (tombol di kanan atas)
+  7. Buka tab "Chat" → status di kanan atas jadi HIJAU ✅
+
+LANGKAH 3 — Mulai chat
+  • Ketuk kolom "Tulis pesan...", ketik, lalu kirim
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 5 — FITUR UTAMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CHAT
+  • Ketik pesan → dapat balasan AI (streaming, teks muncul bertahap)
+  • Tombol + (kiri): kirim Gambar (galeri/kamera) atau Dokumen
+  • Ikon jam/pesawat (kanan atas): kerjakan di LATAR BELAKANG
+    → tutup app pun tetap jalan, nanti dapat notifikasi saat selesai
+
+SESI CHAT
+  • Ikon garis 3 (kiri atas): buka daftar sesi (setengah layar)
+  • Ada kolom pencarian sesi
+  • Titik tiga di tiap sesi: Pin / Ganti nama / Hapus
+    (hapus selalu ada konfirmasi Ya/Tidak)
+
+SKILLS
+  • 143 skill langsung terlihat (katalog bawaan)
+  • Tombol "i" = info lengkap (selalu ada)
+  • Tombol install/uninstall = hanya muncul setelah tersambung
+    (tap "i" → Install/Uninstall, ada konfirmasi Ya/Tidak)
+
+MCP / CLI / NOTIF / SETELAN
+  • MCP: daftar layanan (airtable, notion, figma, dll) + toggle
+  • CLI: terminal mini
+  • Notif: pemberitahuan
+  • Setelan: Tema (Terang/Gelap), Koneksi AI, Backup, Akses Perangkat
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 6 — MASALAH UMUM & SOLUSI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MASALAH: "Aplikasi tidak diinstall karena paket ini bentrok"
+  SEBAB : sudah ada Synapse versi lain (mungkin di Security Space)
+  SOLUSI: hapus versi lama dulu, ATAU cek "Second Space / Security Space"
+          di Setelan → hapus Synapse di sana juga
+
+MASALAH: Play Protect memblokir
+  SOLUSI: lihat BAGIAN 2 LANGKAH 3 di atas
+
+MASALAH: "Gagal: Connection refused" saat Deteksi Model
+  SEBAB : HP tidak bisa menjangkau laptop
+  SOLUSI:
+    1. Pastikan kabel USB tersambung + mode "Transfer file"
+    2. Jalankan di laptop: adb reverse tcp:8642 tcp:8642
+    3. Cek di laptop: Synapse api_server jalan (port 8642)
+    4. Base URL harus http://127.0.0.1:8642
+
+MASALAH: Status chat "offline" padahal sudah isi API key
+  SEBAB : mungkin API Key belum tersimpan / belum isi
+  SOLUSI: buka Setelan → Koneksi AI → pastikan Base URL + API Key terisi
+          → Deteksi Model → SIMPAN (tombol kanan atas)
+
+MASALAH: Notifikasi latar belakang tidak muncul
+  SOLUSI:
+    1. Beri izin notifikasi (Setelan HP → Aplikasi → Synapse → Notifikasi)
+    2. HyperOS/Xiaomi: aktifkan "Autostart" + "No restrictions" untuk Synapse
+    3. Pastikan HP tersambung ke laptop saat tugas berjalan
+
+MASALAH: Tombol install skill tidak muncul
+  SEBAB : belum tersambung (ini MEMANG begitu by design)
+  SOLUSI: isi Base URL + API Key dulu (lihat BAGIAN 4)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 7 — KEAMANAN & IZIN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+App ini HANYA minta 8 izin (semuanya wajar):
+
+  1. CAMERA               → kirim foto ke AI (fitur vision)
+  2. READ_MEDIA_IMAGES    → pilih gambar dari galeri
+  3. READ_EXTERNAL_STORAGE→ akses file (Android lama)
+  4. POST_NOTIFICATIONS   → notifikasi saat tugas selesai
+  5. FOREGROUND_SERVICE   → jalankan tugas di latar belakang
+  6. FOREGROUND_SERVICE_DATA_SYNC
+  7. INTERNET             → sambung ke Synapse
+  8. ACCESS_NETWORK_STATE → cek koneksi
+
+App ini TIDAK minta:
+  ✗ SMS (baca/kirim)
+  ✗ Kontak
+  ✗ Lokasi
+  ✗ Daftar semua aplikasi
+
+Jadi app ini AMAN — tidak bisa membaca SMS, kontak, atau lokasi kamu.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BAGIAN 8 — CATATAN TEKNIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Versi           : 0.6.0 (versionCode 2100)
+  Ukuran          : 57,7 MB (universal: arm64 + armeabi + x86_64)
+  Android minimum : 7.0 (API 24)
+  Android target  : 16 (API 36)
+  Sertifikat      : CN=Synapse Mobile (dibuat sendiri)
+  Debuggable      : Tidak (aman)
+  Arsitektur      : arm64-v8a, armeabi-v7a, x86_64 (semua HP)
+
+  Catatan: karena APK ini ditandatangani sendiri (bukan dari Play Store),
+  saat install pertama akan ada peringatan Play Protect. Itu NORMAL untuk
+  semua APK buatan sendiri. Ikuti BAGIAN 2 LANGKAH 3.
+
+════════════════════════════════════════════════════════════════════
+  Selesai! Kalau ada pertanyaan, tanya ke pembuat APK.
+════════════════════════════════════════════════════════════════════
