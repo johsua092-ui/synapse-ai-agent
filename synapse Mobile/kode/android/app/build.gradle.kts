@@ -36,8 +36,14 @@ android {
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
         // flag during build.
-        versionCode = 2100
-        versionName = "0.6.0"
+        versionCode = 2200
+        versionName = "1.2.0"
+
+        // HANYA 2 arsitektur HP (buang x86_64 yang cuma dipakai emulator).
+        // Hemat ~19 MB. Fitur TIDAK berubah: semua HP asli pakai arm64/armeabi.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     signingConfigs {
@@ -53,8 +59,14 @@ android {
         release {
             // Ditandatangani dengan keystore resmi Synapse (bukan debug).
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8: hapus kode mati + perkecil (keep rules di proguard-rules.pro).
+            // Semua kelas yang dipakai refleksi/native sudah DIPERTAHANKAN.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

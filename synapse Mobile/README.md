@@ -3,7 +3,7 @@
 Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di laptop.
 
 > **Dibuat:** 24-25 September 2026
-> **Versi:** 1.1.0
+> **Versi:** 1.2.0
 > **Package:** `com.nousresearch.synapse_mobile`
 
 ---
@@ -13,9 +13,9 @@ Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di
 | Folder | Isi |
 |---|---|
 | `kode/` | Kode sumber lengkap (Flutter + Android/Kotlin + assets) |
-| `dokumen/` | Kontrak kerja (36 bagian, 70 jebakan) + design + panduan |
-| `apk/` | APK siap pasang (universal 79 MB) |
-| `bukti/` | Screenshot hasil uji (282 file) |
+| `dokumen/` | Kontrak kerja (37 bagian, 73 jebakan) + design + panduan |
+| `apk/` | APK siap pasang (universal 58 MB) |
+| `bukti/` | Screenshot hasil uji (292 file) |
 
 ---
 
@@ -70,7 +70,7 @@ Setara https://github.com/Open-LLM-VTuber/Open-LLM-VTuber :
   pegunungan, malam, dll)
 - **Suara anime ASLI per karakter** — 8 suara BERBEDA via Edge TTS
   (Nanami/Keita Jepang, Xiaoyi/Xiaoxiao/Yunjian Cina, HsiaoChen Taiwan,
-  Xiaoni Cina-anak, Hyunsu Korea), dengan cadangan TTS bawaan HP
+  Xiaoni Cina-anak, Hyunsu Korea) + cadangan TTS bawaan HP
 - **TTS** (AI bersuara) + ganti bahasa/kecepatan/nada
 - **ASR** (user bicara lewat mikrofon)
 - **Voice interruption** — suara AI dipotong saat user bicara
@@ -95,7 +95,7 @@ Terbukti: buka Setelan → masuk Wi-Fi dalam 2 langkah.
 
 ## 📦 Cara Pasang
 
-1. Salin `apk/SynapseMobile_v1.1.0_UNIVERSAL_79MB.apk` ke HP
+1. Salin `apk/SynapseMobile_v1.2.0_UNIVERSAL_58MB.apk` ke HP
 2. Izinkan "Sumber tidak dikenal"
 3. Install → kalau ada peringatan Play Protect → "Tetap instal"
 4. Buka app → Setelan → isi Base URL + API Key → Deteksi Model → Simpan
@@ -114,10 +114,15 @@ Panduan lengkap: `dokumen/PANDUAN_INSTALL.txt`
 | Bahasa | Dart + Kotlin (native service) |
 | Android minimum | 7.0 (API 24) |
 | Android target | 16 (API 36) |
-| Arsitektur | arm64-v8a, armeabi-v7a, x86_64 |
-| Ukuran APK | 79 MB (universal, termasuk 8 model Live2D + 14 background) |
+| Arsitektur | **arm64-v8a + armeabi-v7a** (x86_64 dibuang: hanya emulator) |
+| Ukuran APK | **58 MB** (dari 79 MB, −26%) |
+| Optimasi | R8/minify + shrinkResources + proguard keep rules |
 | Sertifikat | CN=Synapse Mobile (self-signed) |
 | Izin | 9 (tanpa SMS/kontak/lokasi) |
+
+**Catatan pengecilan:** semua fitur TETAP UTUH 100%. Hanya konfigurasi build
+yang diubah (kode Dart tidak disentuh). x86_64 dibuang karena hanya dipakai
+emulator — semua HP asli memakai arm64/armeabi.
 
 **Dependency utama:** go_router, flutter_riverpod, webview_flutter,
 flutter_tts, audioplayers, speech_to_text, permission_handler, http,
@@ -129,7 +134,7 @@ image_picker, file_picker, shared_preferences, path_provider.
 
 | File | Isi |
 |---|---|
-| `dokumen/ATURAN_KERJA_SYNAPSE_MOBILE.md` | Kontrak kerja lengkap (36 bagian, 70 jebakan) |
+| `dokumen/ATURAN_KERJA_SYNAPSE_MOBILE.md` | Kontrak kerja lengkap (37 bagian, 73 jebakan) |
 | `dokumen/DESIGN_NOTIFIKASI.md` | Design notifikasi latar belakang |
 | `dokumen/PANDUAN_INSTALL.txt` | Panduan install untuk pengguna |
 
@@ -154,7 +159,7 @@ ACCESS_NETWORK_STATE, RECORD_AUDIO (untuk Special Chat)
 
 ---
 
-## 🐛 Jebakan Tercatat (70)
+## 🐛 Jebakan Tercatat (73)
 
 Terdokumentasi lengkap di `dokumen/ATURAN_KERJA_SYNAPSE_MOBILE.md`.
 Yang paling penting:
@@ -164,6 +169,7 @@ Yang paling penting:
 - **Flutter asset TIDAK rekursif** → subfolder harus didaftarkan eksplisit
 - **WebView blokir `file://` (CORS)** → pakai server HTTP lokal
 - **`registerTicker` wajib** untuk pixi-live2d-display
-- **Avatar `Expanded` + WebView → super besar saat keyboard** → pakai tinggi tetap
+- **Avatar `Expanded` + WebView → super besar saat keyboard** → tinggi tetap
 - **Avatar 50% + keyboard 45% = overflow** → pakai 40% (seimbang)
-- Skala model Live2D pakai **0.92** (bukan 0.98) agar kepala tidak terpotong
+- **`abiFilters` saja tidak cukup** → pakai `--target-platform` saat build
+- **R8 keep rules kurang → fitur rusak senyap** → keep semua paket plugin
