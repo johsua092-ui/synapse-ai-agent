@@ -19,7 +19,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObserver {
   final _drawerKey = GlobalKey<ScaffoldState>();
   final _masukan = TextEditingController();
   final _scroll = ScrollController();
@@ -30,6 +30,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final n = ref.read(sesiProvider.notifier);
       await n.siap(); // tunggu data dari penyimpanan selesai dimuat
@@ -45,6 +46,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _masukan.dispose();
     _scroll.dispose();
     super.dispose();
@@ -222,6 +224,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   @override
+  void didChangeMetrics() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final cfg = ref.watch(apiConfigProvider);
@@ -310,6 +317,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           SafeArea(
             top: false,
             child: Container(
+              // JEBAKAN #67: naikkan input mengikuti keyboard.
+              // resizeToAvoidBottomInset=false -> viewInsets dibaca dari View.
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
               decoration: BoxDecoration(

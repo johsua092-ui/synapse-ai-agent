@@ -3111,7 +3111,153 @@ tidak ada batasan CORS dan semua file (model + background) terbaca.
 
 ---
 
-## 34. 📝 CATATAN PERKEMBANGAN
+## 34. M17 - SUARA ANIME PER KARAKTER + BUG KEYBOARD (25 Sep 2026)
+
+### 34.1 PERMINTAAN USER
+
+> *"untuk suaranya, bisa suara anime yang beneran beda tiap karakter bisa gak?
+> ada gak di github disitu?"*
+
+> *"tolong ini kan ada 8 karakter, jadi semuanya beda beda gitu bisa kan?
+> sesuai preferensi karakter masing masing ya?"*
+
+> *"ketika saya klik 'ketik pesan' disitu maka akan muncul keyboard kan? nah
+> disitu tiba tiba avatarnya jadi super besar sekali, dan kelihatannya hanya
+> sepatunya, lah apa apaan ini? bug apa ini?"*
+
+> *"kolom 'ketik pesan' itu tidak ikut terangkat diatas keyboard kayak tadi?"*
+
+> *"bis seimbang gak sih?"*
+
+### 34.2 JAWABAN JUJUR SOAL SUARA
+
+**Repo Open-LLM-VTuber TIDAK punya file suara.** Sudah dicek:
+```
+voice/  -> HTTP 404
+voices/ -> HTTP 404
+audio/  -> HTTP 404
+tts/    -> HTTP 404
+sounds/ -> HTTP 404
+```
+Cara Open-LLM-VTuber dapat suara = pakai **TTS engine** (Edge TTS,
+sherpa-onnx, MeloTTS, GPTSoVITS, Bark, CosyVoice, Fish Audio, Azure).
+
+**Solusi:** pakai **Edge TTS** (Microsoft) — punya **322 suara**, termasuk
+suara anime Jepang/Korea/Cina.
+
+### 34.3 8 KARAKTER = 8 SUARA BERBEDA (semua diuji)
+
+| Karakter | Suara | Karakter Suara | Uji |
+|---|---|---|---|
+| Hiyori | `ja-JP-NanamiNeural` | Jepang, cewek ceria | 31.392 B ✅ |
+| Haru | `zh-CN-XiaoyiNeural` | Cina, cewek manis | 21.024 B ✅ |
+| Mao | `zh-CN-XiaoxiaoNeural` | Cina, cewek lembut | 23.040 B ✅ |
+| Natori | `zh-TW-HsiaoChenNeural` | Taiwan, cewek kalem | 23.616 B ✅ |
+| Rice | `zh-CN-shaanxi-XiaoniNeural` | Cina, suara anak | 25.488 B ✅ |
+| Mark | `ja-JP-KeitaNeural` | Jepang, cowok santai | 24.048 B ✅ |
+| Ren | `zh-CN-YunjianNeural` | Cina, cowok tegas | 24.912 B ✅ |
+| Wanko | `ko-KR-HyunsuMultilingualNeural` | Korea, maskot | 24.912 B ✅ |
+
+**Terverifikasi: SEMUA 8 SUARA BERBEDA** (tidak ada yang sama).
+
+### 34.4 SISTEM SUARA 2 LAPIS
+
+```
+1. UTAMA   : suara anime asli via AGENT (edge-tts di laptop)
+             -> app minta agent buat file mp3 -> app memutar (audioplayers)
+2. CADANGAN: TTS bawaan HP (flutter_tts) kalau agent tidak siap
+```
+Ganti karakter -> suara otomatis ikut ganti.
+
+### 34.5 BUG KEYBOARD vs AVATAR (JEBAKAN #66-68) - SANGAT PENTING
+
+**Gejala berurutan:**
+1. Ketuk "Ketik pesan" -> keyboard muncul -> avatar jadi SUPER BESAR
+   (hanya sepatu terlihat).
+2. Setelah diperbaiki -> kolom input tertimpa keyboard (tidak naik).
+3. Setelah diperbaiki -> jendela membesar 1 layar penuh.
+4. Setelah diperbaiki -> kepala karakter terpotong.
+
+**AKAR MASALAH (akhirnya ketemu):**
+```
+Avatar 50% tinggi layar
++ Keyboard 45% tinggi layar
++ Input ~7%
+= 102%  -> LEBIH dari tinggi layar!
+   -> input terdorong keluar (tampak "tertimpa keyboard")
+   -> atau WebView di-stretch (tampak "avatar membesar")
+```
+
+**SOLUSI SEIMBANG:**
+```
+Avatar 40% + input 7% = 47%  <  55% (sisa ruang saat keyboard)
+-> semua muat, tidak ada yang terdorong/membesar/terpotong
+```
+
+**Kode kunci (Flutter):**
+```dart
+// Avatar: TINGGI TETAP 40% (bukan Expanded!)
+SizedBox(
+  height: _tinggiAvatar,   // (h * 0.40).clamp(180, 520)
+  child: Stack(...Live2DView...),
+)
+// Scaffold: resizeToAvoidBottomInset: true  (input naik sendiri)
+```
+
+**Kode kunci (viewer.html):**
+```js
+// Skala model: pakai 0.92 (bukan 0.98) agar kepala tidak terpotong
+var skala = Math.min(W / mw, (H * 0.92) / mh);
+// Pantau ukuran wadah, skala ulang model (karakter tetap utuh)
+setInterval(cekUkuran, 300);
+```
+
+### 34.6 TABEL JEBAKAN BARU (66-70)
+
+| # | Jebakan | Gejala | Solusi |
+|---|---|---|---|
+| **66** | Avatar `Expanded` + WebView | Avatar super besar saat keyboard | Avatar **tinggi TETAP** (`SizedBox`) |
+| **67** | `resize:false` -> `viewInsets`=0 | Input tidak naik | Baca dari `View.of(context)` / observer |
+| **68** | **Overflow >100%** | Input tertimpa / avatar membesar | Avatar **40%** (bukan 50%) |
+| **69** | Skala model 0.98 | Kepala terpotong | Pakai **0.92** |
+| **70** | `canvas{height:100%}` + keyboard | Canvas di-stretch | Ukuran canvas dari **JS**, skala ulang model |
+
+### 34.7 CARA MENGUJI (WAJIB)
+
+```
+1. Buka Special Chat, tunggu avatar muncul
+2. Ketuk kolom "Ketik pesan"
+3. Cek: adb shell dumpsys input_method | grep mInputShown
+   -> harus "mInputShown=true" (bukti keyboard BENAR muncul)
+4. Screenshot + verifikasi 3 hal:
+   a. kolom input DI ATAS keyboard
+   b. kepala karakter UTUH
+   c. avatar NORMAL (tidak membesar)
+```
+
+**PENTING:** `mInputShown=false` = keyboard belum muncul, tap tidak kena
+kolom input (koordinat salah). Jangan simpulkan "sudah diperbaiki".
+
+### 34.8 FILE TERKAIT
+
+| File | Perubahan |
+|---|---|
+| `features/special/suara_anime.dart` | Layanan suara anime (edge-tts + cadangan) |
+| `assets/suara_karakter.json` | Peta 8 karakter -> suara |
+| `features/special/special_chat_screen.dart` | Avatar 40%, input naik, pilih suara |
+| `assets/live2d/viewer.html` | Skala 0.92, pantau ukuran wadah |
+| `shell/app_shell.dart` | `resizeToAvoidBottomInset: true` |
+
+### 34.9 RINGKASAN
+
+> **M17 SELESAI:** Suara anime ASLI per karakter (8 berbeda, Edge TTS
+> 322 suara) + bug keyboard/avatar SEIMBANG. Ditemukan **5 jebakan baru
+> (66-70)**; yang terberat #68 (overflow >100% karena avatar 50% +
+> keyboard 45%). Butuh **4 percobaan** untuk menemukan solusi seimbang.
+
+---
+
+## 35. 📝 CATATAN PERKEMBANGAN
 
 | Tanggal | Catatan |
 |---|---|

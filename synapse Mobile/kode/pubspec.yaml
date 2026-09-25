@@ -29,7 +29,9 @@ dependencies:
   intl: ^0.20.3
 
   # ===== SPECIAL CHAT (fitur Open-LLM-VTuber) =====
-  flutter_tts: ^4.2.0            # TTS: AI bersuara
+  flutter_tts: ^4.2.0            # TTS bawaan HP (cadangan)
+  audioplayers: ^6.1.0           # putar suara anime (edge-tts)
+  path_provider: ^2.1.5          # path file sementara
   speech_to_text: ^7.0.0         # ASR: user bicara
   permission_handler: ^11.3.1    # izin mikrofon/kamera
   webview_flutter: ^4.10.0       # Live2D avatar

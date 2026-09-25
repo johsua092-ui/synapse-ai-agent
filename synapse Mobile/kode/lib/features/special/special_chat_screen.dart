@@ -11,6 +11,7 @@ import '../../core/api/api_config.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/theme/spacing.dart';
 import 'live2d_view.dart';
+import 'suara_anime.dart';
 
 /// SPECIAL CHAT — fitur setara Open-LLM-VTuber
 /// (https://github.com/Open-LLM-VTuber/Open-LLM-VTuber)
@@ -29,7 +30,8 @@ class SpecialChatScreen extends ConsumerStatefulWidget {
   ConsumerState<SpecialChatScreen> createState() => _SpecialChatScreenState();
 }
 
-class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
+class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
+    with WidgetsBindingObserver {
   // ---- TTS (AI bersuara) ----
   final _tts = FlutterTts();
   bool _ttsSiap = false;
@@ -44,10 +46,20 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
   // ---- Avatar ----
   String _modelId = 'Hiyori';
   String? _background = 'sdxl-classroom-door-view.jpeg';
+  /// Suara anime per karakter (Edge TTS) — beda tiap karakter.
+  String _suaraKarakter = 'ja-JP-NanamiNeural';
+  List<Map<String, dynamic>> _opsiSuara = [];
+  bool _pakaiSuaraAnime = true;
   List<Map<String, dynamic>> _daftarBg = [];
   bool _layarPenuh = false;
   List<Map<String, dynamic>> _daftarModel = [];
   bool _avatarSiap = false;
+  /// Tinggi avatar: pakai TINGGI AWAL (tidak menyusut saat keyboard muncul).
+  /// JEBAKAN #66: kalau avatar ikut menyusut, karakter jadi terpotong.
+  double _tinggiAvatar = 0;
+  /// Tinggi keyboard (dibaca dari View; Scaffold menghapus viewInsets
+  /// saat resizeToAvoidBottomInset=false). JEBAKAN #67.
+  double _tinggiKeyboard = 0;
 
   // ---- Chat ----
   final _masukan = TextEditingController();
@@ -72,13 +84,19 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
   @override
   void initState() {
     super.initState();
+    // Observer keyboard: supaya input naik saat keyboard muncul.
+    // JEBAKAN #67: resizeToAvoidBottomInset=false -> MediaQuery.viewInsets
+    // jadi 0 dan tidak ada rebuild; harus pakai observer + View.
+    WidgetsBinding.instance.addObserver(this);
     _siapkanTts();
     _siapkanStt();
     _muatDaftarModel();
+    _muatSuaraKarakter('Hiyori');
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timerProaktif?.cancel();
     _tts.stop();
     _stt.stop();
@@ -86,6 +104,16 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
     _scroll.dispose();
     super.dispose();
   }
+
+  @override
+  void didChangeMetrics() {
+    // keyboard muncul/tertutup -> hitung ulang tinggi keyboard
+    if (mounted) setState(() {});
+  }
+
+  /// Tinggi keyboard (px). Dibaca dari View, karena Scaffold menghapus
+  /// viewInsets saat resizeToAvoidBottomInset=false.
+  double get _kb => View.of(context).viewInsets.bottom;
 
   // ================= PERSIAPAN =================
 
@@ -145,11 +173,31 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
 
   /// Bicara (TTS).
   Future<void> _bicara(String teks) async {
-    if (!_suaraAktif || !_ttsSiap) return;
+    if (!_suaraAktif) return;
+    setState(() => _sedangBicara = true);
     try {
-      await _tts.stop(); // interruption: potong suara sebelumnya
-      setState(() => _sedangBicara = true);
-      await _tts.speak(teks);
+      await _tts.stop();            // interruption
+      await SuaraAnime.berhenti();  // interruption suara anime
+
+      // 1. COBA suara anime asli (edge-tts lewat agent)
+      final klien = ref.read(apiClientProvider);
+      if (_pakaiSuaraAnime && klien != null) {
+        final f = await SuaraAnime.buatLewatAgent(
+          klien: klien,
+          teks: teks,
+          suara: _suaraKarakter,
+        );
+        if (f != null) {
+          await SuaraAnime.putar(f);
+          // tunggu kira-kira selesai (perkiraan 0,4 detik per karakter)
+          await Future.delayed(
+              Duration(milliseconds: (teks.length * 90).clamp(1500, 30000)));
+          return;
+        }
+      }
+
+      // 2. CADANGAN: TTS bawaan HP
+      if (_ttsSiap) await _tts.speak(teks);
     } catch (_) {
     } finally {
       if (mounted) setState(() => _sedangBicara = false);
@@ -268,11 +316,21 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
     final t = Theme.of(context);
     final cfg = ref.watch(apiConfigProvider);
 
+    // Tinggi avatar: 40% tinggi layar (tanpa keyboard).
+    // JEBAKAN #68: kalau 50%, avatar + input TIDAK muat saat keyboard muncul
+    // (keyboard ~45% layar) -> input terdorong keluar layar (tampak tertimpa).
+    // 40% + input (~7%) = 47% < 55% sisa ruang -> aman.
+    if (_tinggiAvatar == 0) {
+      final h = MediaQuery.of(context).size.height;
+      _tinggiAvatar = (h * 0.40).clamp(180.0, 520.0);
+    }
+
     return Column(
       children: [
-        // ---- AVATAR ----
-        Expanded(
-          flex: 5,
+        // ---- AVATAR (TINGGI TETAP) ----
+        // Tinggi tetap -> WebView TIDAK di-stretch -> karakter TIDAK membesar.
+        SizedBox(
+          height: _tinggiAvatar,
           child: Stack(children: [
             Positioned.fill(
               child: Live2DView(
@@ -334,6 +392,11 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
               onPressed: _dialogBackground,
             ),
             IconButton(
+              tooltip: 'Ganti suara karakter',
+              icon: const Icon(Icons.record_voice_over),
+              onPressed: _dialogSuaraKarakter,
+            ),
+            IconButton(
               tooltip: 'Pengaturan suara',
               icon: const Icon(Icons.tune),
               onPressed: _dialogSuara,
@@ -346,9 +409,8 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
           ]),
         ),
 
-        // ---- CHAT ----
+        // ---- CHAT (boleh menyusut saat keyboard muncul) ----
         Expanded(
-          flex: 4,
           child: ListView.builder(
             controller: _scroll,
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -380,12 +442,18 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
           ),
         ),
 
-        // ---- INPUT ----
+        // ---- INPUT (naik mengikuti keyboard) ----
+        // JEBAKAN #67: saat resizeToAvoidBottomInset=false, Scaffold MENGHAPUS
+        // viewInsets dari MediaQuery anak -> MediaQuery.of(context) = 0.
+        // Solusi: baca dari View LANGSUNG (MediaQueryData.fromView).
         SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+            padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.sm),
             child: Row(children: [
               Expanded(
                 child: TextField(
@@ -431,6 +499,71 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
         child: Text(teks,
             style: const TextStyle(color: Colors.white, fontSize: 11)),
       );
+
+  /// Muat suara anime untuk karakter (beda tiap karakter).
+  Future<void> _muatSuaraKarakter(String id) async {
+    final opsi = await SuaraAnime.untuk(id);
+    final def = await SuaraAnime.defaultUntuk(id);
+    if (!mounted) return;
+    setState(() {
+      _opsiSuara = opsi;
+      if (def != null) _suaraKarakter = def;
+    });
+  }
+
+  /// Pilih suara karakter (suara anime, beda tiap karakter).
+  Future<void> _dialogSuaraKarakter() async {
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (c) {
+        final t = Theme.of(c);
+        return SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(children: [
+                const Icon(Icons.record_voice_over),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Suara ${_modelId}',
+                      style: t.textTheme.titleMedium),
+                ),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Text(
+                'Suara anime asli (Edge TTS). Tiap karakter punya suara '
+                'berbeda. Ketuk untuk mendengar.',
+                style: t.textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            for (final o in _opsiSuara)
+              ListTile(
+                leading: Icon(
+                  o['id'] == _suaraKarakter
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: o['id'] == _suaraKarakter
+                      ? t.colorScheme.primary
+                      : null,
+                ),
+                title: Text(o['nama'] as String),
+                trailing: const Icon(Icons.play_circle_outline),
+                onTap: () {
+                  setState(() => _suaraKarakter = o['id'] as String);
+                  _bicara('Halo, aku ${_modelId}. Ini suaraku.');
+                  Navigator.pop(c);
+                },
+              ),
+            const SizedBox(height: AppSpacing.sm),
+          ]),
+        );
+      },
+    );
+  }
 
   /// Pilih latar belakang (14 background dari Open-LLM-VTuber).
   Future<void> _dialogBackground() async {
@@ -552,6 +685,7 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen> {
                         : null,
                     onTap: () {
                       setState(() => _modelId = id);
+                      _muatSuaraKarakter(id);
                       Navigator.pop(c);
                     },
                   );

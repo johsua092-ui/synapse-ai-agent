@@ -22,6 +22,7 @@
 var app = null, model = null;
 var AKAR = '/live2d/';
 var LOG = [];
+var LW = 0, LH = 0;
 
 function kabar(t){
   LOG.push(t);
@@ -30,7 +31,7 @@ function kabar(t){
 }
 function sembunyi(){
   var e = document.getElementById('pesan');
-  if(e){ e.style.display='none'; }
+  if(e) e.style.display='none';
 }
 
 function mulai(){
@@ -40,17 +41,39 @@ function mulai(){
     }
     try{ PIXI.live2d.Live2DModel.registerTicker(PIXI.Ticker); }catch(e){}
 
+    var cv = document.getElementById('peta');
+    LW = Math.max(1, cv.clientWidth);
+    LH = Math.max(1, cv.clientHeight);
+
     app = new PIXI.Application({
-      view: document.getElementById('peta'),
-      width: Math.max(1, window.innerWidth),
-      height: Math.max(1, window.innerHeight),
+      view: cv,
+      width: LW,
+      height: LH,
       backgroundAlpha: 0,
       antialias: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
       autoDensity: true
     });
     muatModel('Hiyori');
+    // pantau ukuran wadah (keyboard muncul -> tinggi berubah)
+    setInterval(cekUkuran, 300);
   }catch(e){ kabar('X mulai: ' + e.message); }
+}
+
+// PENTING: canvas selalu MENGIKUTI wadah (bukan di-stretch),
+// dan model di-skala ulang agar SELALU muat penuh (tidak terpotong,
+// tidak super besar) walau wadah mengecil karena keyboard. JEBAKAN #66.
+function cekUkuran(){
+  try{
+    if(!app || !model) return;
+    var cv = document.getElementById('peta');
+    var w = Math.max(1, cv.clientWidth);
+    var h = Math.max(1, cv.clientHeight);
+    if(Math.abs(w - LW) <= 2 && Math.abs(h - LH) <= 2) return;
+    LW = w; LH = h;
+    app.renderer.resize(w, h);
+    aturModel();
+  }catch(e){}
 }
 
 function muatModel(nama){
@@ -73,17 +96,14 @@ function muatModel(nama){
   }catch(e){ kabar('X muatModel: ' + e.message); }
 }
 
-// PENTING: karakter dibuat PAS di layar (kepala tidak terpotong)
+// Karakter selalu MUAT penuh di wadah (kepala sampai kaki terlihat).
 function aturModel(){
   if(!model || !app) return;
   var W = app.screen.width, H = app.screen.height;
   var mw = model.width, mh = model.height;
-
-  // skala agar SELURUH tubuh masuk (pakai tinggi, sisakan margin atas)
-  var skala = Math.min(W / mw, (H * 0.98) / mh);
+  if(!mw || !mh || W < 2 || H < 2) return;
+  var skala = Math.min(W / mw, (H * 0.92) / mh);
   model.scale.set(skala);
-
-  // taruh di bawah-tengah, sedikit ke kanan supaya tidak menutupi chat
   model.anchor.set(0.5, 1);
   model.x = W * 0.5;
   model.y = H * 0.99;
@@ -116,12 +136,7 @@ window.setBicara = function(v){
 
 window.setEmosi = function(e){ if(model){ try{ model.expression(e); }catch(x){} } };
 
-window.addEventListener('resize', function(){
-  if(app && app.renderer){
-    app.renderer.resize(window.innerWidth, window.innerHeight);
-    aturModel();
-  }
-});
+window.addEventListener('resize', cekUkuran);
 
 window.addEventListener('load', function(){
   var n = 0;

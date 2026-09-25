@@ -1,0 +1,148 @@
+{
+ "suara": {
+  "Hiyori": {
+   "suara": "ja-JP-NanamiNeural",
+   "label": "Nanami — Jepang, cewek ceria",
+   "opsi": [
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang, ceria)"
+    },
+    {
+     "id": "zh-CN-XiaoxiaoNeural",
+     "nama": "Xiaoxiao (Cina, lembut)"
+    },
+    {
+     "id": "id-ID-GadisNeural",
+     "nama": "Gadis (Indonesia)"
+    }
+   ]
+  },
+  "Haru": {
+   "suara": "zh-CN-XiaoyiNeural",
+   "label": "Xiaoyi — Cina, cewek manis",
+   "opsi": [
+    {
+     "id": "zh-CN-XiaoyiNeural",
+     "nama": "Xiaoyi (Cina, manis)"
+    },
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang)"
+    },
+    {
+     "id": "id-ID-GadisNeural",
+     "nama": "Gadis (Indonesia)"
+    }
+   ]
+  },
+  "Mao": {
+   "suara": "zh-CN-XiaoxiaoNeural",
+   "label": "Xiaoxiao — Cina, cewek lembut",
+   "opsi": [
+    {
+     "id": "zh-CN-XiaoxiaoNeural",
+     "nama": "Xiaoxiao (Cina, lembut)"
+    },
+    {
+     "id": "zh-TW-HsiaoYuNeural",
+     "nama": "HsiaoYu (Taiwan)"
+    },
+    {
+     "id": "id-ID-GadisNeural",
+     "nama": "Gadis (Indonesia)"
+    }
+   ]
+  },
+  "Natori": {
+   "suara": "zh-TW-HsiaoChenNeural",
+   "label": "HsiaoChen — Taiwan, cewek kalem",
+   "opsi": [
+    {
+     "id": "zh-TW-HsiaoChenNeural",
+     "nama": "HsiaoChen (Taiwan, kalem)"
+    },
+    {
+     "id": "zh-HK-HiuMaanNeural",
+     "nama": "HiuMaan (Hongkong)"
+    },
+    {
+     "id": "en-US-AriaNeural",
+     "nama": "Aria (Inggris)"
+    }
+   ]
+  },
+  "Rice": {
+   "suara": "zh-CN-shaanxi-XiaoniNeural",
+   "label": "Xiaoni — Cina, suara anak kecil",
+   "opsi": [
+    {
+     "id": "zh-CN-shaanxi-XiaoniNeural",
+     "nama": "Xiaoni (Cina, anak)"
+    },
+    {
+     "id": "zh-CN-liaoning-XiaobeiNeural",
+     "nama": "Xiaobei (Cina, anak)"
+    },
+    {
+     "id": "id-ID-GadisNeural",
+     "nama": "Gadis (Indonesia)"
+    }
+   ]
+  },
+  "Mark": {
+   "suara": "ja-JP-KeitaNeural",
+   "label": "Keita — Jepang, cowok santai",
+   "opsi": [
+    {
+     "id": "ja-JP-KeitaNeural",
+     "nama": "Keita (Jepang, santai)"
+    },
+    {
+     "id": "zh-CN-YunxiNeural",
+     "nama": "Yunxi (Cina, muda)"
+    },
+    {
+     "id": "id-ID-ArdiNeural",
+     "nama": "Ardi (Indonesia)"
+    }
+   ]
+  },
+  "Ren": {
+   "suara": "zh-CN-YunjianNeural",
+   "label": "Yunjian — Cina, cowok tegas",
+   "opsi": [
+    {
+     "id": "zh-CN-YunjianNeural",
+     "nama": "Yunjian (Cina, tegas)"
+    },
+    {
+     "id": "zh-CN-YunyangNeural",
+     "nama": "Yunyang (Cina, berita)"
+    },
+    {
+     "id": "en-US-DavisNeural",
+     "nama": "Davis (Inggris)"
+    }
+   ]
+  },
+  "Wanko": {
+   "suara": "ko-KR-HyunsuMultilingualNeural",
+   "label": "Hyunsu — Korea, maskot ceria",
+   "opsi": [
+    {
+     "id": "ko-KR-HyunsuMultilingualNeural",
+     "nama": "Hyunsu (Korea, ceria)"
+    },
+    {
+     "id": "ko-KR-SunHiNeural",
+     "nama": "SunHi (Korea, cewek)"
+    },
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang)"
+    }
+   ]
+  }
+ }
+}

@@ -58,6 +58,9 @@ class AppShell extends ConsumerWidget {
     final belumDibaca = ref.watch(notifProvider).where((n) => !n.dibaca).length;
 
     return Scaffold(
+      // resize AKTIF: input naik sendiri saat keyboard muncul.
+      // Avatar pakai TINGGI TETAP -> ukurannya tidak pernah berubah.
+      resizeToAvoidBottomInset: true,
       // AppBar global: badge lonceng di pojok kanan atas
       appBar: AppBar(
         title: Text(_nav[_indeks].label),
