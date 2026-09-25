@@ -27,6 +27,13 @@ dependencies:
   tabler_icons: ^0.0.1
   # i18n
   intl: ^0.20.3
+
+  # ===== SPECIAL CHAT (fitur Open-LLM-VTuber) =====
+  flutter_tts: ^4.2.0            # TTS: AI bersuara
+  speech_to_text: ^7.0.0         # ASR: user bicara
+  permission_handler: ^11.3.1    # izin mikrofon/kamera
+  webview_flutter: ^4.10.0       # Live2D avatar
+
   image_picker: ^1.1.2
   file_picker: ^10.3.10
 
@@ -39,3 +46,34 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/backgrounds/
+    # PENTING: Flutter TIDAK rekursif -> subfolder harus eksplisit
+    - assets/live2d/
+    - assets/live2d/Haru/
+    - assets/live2d/Haru/Haru.2048/
+    - assets/live2d/Haru/expressions/
+    - assets/live2d/Haru/motions/
+    - assets/live2d/Hiyori/
+    - assets/live2d/Hiyori/Hiyori.2048/
+    - assets/live2d/Hiyori/motions/
+    - assets/live2d/Mao/
+    - assets/live2d/Mao/Mao.2048/
+    - assets/live2d/Mao/expressions/
+    - assets/live2d/Mao/motions/
+    - assets/live2d/Mark/
+    - assets/live2d/Mark/Mark.2048/
+    - assets/live2d/Mark/motions/
+    - assets/live2d/Natori/
+    - assets/live2d/Natori/Natori.2048/
+    - assets/live2d/Natori/exp/
+    - assets/live2d/Natori/motions/
+    - assets/live2d/Ren/
+    - assets/live2d/Ren/Ren.2048/
+    - assets/live2d/Ren/expressions/
+    - assets/live2d/Ren/motions/
+    - assets/live2d/Rice/
+    - assets/live2d/Rice/Rice.2048/
+    - assets/live2d/Rice/motions/
+    - assets/live2d/Wanko/
+    - assets/live2d/Wanko/Wanko.1024/
+    - assets/live2d/Wanko/motions/

@@ -1,159 +1,130 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/notif/notif_provider.dart';
 
-/// Item navigasi utama.
+/// Satu item navigasi bawah.
 class _Nav {
   final String path;
   final IconData icon;
   final IconData iconAktif;
   final String label;
-  const _Nav(this.path, this.icon, this.iconAktif, this.label);
+  /// Apakah badge notifikasi tampil di layar ini?
+  final bool adaBadge;
+  const _Nav(this.path, this.icon, this.iconAktif, this.label,
+      {this.adaBadge = false});
 }
 
-const _items = <_Nav>[
-  _Nav('/chat', Icons.chat_bubble_outline, Icons.chat_bubble, 'Chat'),
+/// Navigasi bawah Synapse Mobile.
+///
+/// 6 tab: Chat | Special Chat | Skills | MCP | CLI | Setelan
+/// (Notif DIHAPUS dari sini -> pindah jadi badge lonceng di pojok kanan atas)
+const _nav = <_Nav>[
+  _Nav('/chat', Icons.chat_bubble_outline, Icons.chat_bubble, 'Chat',
+      adaBadge: true),
+  _Nav('/special', Icons.auto_awesome_outlined, Icons.auto_awesome,
+      'Special Chat', adaBadge: true),
   _Nav('/skills', Icons.extension_outlined, Icons.extension, 'Skills'),
   _Nav('/mcp', Icons.hub_outlined, Icons.hub, 'MCP'),
   _Nav('/cli', Icons.terminal_outlined, Icons.terminal, 'CLI'),
-  _Nav('/notifikasi', Icons.notifications_outlined, Icons.notifications, 'Notif'),
   _Nav('/settings', Icons.settings_outlined, Icons.settings, 'Setelan'),
 ];
 
-/// Kerangka aplikasi:
-///  - POTRAIT  (9:16)  -> navigasi BAWAH
-///  - LANDSCAPE(16:9)  -> navigasi SAMPING
+/// Kerangka aplikasi: AppBar + isi + navigasi bawah.
 ///
-/// Perilaku tombol BACK:
-///  - Di sub-menu (Skills/MCP/CLI/Setelan/...) -> kembali ke layar Chat
-///  - Di layar utama (Chat) -> minta konfirmasi "tekan sekali lagi untuk keluar"
-class AppShell extends StatefulWidget {
+/// Badge notifikasi (lonceng) HANYA tampil di Chat & Special Chat.
+class AppShell extends ConsumerWidget {
+  const AppShell({super.key, required this.child, required this.lokasi});
+
   final Widget child;
-  const AppShell({super.key, required this.child});
+  final String lokasi;
+
+  int get _indeks {
+    for (var i = 0; i < _nav.length; i++) {
+      if (lokasi.startsWith(_nav[i].path)) return i;
+    }
+    return 0;
+  }
+
+  bool get _tampilBadge {
+    for (final n in _nav) {
+      if (lokasi.startsWith(n.path)) return n.adaBadge;
+    }
+    return false;
+  }
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final belumDibaca = ref.watch(notifProvider).where((n) => !n.dibaca).length;
+
+    return Scaffold(
+      // AppBar global: badge lonceng di pojok kanan atas
+      appBar: AppBar(
+        title: Text(_nav[_indeks].label),
+        actions: [
+          if (_tampilBadge)
+            _TombolLonceng(jumlah: belumDibaca),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: SafeArea(child: child),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _indeks,
+        onDestinationSelected: (i) => context.go(_nav[i].path),
+        destinations: [
+          for (final e in _nav)
+            NavigationDestination(
+              icon: Icon(e.icon),
+              selectedIcon: Icon(e.iconAktif),
+              label: e.label,
+            ),
+        ],
+      ),
+    );
+  }
 }
 
-class _AppShellState extends State<AppShell> {
-  DateTime? _backTerakhir;
-
-  int _indeks(BuildContext c) {
-    final lok = GoRouterState.of(c).uri.path;
-    final i = _items.indexWhere((e) => lok.startsWith(e.path));
-    return i < 0 ? 0 : i;
-  }
-
-  void _pindah(BuildContext c, int i) => c.go(_items[i].path);
-
-  bool _diLayarUtama(BuildContext c) {
-    final lok = GoRouterState.of(c).uri.path;
-    return lok == '/chat' || lok == '/';
-  }
-
-  /// Dipanggil saat tombol back ditekan.
-  /// return false = jangan keluar aplikasi.
-  ///
-  /// URUTAN (sesuai permintaan user):
-  ///  1. Kalau ada HISTORY (mis. Setelan -> Status) -> kembali ke INDUK (Setelan)
-  ///  2. Kalau tidak ada history & bukan di Chat -> ke Chat
-  ///  3. Kalau di Chat -> minta konfirmasi (tekan 2x baru keluar)
-  bool _tanganiBack(BuildContext c) {
-    final router = GoRouter.of(c);
-
-    // 1. Ada history? -> kembali satu tingkat (ke halaman INDUK)
-    if (router.canPop()) {
-      router.pop();
-      return false;   // jangan keluar
-    }
-
-    // 2. Bukan di layar utama -> ke Chat
-    if (!_diLayarUtama(c)) {
-      c.go('/chat');
-      return false;   // jangan keluar
-    }
-
-    // 3. Di layar utama -> minta konfirmasi (tekan 2x)
-    final sekarang = DateTime.now();
-    final baru = _backTerakhir == null ||
-        sekarang.difference(_backTerakhir!) > const Duration(seconds: 2);
-
-    if (baru) {
-      _backTerakhir = sekarang;
-      ScaffoldMessenger.of(c).showSnackBar(
-        const SnackBar(
-          content: Text('Tekan sekali lagi tombol back untuk keluar'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return false;   // jangan keluar (tunggu tekan ke-2)
-    }
-
-    return true;      // tekan ke-2 -> keluar
-  }
+/// Tombol lonceng dengan bulatan hijau + angka (jumlah notif belum dibaca).
+class _TombolLonceng extends StatelessWidget {
+  const _TombolLonceng({required this.jumlah});
+  final int jumlah;
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    final h = MediaQuery.sizeOf(context).height;
-    final landscape = w > h;
-    final idx = _indeks(context);
-
-    return PopScope(
-      // canPop=false -> kita tangani sendiri lewat onPopInvoked
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        final bolehKeluar = _tanganiBack(context);
-        if (bolehKeluar) {
-          // keluar aplikasi (SystemNavigator = benar-benar keluar,
-          // bukan Navigator.maybePop yang bikin loop)
-          SystemNavigator.pop();
-        }
-      },
-      child: landscape
-          ? _landscape(idx, context)
-          : _potrait(idx, context),
+    final t = Theme.of(context);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          tooltip: 'Notifikasi',
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () => context.push('/notifikasi'),
+        ),
+        if (jumlah > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              constraints: const BoxConstraints(minWidth: 18),
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: t.colorScheme.surface, width: 1.5),
+              ),
+              child: Text(
+                jumlah > 99 ? '99+' : '$jumlah',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
-
-  // ===== LANDSCAPE 16:9 -> navigasi samping =====
-  Widget _landscape(int idx, BuildContext context) => Scaffold(
-        body: Row(children: [
-          NavigationRail(
-            selectedIndex: idx,
-            onDestinationSelected: (i) => _pindah(context, i),
-            labelType: NavigationRailLabelType.all,
-            leading: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Icon(Icons.bolt, size: 26),
-            ),
-            destinations: _items
-                .map((e) => NavigationRailDestination(
-                      icon: Icon(e.icon),
-                      selectedIcon: Icon(e.iconAktif),
-                      label: Text(e.label),
-                    ))
-                .toList(),
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: widget.child),
-        ]),
-      );
-
-  // ===== POTRAIT 9:16 -> navigasi bawah =====
-  Widget _potrait(int idx, BuildContext context) => Scaffold(
-        body: widget.child,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: idx,
-          onDestinationSelected: (i) => _pindah(context, i),
-          destinations: _items
-              .map((e) => NavigationDestination(
-                    icon: Icon(e.icon),
-                    selectedIcon: Icon(e.iconAktif),
-                    label: e.label,
-                  ))
-              .toList(),
-        ),
-      );
 }

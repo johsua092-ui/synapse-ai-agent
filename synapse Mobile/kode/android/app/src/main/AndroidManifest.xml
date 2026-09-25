@@ -2,6 +2,9 @@
     xmlns:tools="http://schemas.android.com/tools">
     <!-- Izin minimal: hanya yang BENAR-BENAR dipakai app -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Special Chat (fitur VTuber): mikrofon untuk bicara -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <!-- Izin internet (WAJIB untuk koneksi ke api_server) -->

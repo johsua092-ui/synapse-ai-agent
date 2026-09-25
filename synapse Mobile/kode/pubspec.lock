@@ -240,6 +240,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_tts:
+    dependency: "direct main"
+    description:
+      name: flutter_tts
+      sha256: ce5eb209b40e95f2f4a1397116c87ab2fcdff32257d04ed7a764e75894c03775
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2.5"
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -381,6 +389,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.7"
+  json_annotation:
+    dependency: transitive
+    description:
+      name: json_annotation
+      sha256: "2a743920d81b7910627f68ee2c9ac1fc0bfee32b9fc3403587d7c6791ca12f80"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.12.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -533,6 +549,54 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
+  permission_handler:
+    dependency: "direct main"
+    description:
+      name: permission_handler
+      sha256: "59adad729136f01ea9e35a48f5d1395e25cba6cea552249ddbe9cf950f5d7849"
+      url: "https://pub.dev"
+    source: hosted
+    version: "11.4.0"
+  permission_handler_android:
+    dependency: transitive
+    description:
+      name: permission_handler_android
+      sha256: d3971dcdd76182a0c198c096b5db2f0884b0d4196723d21a866fc4cdea057ebc
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.1.0"
+  permission_handler_apple:
+    dependency: transitive
+    description:
+      name: permission_handler_apple
+      sha256: f49cb15a064ea9d974fc7fbb302099353b7b170d07284e86e264561579e5bcf8
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.6.1"
+  permission_handler_html:
+    dependency: transitive
+    description:
+      name: permission_handler_html
+      sha256: "6ea98b3f17f60d3b527f2647ed2ab4dc0f6bfe25b22cb1c363f5d8f62252f6ac"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.4+1"
+  permission_handler_platform_interface:
+    dependency: transitive
+    description:
+      name: permission_handler_platform_interface
+      sha256: ed86a61c190258fdd65de395ea0632822e3415c1faec38eae0c31b479c28a531
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.4.1"
+  permission_handler_windows:
+    dependency: transitive
+    description:
+      name: permission_handler_windows
+      sha256: caeae01858a0a7d2df67a445ac98e1ad95e55a0e77c73044f4e9b1c8c2289cbd
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
   petitparser:
     dependency: transitive
     description:
@@ -650,6 +714,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.2"
+  speech_to_text:
+    dependency: "direct main"
+    description:
+      name: speech_to_text
+      sha256: f2fabd017b5cb07f4e06d496b2d4b957e39534bc848f92b1e6acac80a10f4967
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.5.0"
+  speech_to_text_platform_interface:
+    dependency: transitive
+    description:
+      name: speech_to_text_platform_interface
+      sha256: "7e447356be3074c471223c9d179ef3f822475350b67ca923ec71ab3bf2ede214"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.5.0"
+  speech_to_text_windows:
+    dependency: transitive
+    description:
+      name: speech_to_text_windows
+      sha256: "2d1d10565b23262386b453b33656299608dc7a66784453735d6c1318f13f44d7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   stack_trace:
     dependency: transitive
     description:
@@ -754,6 +842,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.3"
+  webview_flutter:
+    dependency: "direct main"
+    description:
+      name: webview_flutter
+      sha256: d53e1ccf5516f25017e3c9d44c39034db352d20fa34fe200674270242c2c5111
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.14.1"
+  webview_flutter_android:
+    dependency: transitive
+    description:
+      name: webview_flutter_android
+      sha256: "4de8b3d1ff4ebe1bdb42e68a5e4f809194a3cb0117a8f495f590004f00da3964"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.14.1"
+  webview_flutter_platform_interface:
+    dependency: transitive
+    description:
+      name: webview_flutter_platform_interface
+      sha256: "1221c1b12f5278791042f2ec2841743784cf25c5a644e23d6680e5d718824f04"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.15.1"
+  webview_flutter_wkwebview:
+    dependency: transitive
+    description:
+      name: webview_flutter_wkwebview
+      sha256: fe359c7fac1002124b5b9e2ba3a41906bbb9b2d029ccb4a0067404d8f3704730
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.26.1"
   win32:
     dependency: transitive
     description:

@@ -2870,7 +2870,248 @@ VERIFIKASI (bukan asumsi):
 
 ---
 
-## 32. 📝 CATATAN PERKEMBANGAN
+## 32. ATURAN MUTLAK: PUSH KE GITHUB (25 Sep 2026)
+
+### 32.1 PERINTAH USER (verbatim)
+
+> *"push ke github itu dilarang force push tapi push normal dan formatnya itu
+> bikin 1 folder yaitu 'synapse Mobile' nah baru di dalam folder tersebut
+> berisi sangat sangat lengkap berisi seluruh data data hasil kerja keras kita
+> bikin hari ini! bisa gak?"*
+
+> *"aturan mutlak ya, abis bikin fitur nanti disiapkan ancang ancang push ke
+> github push normal gitu"*
+
+> *"kalau push ke github kawal sampai live dan sukses"*
+
+### 32.2 ATURAN MUTLAK (WAJIB DIPATUHI SETELAH SETIAP FITUR)
+
+```
+1. DILARANG push paksa (--force / -f) — HARAM.
+2. HANYA push normal (tanpa --force).
+3. Format: SATU FOLDER di root repo bernama "synapse Mobile".
+4. Isi folder HARUS LENGKAP:
+     - kode/     : kode sumber (Dart + Kotlin)
+     - dokumen/  : kontrak + design + panduan
+     - apk/      : APK siap pasang
+     - bukti/    : screenshot hasil uji
+     - README.md : penjelasan
+5. Push HARUS dikawal sampai LIVE & SUKSES (verifikasi nyata, bukan asumsi).
+6. Setelah tiap fitur selesai -> langsung siapkan & push (jangan menumpuk).
+```
+
+### 32.3 CARA PUSH YANG BENAR (SOP)
+
+```bash
+cd C:/Users/user/synapse-ai-agent
+
+# 1. Siapkan folder "synapse Mobile" (kode+dokumen+apk+bukti)
+#    - JANGAN sertakan: *.jks, key.properties, build/, .env (RAHASIA!)
+#    - Lewati file >95MB (GitHub tolak >100MB)
+
+# 2. Tambah & commit
+git add "synapse Mobile"
+git commit -m "feat(synapse-mobile): <deskripsi>"
+
+# 3. PUSH NORMAL (TANPA paksa!)
+git push origin main
+
+# 4. KAWAL SAMPAI LIVE:
+git rev-parse HEAD          # commit lokal
+git rev-parse origin/main   # commit remote -> HARUS SAMA
+git fetch origin            # verifikasi ulang
+```
+
+### 32.4 HASIL PUSH PERTAMA (BUKTI LIVE)
+
+```
+Commit : f3cf280
+Pesan  : feat(synapse-mobile): Synapse Mobile v0.9.0 - aplikasi Flutter lengkap
+Repo   : github.com/johsua092-ui/synapse-ai-agent
+Branch : main
+
+Isi folder "synapse Mobile":
+  kode/      87 file
+  dokumen/    2 file
+  apk/        5 file
+  bukti/    236 file
+  README.md
+
+VERIFIKASI:
+  lokal  HEAD : f3cf28085dc9142f65617feef6d4ad820308a7bd
+  remote HEAD : f3cf28085dc9142f65617feef6d4ad820308a7bd  -> SAMA (LIVE)
+```
+
+### 32.5 JEBAKAN BARU (56-58)
+
+| # | Jebakan | Solusi |
+|---|---|---|
+| 56 | File APK >100MB DITOLAK GitHub (warning >50MB) | Lewati file >95MB dari push |
+| 57 | Identitas git belum di-set -> commit gagal | `git config user.name/user.email` (lokal repo) |
+| 58 | `build/` 3,2 GB kalau ikut -> push gagal | Pastikan .gitignore cakup `build/` |
+
+### 32.6 YANG TIDAK BOLEH DI-PUSH (RAHASIA)
+
+```
+X synapse-release.jks        (kunci penandatangan)
+X key.properties             (password keystore)
+X .env                       (API key)
+X build/                     (3,2 GB hasil build)
+X SynapseMobile_v0.2.0_debug.apk  (154MB - ditolak GitHub)
+```
+
+### 32.7 RINGKASAN
+
+> **ATURAN MUTLAK:** setiap selesai fitur -> siapkan folder "synapse Mobile"
+> lengkap -> push NORMAL (dilarang paksa) -> KAWAL sampai LIVE (verifikasi
+> HEAD lokal == HEAD remote). Push pertama BERHASIL: commit f3cf280,
+> 331 file, live di github.com/johsua092-ui/synapse-ai-agent.
+
+---
+
+## 33. M16 - SPECIAL CHAT (FITUR OPEN-LLM-VTUBER) (25 Sep 2026)
+
+### 33.1 PERMINTAAN USER (verbatim)
+
+> *"saya ingin nambah 1 button yaitu 'Special Chat' dan design iconnya harus
+> bagus ya dan dia lokasinya tepat di samping kanan tombol 'chat'... namun
+> sebagai gantinya tombol 'notif' hilang... dipindah jadi di pojok kanan atas
+> layar user dan iconnya tetap berbentuk lonceng, dan misal ada notif ada kaya
+> bulatan hijau gitu terus ada angka... dia hanya hadir di 'Chat' dan 'Special
+> Chat' itu doang... nah fiturnya adalah 100% dari link di github berikut:
+> https://github.com/Open-LLM-VTuber/Open-LLM-VTuber"*
+
+> *"kalau bisa seluruh model yang ada di preview github tersebut semua model...
+> user bisa pilih modelnya sesuka hati"*
+
+> *"dia kepalanya terpotong oleh menu jadi nanti ini saya harap bisa di full
+> kan jendelanya... dan juga backgroundnya disini masih hitam legam, tolong
+> perbagus kasih apa gitu misal sekolah atau taman"*
+
+> *"saya sarankan ambil semua folder background tanpa tertinggal satupun"*
+
+### 33.2 YANG DIKERJAKAN
+
+**1. Navigasi berubah:**
+```
+SEBELUM: Chat | Skills | MCP | CLI | Notif | Setelan
+SESUDAH: Chat | Special Chat | Skills | MCP | CLI | Setelan
+         (Notif DIHAPUS dari bawah)
+```
+
+**2. Badge notifikasi (lonceng) di pojok kanan atas:**
+```
+- Ikon lonceng + bulatan HIJAU + ANGKA (jumlah belum dibaca)
+- HANYA tampil di "Chat" & "Special Chat"
+- Halaman lain (Skills/MCP/CLI/Setelan) -> TIDAK ada
+- Ketuk -> buka layar Notifikasi
+```
+
+**3. Special Chat = fitur Open-LLM-VTuber:**
+```
+- Avatar Live2D asli (WebGL) - 8 model resmi Live2D Inc
+- Background (14 gambar dari repo Open-LLM-VTuber)
+- TTS: AI bersuara (flutter_tts) + ganti bahasa/kecepatan/nada
+- ASR: user bicara (speech_to_text) + izin mikrofon
+- Voice interruption: suara AI dipotong saat user bicara
+- AI proactive speaking: AI bicara duluan (timer 45 detik)
+- Chat + riwayat
+- Pemilih model (8) + pemilih background (14)
+```
+
+### 33.3 MODEL & BACKGROUND (SEMUA DIBawa DI APK)
+
+**8 model Live2D resmi (Live2D Inc, CubismWebSamples):**
+```
+Hiyori, Haru, Mao, Natori, Rice, Mark, Ren, Wanko   (22 MB)
+```
+
+**14 background (repo Open-LLM-VTuber/backgrounds):**
+```
+sdxl-classroom-door-view.jpeg      (Sekolah)
+lernado-diff-classroom-center.jpeg (Ruang Kelas)
+computer-room-illustration.jpeg    (Ruang Komputer)
+room-interior-illustration.jpeg    (Kamar)
+cityscape.jpeg                     (Kota)
+mountain-range-illustration.jpeg   (Pegunungan)
+night-landscape-grass-moon.jpeg    (Padang Malam)
+ceiling-window-room-night.jpeg     (Kamar Malam)
+cartoon-night-landscape-moon.jpeg  (Malam Kartun)
+field-night-painting-moon.jpeg     (Ladang Malam)
+moon-over-mountain.jpeg            (Bulan di Gunung)
+night-scene-cartoon-moon.jpeg      (Pemandangan Malam)
+painting-valley-night-sky. 2.jpeg  (Lembah Malam)
+congress.jpg                       (Aula)
+```
+Catatan: folder GitHub berisi 15 item = 14 GAMBAR + 1 README.md.
+Yang diunduh = 14 gambar (SEMUA background, README bukan gambar).
+
+### 33.4 JEBAKAN BARU (59-64) - SANGAT PENTING!
+
+| # | Jebakan | Gejala | Solusi |
+|---|---|---|---|
+| **59** | **Flutter asset TIDAK rekursif** | Model tidak masuk APK (APK tetap 59MB) | Daftarkan **setiap subfolder eksplisit** di pubspec |
+| **60** | **WebView blokir `file://` (CORS)** | "Network error" saat muat model | **Server HTTP lokal** (127.0.0.1:8765) + buka via http:// |
+| **61** | **`registerTicker` wajib** | "Maximum call stack size exceeded" | `Live2DModel.registerTicker(PIXI.Ticker)` |
+| **62** | Muat cubism2+cubism4+index bersamaan | "Maximum call stack size exceeded" | Pakai **cubism4 saja** (model kita semua Cubism 3/4) |
+| **63** | `resizeTo` di PIXI.Application | Loop tak berujung | Atur `width`/`height` manual + resize sendiri |
+| **64** | Karakter terpotong menu | Hanya kelihatan kaki | Skala `min(W/mw, H*0.98/mh)` + anchor (0.5, 1) |
+| **65** | `window.onerror` yang memanggil UI | Loop error tak berujung | Jangan panggil UI dari onerror |
+
+**JEBAKAN #60 = yang paling sulit.** WebView Android (API 30+) memblokir
+akses `file://` karena CORS, jadi model Live2D lokal tidak terbaca. Solusinya
+menjalankan **server HTTP kecil di dalam app** (dart:io HttpServer di
+127.0.0.1) lalu WebView membuka `http://127.0.0.1:8765/...`. Dengan cara ini
+tidak ada batasan CORS dan semua file (model + background) terbaca.
+
+### 33.5 STRUKTUR FILE BARU
+
+| File | Isi |
+|---|---|
+| `features/special/special_chat_screen.dart` | Layar Special Chat (TTS+ASR+avatar) |
+| `features/special/live2d_view.dart` | Viewer Live2D (WebView + server) |
+| `features/special/live2d_server.dart` | Server HTTP lokal untuk file asset |
+| `core/notif/notif_provider.dart` | Provider notifikasi bersama (badge + layar) |
+| `shell/app_shell.dart` | Navigasi baru + badge lonceng |
+| `assets/live2d/` | 8 model + viewer.html (22 MB) |
+| `assets/backgrounds/` | 14 background (4 MB) |
+| `assets/live2d_model.json` | Daftar model |
+| `assets/background_list.json` | Daftar background |
+
+### 33.6 HASIL UJI (BUKTI)
+
+```
+- Karakter Live2D muncul: YA (utuh, kepala sampai kaki)
+- Background: ruang kelas sekolah (gaya anime, meja+kursi+papan tulis)
+- Error: TIDAK ADA
+- Badge notifikasi: bulatan hijau + angka "4" di Chat & Special Chat
+- Tab: Chat | Special Chat | Skills | MCP | CLI | Setelan (Notif hilang)
+```
+
+### 33.7 ATURAN BARU
+
+```
+1. Asset bersubfolder WAJIB didaftarkan eksplisit (Flutter tidak rekursif).
+2. File lokal untuk WebView -> pakai server HTTP lokal (bukan file://).
+3. pixi-live2d-display UMD -> WAJIB registerTicker.
+4. Pakai cubism4 saja (jangan campur dengan index/cubism2).
+5. Jangan pakai resizeTo; atur ukuran manual.
+6. Karakter Live2D: skala min(W/mw, H*0.98/mh) agar utuh.
+7. Badge notifikasi pakai provider bersama (agar tersinkron).
+```
+
+### 33.8 RINGKASAN
+
+> **M16 SELESAI:** Special Chat dengan fitur Open-LLM-VTuber 100% —
+> avatar Live2D asli (8 model resmi), 14 background, TTS (AI bersuara),
+> ASR (user bicara), voice interruption, proactive speaking.
+> Navigasi: Chat | Special Chat | Skills | MCP | CLI | Setelan (Notif
+> dipindah jadi badge lonceng di pojok kanan atas, hanya di Chat & Special Chat).
+> Ditemukan **7 jebakan baru (59-65)**, yang terberat #60 (CORS file://).
+
+---
+
+## 34. 📝 CATATAN PERKEMBANGAN
 
 | Tanggal | Catatan |
 |---|---|

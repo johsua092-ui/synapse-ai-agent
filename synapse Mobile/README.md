@@ -3,7 +3,7 @@
 Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di laptop.
 
 > **Dibuat:** 24-25 September 2026
-> **Versi:** 0.9.0
+> **Versi:** 1.0.0
 > **Package:** `com.nousresearch.synapse_mobile`
 
 ---
@@ -12,10 +12,10 @@ Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di
 
 | Folder | Isi |
 |---|---|
-| `kode/` | Kode sumber lengkap (Flutter + Android/Kotlin) |
-| `dokumen/` | Kontrak kerja + design + panduan |
-| `apk/` | APK siap pasang (universal, arm64, armeabi) |
-| `bukti/` | Screenshot hasil uji (236 file) |
+| `kode/` | Kode sumber lengkap (Flutter + Android/Kotlin + assets) |
+| `dokumen/` | Kontrak kerja (35 bagian, 65 jebakan) + design + panduan |
+| `apk/` | APK siap pasang (universal 82 MB) |
+| `bukti/` | Screenshot hasil uji (260 file) |
 
 ---
 
@@ -34,10 +34,7 @@ Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di
 ```
 
 **Prinsip:** app di HP hanya "jendela" — kekuatan sesungguhnya ada di agent
-(laptop). Jadi:
-- Aman (tidak minta izin sensitif seperti SMS/kontak/lokasi)
-- Tidak kena Play Protect separah app yang minta semua izin
-- Maintenance ringan (90% kekuatan di agent, bukan di APK)
+(laptop). Jadi aman (tidak minta izin sensitif) dan maintenance ringan.
 
 ---
 
@@ -52,11 +49,30 @@ Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di
 - **Tema**: hanya Terang/Gelap (default Terang)
 - **Notifikasi latar belakang** (3 fase: bekerja/selesai/gagal)
 
+### Navigasi (6 tab)
+```
+Chat | Special Chat | Skills | MCP | CLI | Setelan
+```
+Badge notifikasi (lonceng + bulatan hijau + angka) ada di pojok kanan atas,
+**hanya** di Chat & Special Chat.
+
 ### Katalog Skill
 - **143 skill** dibawa di dalam APK (`assets/katalog_skill.json`)
 - Muncul **langsung** tanpa perlu server
 - Tombol "i" (info) selalu ada
 - Tombol install/uninstall hanya muncul setelah tersambung
+
+### Special Chat (fitur Open-LLM-VTuber)
+Setara https://github.com/Open-LLM-VTuber/Open-LLM-VTuber :
+- **Avatar Live2D asli** — 8 model resmi Live2D Inc (Hiyori, Haru, Mao,
+  Natori, Rice, Mark, Ren, Wanko), dibawa di dalam APK
+- **14 background** dari repo Open-LLM-VTuber (sekolah, kelas, kamar, kota,
+  pegunungan, malam, dll)
+- **TTS** — AI bersuara (ganti bahasa/kecepatan/nada)
+- **ASR** — user bicara lewat mikrofon
+- **Voice interruption** — suara AI dipotong saat user bicara
+- **AI proactive speaking** — AI bicara duluan
+- **Pemilih model** (8) & **pemilih background** (14)
 
 ### Kontrol Perangkat (M13)
 12 aksi cepat: daftar aplikasi, buka aplikasi, screenshot, layar sekarang,
@@ -76,11 +92,12 @@ Terbukti: buka Setelan → masuk Wi-Fi dalam 2 langkah.
 
 ## 📦 Cara Pasang
 
-1. Salin `apk/SynapseMobile_v0.9.0_UNIVERSAL_58MB.apk` ke HP
+1. Salin `apk/SynapseMobile_v1.0.0_UNIVERSAL_82MB.apk` ke HP
 2. Izinkan "Sumber tidak dikenal"
 3. Install → kalau ada peringatan Play Protect → "Tetap instal"
 4. Buka app → Setelan → isi Base URL + API Key → Deteksi Model → Simpan
 5. Setelan → Koneksi AI Agent Synapse PC ke Mobile → pilih Kabel/WiFi
+6. Untuk Special Chat: izinkan mikrofon saat diminta
 
 Panduan lengkap: `dokumen/PANDUAN_INSTALL.txt`
 
@@ -95,9 +112,13 @@ Panduan lengkap: `dokumen/PANDUAN_INSTALL.txt`
 | Android minimum | 7.0 (API 24) |
 | Android target | 16 (API 36) |
 | Arsitektur | arm64-v8a, armeabi-v7a, x86_64 |
-| Ukuran APK | 58 MB (universal) / 24 MB (arm64) |
+| Ukuran APK | 82 MB (universal, termasuk 8 model Live2D + 14 background) |
 | Sertifikat | CN=Synapse Mobile (self-signed) |
-| Izin | 8 (tanpa SMS/kontak/lokasi) |
+| Izin | 9 (tanpa SMS/kontak/lokasi) |
+
+**Dependency utama:** go_router, flutter_riverpod, webview_flutter,
+flutter_tts, speech_to_text, permission_handler, http, image_picker,
+file_picker, shared_preferences.
 
 ---
 
@@ -105,7 +126,7 @@ Panduan lengkap: `dokumen/PANDUAN_INSTALL.txt`
 
 | File | Isi |
 |---|---|
-| `dokumen/ATURAN_KERJA_SYNAPSE_MOBILE.md` | Kontrak kerja lengkap (33 bagian, 55 jebakan) |
+| `dokumen/ATURAN_KERJA_SYNAPSE_MOBILE.md` | Kontrak kerja lengkap (35 bagian, 65 jebakan) |
 | `dokumen/DESIGN_NOTIFIKASI.md` | Design notifikasi latar belakang |
 | `dokumen/PANDUAN_INSTALL.txt` | Panduan install untuk pengguna |
 
@@ -119,24 +140,26 @@ Panduan lengkap: `dokumen/PANDUAN_INSTALL.txt`
 - `build/` — hasil build (3 GB)
 - `.env` — konfigurasi rahasia
 
-**Izin yang diminta (8, semua wajar):**
+**Izin yang diminta (9, semua wajar):**
 ```
-CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE,
-POST_NOTIFICATIONS, FOREGROUND_SERVICE,
-FOREGROUND_SERVICE_DATA_SYNC, INTERNET, ACCESS_NETWORK_STATE
+CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, POST_NOTIFICATIONS,
+FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC, INTERNET,
+ACCESS_NETWORK_STATE, RECORD_AUDIO (untuk Special Chat)
 ```
 
 **Tidak diminta:** SMS, kontak, lokasi, daftar semua aplikasi.
 
 ---
 
-## 🐛 Jebakan Tercatat
+## 🐛 Jebakan Tercatat (65)
 
-**55 jebakan** terdokumentasi lengkap di
-`dokumen/ATURAN_KERJA_SYNAPSE_MOBILE.md` (bagian 7 + tiap milestone),
-termasuk:
+Terdokumentasi lengkap di `dokumen/ATURAN_KERJA_SYNAPSE_MOBILE.md`.
+Yang paling penting:
 - Ikon notifikasi harus monokrom (kalau tidak → kotak putih)
 - `usesCleartextTraffic="true"` wajib untuk `http://` di foreground service
 - `adb` wajib pakai `-s <serial>` kalau ada >1 device
 - Tombol pengaturan koneksi harus jadi item menu Setelan (bukan di dalam grup)
 - `vision_analyze` agent rusak → pakai `uiautomator dump`
+- **Flutter asset TIDAK rekursif** → subfolder harus didaftarkan eksplisit
+- **WebView blokir `file://` (CORS)** → pakai server HTTP lokal
+- **`registerTicker` wajib** untuk pixi-live2d-display (kalau tidak → call stack error)

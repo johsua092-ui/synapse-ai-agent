@@ -1,0 +1,45 @@
+{
+ "cdn": "https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources",
+ "model": [
+  {
+   "id": "Hiyori",
+   "nama": "Hiyori",
+   "ket": "Gadis ramah bersemangat"
+  },
+  {
+   "id": "Haru",
+   "nama": "Haru",
+   "ket": "Gadis santai berjaket"
+  },
+  {
+   "id": "Mao",
+   "nama": "Mao",
+   "ket": "Gadis manis berhoodie"
+  },
+  {
+   "id": "Natori",
+   "nama": "Natori",
+   "ket": "Gadis kalem berambut panjang"
+  },
+  {
+   "id": "Rice",
+   "nama": "Rice",
+   "ket": "Gadis kecil ceria"
+  },
+  {
+   "id": "Mark",
+   "nama": "Mark",
+   "ket": "Pemuda berjaket"
+  },
+  {
+   "id": "Ren",
+   "nama": "Ren",
+   "ket": "Pemuda berjas"
+  },
+  {
+   "id": "Wanko",
+   "nama": "Wanko",
+   "ket": "Anjing (maskot lucu)"
+  }
+ ]
+}

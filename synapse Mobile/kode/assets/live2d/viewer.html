@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0D0C11}
+  #bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  #peta{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
+  #pesan{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#DCB363;font:12px/1.6 monospace;text-align:center;padding:20px;white-space:pre-wrap;z-index:2}
+</style>
+<script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+</head>
+<body>
+<img id="bg" alt="">
+<canvas id="peta"></canvas>
+<div id="pesan">Memuat...</div>
+<script>
+var app = null, model = null;
+var AKAR = '/live2d/';
+var LOG = [];
+
+function kabar(t){
+  LOG.push(t);
+  var e = document.getElementById('pesan');
+  if(e){ e.style.display='flex'; e.textContent = LOG.join('\n'); }
+}
+function sembunyi(){
+  var e = document.getElementById('pesan');
+  if(e){ e.style.display='none'; }
+}
+
+function mulai(){
+  try{
+    if(!window.PIXI || !PIXI.live2d || !window.Live2DCubismCore){
+      kabar('X pustaka belum siap'); return;
+    }
+    try{ PIXI.live2d.Live2DModel.registerTicker(PIXI.Ticker); }catch(e){}
+
+    app = new PIXI.Application({
+      view: document.getElementById('peta'),
+      width: Math.max(1, window.innerWidth),
+      height: Math.max(1, window.innerHeight),
+      backgroundAlpha: 0,
+      antialias: true,
+      resolution: Math.min(window.devicePixelRatio || 1, 2),
+      autoDensity: true
+    });
+    muatModel('Hiyori');
+  }catch(e){ kabar('X mulai: ' + e.message); }
+}
+
+function muatModel(nama){
+  try{
+    if(model){
+      try{ app.stage.removeChild(model); }catch(e){}
+      try{ model.destroy(); }catch(e){}
+      model = null;
+    }
+    var url = AKAR + nama + '/' + nama + '.model3.json';
+    PIXI.live2d.Live2DModel.from(url, { autoInteract: false }).then(function(m){
+      model = m;
+      app.stage.addChild(model);
+      aturModel();
+      try{ model.motion('Idle'); }catch(e){}
+      sembunyi();
+    }).catch(function(e){
+      kabar('X muat ' + nama + ': ' + (e && e.message ? e.message : e));
+    });
+  }catch(e){ kabar('X muatModel: ' + e.message); }
+}
+
+// PENTING: karakter dibuat PAS di layar (kepala tidak terpotong)
+function aturModel(){
+  if(!model || !app) return;
+  var W = app.screen.width, H = app.screen.height;
+  var mw = model.width, mh = model.height;
+
+  // skala agar SELURUH tubuh masuk (pakai tinggi, sisakan margin atas)
+  var skala = Math.min(W / mw, (H * 0.98) / mh);
+  model.scale.set(skala);
+
+  // taruh di bawah-tengah, sedikit ke kanan supaya tidak menutupi chat
+  model.anchor.set(0.5, 1);
+  model.x = W * 0.5;
+  model.y = H * 0.99;
+}
+
+window.gantiModel = function(n){ muatModel(n); };
+
+window.gantiBackground = function(nama){
+  var bg = document.getElementById('bg');
+  if(!bg) return;
+  if(!nama || nama === 'none'){ bg.style.display='none'; return; }
+  bg.style.display = 'block';
+  bg.src = '/backgrounds/' + encodeURIComponent(nama);
+};
+
+window.setBicara = function(v){
+  if(!model) return;
+  var on = (v === 'true' || v === true);
+  var core = model.internalModel.coreModel;
+  if(on){
+    if(window._m) clearInterval(window._m);
+    window._m = setInterval(function(){
+      try{ core.setParameterValueById('ParamMouthOpenY', 0.3 + Math.random()*0.7); }catch(e){}
+    }, 90);
+  }else{
+    if(window._m) clearInterval(window._m);
+    try{ core.setParameterValueById('ParamMouthOpenY', 0); }catch(e){}
+  }
+};
+
+window.setEmosi = function(e){ if(model){ try{ model.expression(e); }catch(x){} } };
+
+window.addEventListener('resize', function(){
+  if(app && app.renderer){
+    app.renderer.resize(window.innerWidth, window.innerHeight);
+    aturModel();
+  }
+});
+
+window.addEventListener('load', function(){
+  var n = 0;
+  var t = setInterval(function(){
+    n++;
+    if(window.PIXI && PIXI.live2d && window.Live2DCubismCore){
+      clearInterval(t); mulai();
+    }else if(n > 80){
+      clearInterval(t); kabar('X pustaka gagal dimuat (butuh internet)');
+    }
+  }, 250);
+});
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/chat/chat_screen.dart';
+import '../features/special/special_chat_screen.dart';
 import '../features/backup/backup_screen.dart';
 import '../features/cli/cli_screen.dart';
 import '../features/koneksi/koneksi_screen.dart';
@@ -21,9 +22,11 @@ final router = GoRouter(
   initialLocation: '/chat',
   routes: [
     ShellRoute(
-      builder: (context, state, child) => AppShell(child: child),
+      builder: (context, state, child) =>
+          AppShell(child: child, lokasi: state.uri.path),
       routes: [
         GoRoute(path: '/chat', builder: (c, s) => const ChatScreen()),
+        GoRoute(path: '/special', builder: (c, s) => const SpecialChatScreen()),
         GoRoute(path: '/skills', builder: (c, s) => const SkillsScreen()),
         GoRoute(path: '/mcp', builder: (c, s) => const McpScreen()),
         GoRoute(path: '/cli', builder: (c, s) => const CliScreen()),
