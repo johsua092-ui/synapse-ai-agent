@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Folder cache internal app: tempat APK update diunduh.
+         getExternalStorageDirectory() -> /storage/emulated/0/Android/data/<pkg>/files -->
+    <external-files-path name="apk_update" path="." />
+    <cache-path name="cache" path="." />
+    <external-cache-path name="ext_cache" path="." />
+</paths>

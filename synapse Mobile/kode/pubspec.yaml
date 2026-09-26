@@ -1,7 +1,7 @@
 name: synapse_mobile
 description: "Synapse Mobile"
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.2.1+2201
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -32,12 +32,15 @@ dependencies:
   flutter_tts: ^4.2.0            # TTS bawaan HP (cadangan)
   audioplayers: ^6.1.0           # putar suara anime (edge-tts)
   path_provider: ^2.1.5          # path file sementara
+  package_info_plus: ^8.1.2      # baca versi APK
   speech_to_text: ^7.0.0         # ASR: user bicara
   permission_handler: ^11.3.1    # izin mikrofon/kamera
   webview_flutter: ^4.10.0       # Live2D avatar
 
   image_picker: ^1.1.2
   file_picker: ^10.3.10
+  # Buka file APK hasil unduhan -> munculkan installer Android
+  open_file: ^3.5.10
 
 dev_dependencies:
   flutter_test:

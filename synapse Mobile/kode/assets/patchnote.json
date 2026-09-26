@@ -1,0 +1,155 @@
+{
+ "versi_terbaru": "1.2.3",
+ "riwayat": [
+  {
+   "versi": "1.2.3",
+   "tanggal": "26 September 2026",
+   "judul": "Update Langsung dari GitHub",
+   "perbaikan": [
+    "FIX 'Cek Update' sekarang benar-benar memeriksa versi terbaru dari GitHub (sebelumnya hanya membandingkan patchnote di dalam APK)",
+    "FIX tombol update: dulu hanya animasi palsu ('Update selesai — restart aplikasi') tanpa mengunduh apa pun — sekarang benar-benar mengunduh APK",
+    "FIX versi dibandingkan secara angka (1.2.10 lebih baru dari 1.2.9)"
+   ],
+   "fitur_baru": [
+    "Update dari GitHub: cek versi terbaru, lihat catatan rilis, unduh APK, lalu pasang langsung dari dalam app (Android tetap minta konfirmasi Install sekali — aturan keamanan Android)",
+    "Sekali pasang, update berikutnya cukup 1 klik di dalam app"
+   ]
+  },
+  {
+   "versi": "1.2.2",
+   "tanggal": "26 September 2026",
+   "judul": "Perbaikan Backup & Restore (PENUH, nyata)",
+   "perbaikan": [
+    "FIX Backup: tombol 'Buat Backup PENUH' sekarang benar-benar berhasil (sebelumnya selalu 'Gagal: TimeoutException 0:03:00')",
+    "FIX Restore: tombol 'Restore dari Backup' sekarang benar-benar memulihkan SELURUH isi ~/.synapse",
+    "FIX batas waktu: operasi berat (backup/restore/install skill) tidak lagi putus di menit ke-3 — memakai jalur streaming",
+    "FIX perintah: backup/restore memakai perintah RESMI Synapse (bukan skrip buatan) sehingga hasilnya konsisten & tidak membengkak",
+    "FIX Backup: kini menyertakan state.db (riwayat & status) + pengecualian resmi (kode synapse-agent, node_modules, cache) — ukuran wajar ~230 MB",
+    "FIX Restore: otomatis membuat backup pengaman 'sebelum-restore' lebih dulu supaya data lama tidak hilang"
+   ],
+   "fitur_baru": [
+    "Daftar Backup: menampilkan file backup di folder C:\\Users\\user\\backup\\"
+   ]
+  },
+  {
+   "versi": "1.2.1",
+   "tanggal": "25 September 2026",
+   "judul": "Perbaikan Bug & Fitur Baru",
+   "perbaikan": [
+    "FIX avatar Live2D: kaki/tangan tidak lagi jadi 3 (clipping mask rusak) — matikan antialias",
+    "FIX avatar Live2D: tidak lagi patah-patah — resolusi renderer 1x",
+    "FIX CLI: perintah sekarang BENAR-BENAR dijalankan di laptop (sebelumnya hanya teks palsu)",
+    "FIX MCP: MCP tersimpan permanen (sebelumnya toggle hilang saat keluar app)"
+   ],
+   "fitur_baru": [
+    "MCP Custom: tambah/edit/hapus server MCP sendiri (nama, URL, tipe, auth) + tombol Pasang",
+    "Skill Custom: buat/edit/hapus skill sendiri (nama, keterangan, instruksi) + tombol Pasang",
+    "Restore Penuh: kembalikan SELURUH data Synapse dari backup (config, .env, memori, skill, SOUL, riwayat)",
+    "Backup Penuh: backup seluruh isi ~/.synapse ke satu file zip",
+    "Patchnote/Log Update: daftar perbaikan tiap versi bisa dilihat di app"
+   ]
+  },
+  {
+   "versi": "1.2.0",
+   "tanggal": "25 September 2026",
+   "judul": "Pengecilan APK",
+   "perbaikan": [
+    "APK dikecilkan dari 79 MB menjadi 58 MB (-26%) tanpa menghapus fitur",
+    "Buang dukungan emulator (x86_64) — HP asli tetap didukung",
+    "R8/minify + kompresi tekstur & background"
+   ],
+   "fitur_baru": []
+  },
+  {
+   "versi": "1.1.0",
+   "tanggal": "25 September 2026",
+   "judul": "Suara Anime & Fix Keyboard",
+   "perbaikan": [
+    "FIX kolom ketik pesan tertimpa keyboard (kini naik di atas keyboard)",
+    "FIX avatar membesar saat keyboard muncul",
+    "FIX kepala karakter terpotong"
+   ],
+   "fitur_baru": [
+    "Suara anime ASLI per karakter (8 karakter = 8 suara berbeda)",
+    "Pemilih suara karakter",
+    "Pemilih background (14 pilihan)"
+   ]
+  },
+  {
+   "versi": "1.0.0",
+   "tanggal": "25 September 2026",
+   "judul": "Special Chat (VTuber)",
+   "perbaikan": [],
+   "fitur_baru": [
+    "Special Chat: avatar Live2D asli (8 model resmi)",
+    "Background (14 gambar) dari Open-LLM-VTuber",
+    "TTS (AI bersuara) + ASR (bicara ke AI)",
+    "Badge notifikasi (lonceng + angka) di Chat & Special Chat"
+   ]
+  },
+  {
+   "versi": "0.9.0",
+   "tanggal": "25 September 2026",
+   "judul": "Kontrol Perangkat & Otonom",
+   "perbaikan": [],
+   "fitur_baru": [
+    "Panel Perangkat: 12 aksi cepat (buka app, tap, screenshot, dll)",
+    "Koneksi Kabel (USB) & WiFi (nirkabel)",
+    "Mode Otonom: agent lihat layar HP lalu tap sendiri"
+   ]
+  },
+  {
+   "versi": "0.5.0",
+   "tanggal": "25 September 2026",
+   "judul": "Katalog Skill Offline",
+   "perbaikan": [
+    "Daftar skill selalu tampil walau belum tersambung (dibawa di dalam APK)"
+   ],
+   "fitur_baru": [
+    "Katalog 143 skill offline",
+    "Mode 'hanya lihat' saat belum ada API key"
+   ]
+  },
+  {
+   "versi": "0.4.0",
+   "tanggal": "25 September 2026",
+   "judul": "Notifikasi Latar Belakang",
+   "perbaikan": [],
+   "fitur_baru": [
+    "Notifikasi 3 fase (sedang bekerja / selesai / gagal)",
+    "Service tetap jalan walau app ditutup"
+   ]
+  },
+  {
+   "versi": "0.3.0",
+   "tanggal": "25 September 2026",
+   "judul": "Sesi Chat",
+   "perbaikan": [],
+   "fitur_baru": [
+    "Banyak sesi chat (pin, ganti nama, hapus, cari)",
+    "Panel setengah layar ala Gemini"
+   ]
+  },
+  {
+   "versi": "0.2.0",
+   "tanggal": "25 September 2026",
+   "judul": "Chat & Vision",
+   "perbaikan": [],
+   "fitur_baru": [
+    "Chat streaming ke agent",
+    "Kirim gambar + dokumen (vision)"
+   ]
+  },
+  {
+   "versi": "0.1.0",
+   "tanggal": "24 September 2026",
+   "judul": "Rilis Pertama",
+   "perbaikan": [],
+   "fitur_baru": [
+    "Kerangka app (6 tab)",
+    "Tema terang & gelap",
+    "Backup & Restore dasar"
+   ]
+  }
+ ]
+}

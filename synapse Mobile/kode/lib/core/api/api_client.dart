@@ -48,7 +48,9 @@ class ApiClient {
 
   // ================= CHAT (teks) =================
 
-  Future<String> chat(String pesan, {List<Map<String, dynamic>>? riwayat}) async {
+  Future<String> chat(String pesan,
+      {List<Map<String, dynamic>>? riwayat,
+      Duration timeout = const Duration(seconds: 180)}) async {
     final r = await http
         .post(_u('/v1/chat/completions'),
             headers: _headers,
@@ -59,7 +61,7 @@ class ApiClient {
                 {'role': 'user', 'content': pesan},
               ],
             }))
-        .timeout(const Duration(seconds: 180));
+        .timeout(timeout);
     if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}: ${r.body}');
     final d = jsonDecode(r.body) as Map<String, dynamic>;
     return ((d['choices'] as List?)?.first?['message']?['content'] ?? '')
@@ -160,9 +162,20 @@ class ApiClient {
   }
 
   /// Jalankan perintah lewat AGENT (install skill, akses perangkat, backup).
-  Future<String> perintahAgent(String perintah) => chat(
+  ///
+  /// [panjang] = true untuk operasi BERAT (backup/restore penuh) yang bisa
+  /// makan beberapa menit. Tanpa ini, batas 180 detik membuat backup/restore
+  /// selalu "TimeoutException" walau agent di laptop masih bekerja.
+  Future<String> perintahAgent(String perintah, {bool panjang = false}) {
+    final pesan =
         'Jalankan perintah ini di terminal host dan laporkan hasilnya:\n\n'
         '`$perintah`\n\n'
-        'Balas singkat: berhasil/gagal + output penting.',
-      );
+        'Balas singkat: berhasil/gagal + output penting.';
+    // Operasi panjang: pakai jalur STREAMING (tanpa batas 180 detik) supaya
+    // tidak kena timeout; hasil akhir = gabungan seluruh potongan teks.
+    if (panjang) {
+      return chatStream(pesan).join();
+    }
+    return chat(pesan);
+  }
 }

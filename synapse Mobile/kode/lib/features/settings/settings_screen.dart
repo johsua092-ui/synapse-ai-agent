@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/api_config.dart';
@@ -138,7 +139,13 @@ class SettingsScreen extends ConsumerWidget {
 
         const SizedBox(height: AppSpacing.lg),
         Center(
-          child: Text('Synapse Mobile 0.1.0', style: t.textTheme.bodySmall),
+          child: FutureBuilder(
+            future: PackageInfo.fromPlatform(),
+            builder: (c, snap) => Text(
+              'Synapse Mobile ${snap.data?.version ?? '...'}',
+              style: t.textTheme.bodySmall,
+            ),
+          ),
         ),
       ],
       ),

@@ -2,8 +2,8 @@
 
 Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di laptop.
 
-> **Dibuat:** 24-25 September 2026
-> **Versi:** 1.2.0
+> **Dibuat:** 24-26 September 2026
+> **Versi:** 1.2.3
 > **Package:** `com.nousresearch.synapse_mobile`
 
 ---
@@ -13,9 +13,32 @@ Aplikasi mobile (Flutter) untuk mengendalikan **agent Synapse** yang berjalan di
 | Folder | Isi |
 |---|---|
 | `kode/` | Kode sumber lengkap (Flutter + Android/Kotlin + assets) |
-| `dokumen/` | Kontrak kerja (37 bagian, 73 jebakan) + design + panduan |
-| `apk/` | APK siap pasang (universal 58 MB) |
-| `bukti/` | Screenshot hasil uji (292 file) |
+| `dokumen/` | Kontrak kerja (43 bagian, 82 jebakan) + design + panduan |
+| `apk/` | APK siap pasang (`SynapseMobile_v1.2.3.apk`, 58,7 MB) |
+| `bukti/` | Screenshot hasil uji (300 file) |
+
+---
+
+## 🔄 Riwayat Versi (ringkas)
+
+| Versi | Isi |
+|---|---|
+| **1.2.3** | **Update langsung dari GitHub** — "Cek Update" nyata + unduh & pasang APK dari dalam app |
+| 1.2.2 | Perbaikan Backup & Restore PENUH (timeout 180s diperbaiki; pakai perintah resmi `synapse backup`/`import`) |
+| 1.2.1 | Fix Live2D, CLI nyata, MCP/Skill custom tersimpan, patchnote di APK |
+| 1.2.0 | Pengecilan APK 79 → 58 MB |
+| 1.1.0 | Suara anime per karakter + fix keyboard avatar |
+| 1.0.0 | Special Chat (Open-LLM-VTuber) + badge notifikasi |
+| 0.9.0 | Kontrol Perangkat & Mode Otonom |
+| 0.5.0 | Katalog 143 skill offline |
+| 0.1.0 | Rilis pertama |
+
+### Update dari dalam app (v1.2.3)
+Setelah versi **1.2.3** terpasang **sekali**, update berikutnya tidak perlu
+kirim file lagi:
+`Setelan → Update & Patchnote → Cek Update → Unduh & Pasang Update → Install`.
+Data **tidak hilang** (keystore sama). Android tetap menampilkan konfirmasi
+"Install" sekali — ini aturan keamanan Android, tidak bisa dilewati.
 
 ---
 

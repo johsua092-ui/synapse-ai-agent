@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_config.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/theme/spacing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Satu skill di katalog.
 class SkillItem {
@@ -64,6 +65,157 @@ class SkillsScreen extends ConsumerStatefulWidget {
 class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   String _cari = '';
   final Set<String> _terpasang = {};
+  /// Skill buatan user: [{nama, desk, isi}]
+  List<Map<String, dynamic>> _custom = [];
+  static const _kunciCustom = 'skill_custom';
+
+  @override
+  void initState() {
+    super.initState();
+    _muatCustom();
+  }
+
+  Future<void> _muatCustom() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final c = p.getString(_kunciCustom);
+      if (c != null && c.isNotEmpty && mounted) {
+        setState(() => _custom = (jsonDecode(c) as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _simpanCustom() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kunciCustom, jsonEncode(_custom));
+  }
+
+  /// Dialog BUAT / EDIT skill sendiri.
+  Future<void> _dialogSkill({Map<String, dynamic>? awal, int? indeks}) async {
+    final nama = TextEditingController(text: (awal?['nama'] ?? '') as String);
+    final desk = TextEditingController(text: (awal?['desk'] ?? '') as String);
+    final isi = TextEditingController(text: (awal?['isi'] ?? '') as String);
+
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(indeks == null ? 'Buat Skill Sendiri' : 'Edit Skill'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: nama,
+              decoration: const InputDecoration(
+                  labelText: 'Nama skill', hintText: 'mis. catat-keuangan'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: desk,
+              decoration: const InputDecoration(labelText: 'Keterangan'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: isi,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Isi skill (instruksi)',
+                hintText: 'Tulis langkah/instruksi untuk AI...',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+          FilledButton(
+            onPressed: () {
+              if (nama.text.trim().isEmpty) return;
+              setState(() {
+                final d = {
+                  'nama': nama.text.trim(),
+                  'desk': desk.text.trim().isEmpty
+                      ? 'Skill buatan sendiri'
+                      : desk.text.trim(),
+                  'isi': isi.text.trim(),
+                };
+                if (indeks == null) {
+                  _custom.add(d);
+                } else {
+                  _custom[indeks] = d;
+                }
+              });
+              _simpanCustom();
+              Navigator.pop(c);
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _hapusSkill(int i) async {
+    final nama = _custom[i]['nama'];
+    final ya = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Hapus skill?'),
+        content: Text('Skill "$nama" akan dihapus.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Tidak')),
+          FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Ya')),
+        ],
+      ),
+    );
+    if (ya != true) return;
+    setState(() => _custom.removeAt(i));
+    _simpanCustom();
+  }
+
+  /// Pasang skill sendiri ke agent.
+  Future<void> _pasangSkill(int i) async {
+    final m = _custom[i];
+    final klien = ref.read(apiClientProvider);
+    if (klien == null) {
+      _pesan('Belum tersambung. Isi Base URL + API Key di Setelan.');
+      return;
+    }
+    _pesan('Memasang skill "${m['nama']}" di laptop...');
+    try {
+      final perintah =
+          'Buat skill Synapse baru dengan data ini:\n'
+          'NAMA: ${m['nama']}\nKETERANGAN: ${m['desk']}\n'
+          'ISI/INSTRUKSI:\n${m['isi']}\n\n'
+          'Buat file SKILL.md di folder skills Synapse dengan frontmatter '
+          '(name, description) + isi instruksi di atas, lalu laporkan singkat: '
+          'berhasil/gagal + path file.';
+      final hasil = await klien.perintahAgent(perintah, panjang: true);
+      _pesan(hasil.trim().isEmpty ? 'Selesai.' : hasil.trim());
+    } catch (e) {
+      _pesan('Gagal: $e');
+    }
+  }
+
+  void _pesan(String s) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Hasil'),
+        content: SingleChildScrollView(child: Text(s)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c), child: const Text('Tutup')),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +238,11 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       appBar: AppBar(
         title: const Text('Skills'),
         actions: [
+          IconButton(
+            tooltip: 'Buat skill sendiri',
+            icon: const Icon(Icons.add),
+            onPressed: () => _dialogSkill(),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Center(
@@ -136,6 +293,61 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
               ],
             ),
           ),
+          // ---- SKILL SAYA (buatan sendiri) ----
+          if (_custom.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.sm, AppSpacing.md, 4),
+              child: Row(children: [
+                Icon(Icons.person_outline,
+                    size: 18, color: t.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('Skill Saya (${_custom.length})',
+                    style: t.textTheme.titleSmall),
+              ]),
+            ),
+            ...List.generate(_custom.length, (i) {
+              final m = _custom[i];
+              return ListTile(
+                leading: Icon(Icons.extension, color: t.colorScheme.primary),
+                title: Text(m['nama'] as String),
+                subtitle: Text(m['desk'] as String,
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    tooltip: 'Pasang ke agent',
+                    color: t.colorScheme.primary,
+                    onPressed: () => _pasangSkill(i),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Edit',
+                    onPressed: () => _dialogSkill(awal: m, indeks: i),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Hapus',
+                    color: Colors.red,
+                    onPressed: () => _hapusSkill(i),
+                  ),
+                ]),
+                onTap: () => _dialogSkill(awal: m, indeks: i),
+              );
+            }),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, 4, AppSpacing.md, 4),
+              child: Row(children: [
+                Icon(Icons.inventory_2_outlined,
+                    size: 18, color: t.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('Katalog Bawaan (${semua.length})',
+                    style: t.textTheme.titleSmall),
+              ]),
+            ),
+          ],
           Expanded(
             child: semua.isEmpty
                 ? const Center(child: CircularProgressIndicator())
@@ -309,7 +521,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         content: Text('${install ? 'Menginstall' : 'Menghapus'} "${s.name}"...')));
 
     try {
-      final hasil = await klien.perintahAgent(cmd);
+      final hasil = await klien.perintahAgent(cmd, panjang: true);
       if (!mounted) return;
       setState(() {
         if (install) {

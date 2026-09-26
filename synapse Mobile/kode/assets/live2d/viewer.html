@@ -50,9 +50,9 @@ function mulai(){
       width: LW,
       height: LH,
       backgroundAlpha: 0,
-      antialias: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
-      autoDensity: true
+      antialias: false,   // WAJIB false: kalau true, clipping mask Live2D rusak (kaki/tangan dobel)
+      resolution: 1,      // 1 = tajam & stabil (2x bikin patah-patah di WebView)
+      autoDensity: false
     });
     muatModel('Hiyori');
     // pantau ukuran wadah (keyboard muncul -> tinggi berubah)

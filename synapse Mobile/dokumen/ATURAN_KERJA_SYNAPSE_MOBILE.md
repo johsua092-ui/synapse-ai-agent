@@ -3368,7 +3368,84 @@ latar belakang rusak.
 
 ---
 
-## 36. 📝 CATATAN PERKEMBANGAN
+## 36. ATURAN MUTLAK: "SELESAI" + 3 HAL WAJIB (25 Sep 2026)
+
+### 36.1 PERINTAH USER (verbatim)
+
+> *"nanti kalau sudah selesai maka ada 3 hal yang wajib harus kamu lakukan:
+> 1.) tulis patchnote atau log update di apk versi terbaru
+> 2.) siapkan apk terbaru di bagian folder download di hp saya
+> 3.) push normal ke github pakai token ya!
+>
+> akan tetapi itu dilakukan ketika dinyatakan 'selesai'. kapan dinyatakan
+> selesai? ketika kamu sudah selesai mengerjakan komplain lalu kamu berhenti
+> di chat sesi ini dan tanya ke saya apakah udah sesuai? kalau sudah tolong
+> bilang nah harusnya kayak gitu. kalau saya gak kasih izin maka kamu dilarang
+> melakukan 3 hal tadi dan belum dinyatakan selesai! paham??"*
+
+### 36.2 ATURAN (MUTLAK - TIDAK BOLEH DILANGGAR)
+
+```
+URUTAN WAJIB:
+  1. Kerjakan SEMUA komplain/perbaikan sampai tuntas
+  2. BERHENTI - jangan lakukan 3 hal di bawah
+  3. TANYA ke user: "Apakah sudah sesuai?"
+  4. TUNGGU jawaban user
+  5. Kalau user bilang "sudah/sesuai/ya" -> BARU lakukan 3 hal:
+       a. Tulis patchnote / log update DI DALAM APK
+       b. Taruh APK terbaru di folder Download HP user
+       c. Push normal ke GitHub PAKAI TOKEN
+  6. Kalau user TIDAK memberi izin -> DILARANG lakukan 3 hal itu
+     dan pekerjaan BELUM dinyatakan "selesai"
+```
+
+### 36.3 DEFINISI "SELESAI"
+
+```
+SELESAI  =  user sudah bilang "sesuai/sudah/ya" SETELAH ditanya
+BUKAN    =  AI merasa pekerjaannya sudah beres
+```
+
+**JANGAN pernah mengklaim "selesai" sendiri.** Harus lewat konfirmasi user.
+
+### 36.4 PATCHNOTE / LOG UPDATE (WAJIB DI DALAM APK)
+
+```
+- Versi pakai ANGKA (hemat): 1.2.0 -> 1.2.1 -> 1.2.2 (bukan tanggal)
+- Patchnote WAJIB ada DI DALAM APK (bisa dibaca user, bukan hanya di GitHub)
+- Isi: daftar apa yang diperbaiki di versi itu
+- Ada di layar "Update" / "Tentang" / dialog saat buka app
+```
+
+### 36.5 DIALOG UPDATE SAAT INSTALL
+
+```
+Saat user install versi baru di atas versi lama:
+  - HARUS muncul tulisan: "Update dari 1.2.0 ke 1.2.1"
+  - TIDAK boleh bentrok / gagal install ke paket yang sudah ada
+  - Caranya: naikkan versionCode (2200 -> 2201) + versionName (1.2.0 -> 1.2.1)
+  - Keystore SAMA (supaya bisa update, bukan install ulang)
+```
+
+### 36.6 PUSH PAKAI TOKEN (BARU)
+
+```
+Push ke GitHub WAJIB pakai TOKEN (bukan kredensial tersimpan biasa).
+Cara: https://<TOKEN>@github.com/<user>/<repo>.git
+ATAU: git remote set-url origin https://<TOKEN>@github.com/...
+Token TIDAK boleh ditulis di file yang di-commit / ditampilkan ke user.
+```
+
+### 36.7 RINGKASAN
+
+> **ATURAN MUTLAK:** Kerjakan dulu semua perbaikan -> BERHENTI -> TANYA user
+> "sudah sesuai?" -> TUNGGU izin -> BARU (1) tulis patchnote di APK,
+> (2) taruh APK di Download HP, (3) push normal pakai token.
+> Tanpa izin user = DILARANG, dan pekerjaan BELUM "selesai".
+
+---
+
+## 37. 📝 CATATAN PERKEMBANGAN
 
 | Tanggal | Catatan |
 |---|---|
@@ -3390,3 +3467,396 @@ integrasi dengan inti Synapse. Rencana dulu → konfirmasi → baru kode.*
 ---
 
 ---
+---
+
+## 38. M19 - FIX JUDUL APPBAR TIDAK DI TENGAH + JEBAKAN (25 Sep 2026)
+
+### 38.1 KELUHAN USER
+
+> *"ada 1 hal janggal itu teks 'special chat' kurang tengah gaenak liatnya,
+> perbaiki ya itu kaya rata kiri gitu ga simetris aku lihatnya."*
+
+### 38.2 PENYEBAB (JEBAKAN #74)
+
+```
+1. AppBar Flutter TIDAK otomatis centerTitle=true
+   -> default-nya rata KIRI.
+2. Kalau ada `actions` (badge lonceng), ruang kanan lebih lebar
+   -> judul bergeser makin ke kiri.
+3. Judul PANJANG ("Special Chat") lebih mudah terlihat bergeser
+   dibanding judul pendek ("Chat").
+```
+
+**Bukti uji:** "Chat" di x=610 (tengah ✅), "Special Chat" di x≈500 (geser ❌).
+
+### 38.3 PERBAIKAN (2 LANGKAH)
+
+```dart
+// Langkah 1: centerTitle + leading & actions lebar SAMA (48px)
+appBar: AppBar(
+  centerTitle: true,
+  leading: const SizedBox(width: 48),        // imbangi actions
+  ...
+  actions: [
+    if (_tampilBadge) _TombolLonceng(...) else const SizedBox(width: 48),
+    const SizedBox(width: 4),
+  ],
+)
+
+// Langkah 2 (WAJIB untuk judul panjang): titleSpacing 0 + title penuh
+titleSpacing: 0,
+title: SizedBox(
+  width: double.infinity,
+  child: Text(_nav[_indeks].label, textAlign: TextAlign.center),
+),
+```
+
+### 38.4 ATURAN BARU
+
+```
+1. Setiap AppBar yang ada `actions` WAJIB pakai:
+   centerTitle: true + leading yang lebarnya = actions
+2. Kalau judul bisa PANJANG: pakai titleSpacing: 0 +
+   SizedBox(width: double.infinity) + textAlign: center.
+3. SELALU uji dengan judul TERPANJANG, bukan yang terpendek.
+```
+
+### 38.5 CARA MENGUJI
+
+```
+1. Screenshot tab dgn judul pendek ("Chat") dan panjang ("Special Chat")
+2. Ukur posisi x teks: harus ~610 (tengah layar 1220)
+3. Kalau x < 580 = masih geser kiri -> perbaiki lagi
+```
+
+### 38.6 RINGKASAN
+
+> **M19 SELESAI:** Judul AppBar kini BENAR-BENAR di tengah (semua tab),
+> termasuk judul panjang. Ditemukan **1 jebakan baru (#74)**: AppBar dengan
+> `actions` menggeser judul; perlu centerTitle + leading seimbang +
+> titleSpacing 0.
+
+---
+
+## BAGIAN 39 — VERIFIKASI SIMPAN MCP & SKILL (v1.2.1, 26 Sep 2026)
+
+### 39.1 HASIL UJI (TERBUKTI)
+
+```
+MCP   : mcp_uji (http • none)  -> "MCP Saya (1)"  ✅
+Skill : skill_uji / uji        -> "Skill Saya (1)" ✅
+Bertahan setelah force-stop + start ulang?  ✅ KEDUANYA MASIH ADA
+Bukti: bukti\V121_MCP_simpan.png, V121_SKILL_simpan.png,
+       V121_MCP_restart.png, V121_SKILL_restart(=_tmp_d1).png
+```
+
+### 39.2 JEBAKAN BARU DITEMUKAN (lanjutan #74)
+
+**#75 — `run-as` GAGAL pada APK release**
+```
+$ adb shell run-as com.nousresearch.synapse_mobile cat /data/data/.../shared_prefs/*.xml
+run-as: package not debuggable: com.nousresearch.synapse_mobile
+```
+Penyebab: APK release (bukan debug) → `android:debuggable=false`.
+SOLUSI: jangan andalkan `run-as`. Verifikasi simpan dengan **PERSISTENSI**:
+force-stop → start ulang → buka tab → data harus masih muncul.
+(Cara lain: `adb backup`, tapi paling lambat/tidak stabil.)
+
+**#76 — `input keyevent 111` (ESC) MENUTUP AlertDialog**
+```
+Saat dialog "Tambah MCP Sendiri" terbuka & keyboard muncul,
+`input keyevent 111` menutup SELURUH dialog (bukan hanya keyboard)
+-> semua isian HILANG.
+```
+SOLUSI: untuk menyembunyikan keyboard pakai **`keyevent 4` (BACK)**
+— BACK hanya menutup keyboard; kalau keyboard sudah tertutup, BACK
+baru menutup dialog (jadi panggil BACK hanya saat keyboard terbuka).
+Untuk membatalkan dialog: tap **scrim** (area gelap di luar kartu dialog).
+
+**#77 — DIALOG ALERT BERGESER ±429 px SAAT KEYBOARD MUNCUL**
+```
+AlertDialog Flutter otomatis bergeser ke atas saat keyboard muncul.
+Besarnya pergeseran di HP ini KONSISTEN: 429 px (dialog MCP & Skill sama).
+Akibat: koordinat field yang diukur SEBELUM keyboard muncul akan MELESET
+-> teks masuk ke field yang salah (mis. URL nyangkut di Nama).
+```
+SOLUSI (terbukti):
+```
+1. Ukur posisi field saat keyboard TERTUTUP (dari screenshot).
+2. Tap field Nama, ketik isinya.
+3. Screenshot ULANG saat keyboard TERBUKA -> deteksi ulang band putih
+   -> kurangi 429 px dari koordinat awal -> tap field berikutnya.
+4. Jangan pernah pakai koordinat lama setelah keyboard muncul.
+```
+Cara deteksi band field yang andal (PIL, lebih akurat dari vision):
+```python
+# cari baris yang banyak piksel PUTIH murni (255,255,255) = isi field
+d = abs(a - [255,255,255]).sum(axis=2); mask = d < 10
+rows = mask.sum(axis=1)   # baris dgn rows>300 = area field
+# tombol Simpan = blok BIRU (0,83,253): abs(a-[0,83,253]).sum(axis=2) < 50
+```
+
+### 39.3 KUNCI PREFERENSI (terkonfirmasi dari source)
+```
+MCP    : lib/features/mcp/mcp_screen.dart
+         'mcp_aktif'  (StringList)  'mcp_custom' (String JSON)
+         -> _custom entry: {nama,url,desk,tipe,auth}; Simpan WAJIB nama non-kosong
+Skills : lib/features/skills/skills_screen.dart
+         'skill_custom' (String JSON)
+         -> field urut: Nama skill, Keterangan, Isi skill (instruksi)
+```
+
+### 39.4 KOORDINAT YANG TERBUKTI (layar 1220x2712)
+```
+Bottom nav (y=2410): Chat 101 | Special 304 | Skills 507 | MCP 710 | CLI 913 | Setelan 1116
+FAB "+ Tambah MCP"  : (942, 2198)
+Tab Skills, ikon "+" : (789, 371)   <- AppBar kanan, agak ke kiri dari chip
+Dialog MCP  (kb tertutup): Nama 1044 | URL 1218 | Ket 1392 | Simpan (743,1788)
+Dialog MCP  (kb terbuka) : Nama  615 | URL  788 | Ket  963 | Simpan (743,1371)
+Dialog Skill(kb tertutup): Nama  990 | Ket 1164 | Isi 1480 | Simpan (800,1842)
+Dialog Skill(kb terbuka) : Nama  561 | Ket  735 | Isi 1050 | Simpan (800,1413)
+   (pergeseran = 429 px)
+```
+
+### 39.5 CARA VERIFIKASI YANG ANDAL (BUKAN VISION SEMATA)
+```
+1. `vision_analyze` SERING GAGAL di screenshot HP (JEBAKAN #53) ->
+   selalu pakai `baca_gambar.py` (Gemini REST, model gemini-flash-lite-latest).
+2. Deteksi posisi elemen pakai PIL (piksel), bukan tebakan dari OCR.
+3. Verifikasi tiap langkah: setelah tap field, cek
+   `dumpsys input_method | grep mInputShown` == true.
+```
+
+---
+
+## BAGIAN 40 — BACKUP PENUH: TEMUAN BUG & CARA YANG BENAR (26 Sep 2026)
+
+### 40.1 HASIL UJI BACKUP
+
+```
+VIA APP (tombol "Buat Backup PENUH Sekarang"):
+  -> "Gagal: TimeoutException after 0:03:00.000000: Future not completed"  ❌
+  Bukti: bukti\V121_BACKUP_GAGAL_timeout.png
+
+VIA NATIVE `synapse backup` (dijalankan langsung di laptop):
+  -> BERHASIL, 128,6 detik                                              ✅
+  file: C:\Users\user\backup\synapse-backup-20260926-102117.zip
+  ukuran: 242.779.185 byte (231,5 MB)  |  2235 file  |  asli 653,3 MB
+  md5: fe873ee13820bb6f2f854cb458c99e09
+  `unzip -t` -> "No errors detected"  (integritas OK)
+  berisi: config.yaml, .env, SOUL.md, state.db, auth.json, skills/(844),
+          sessions/(154), memories/, cron/, dll.                        ✅
+```
+
+### 40.2 JEBAKAN BARU (lanjutan #77)
+
+**#78 — `perintahAgent` (chat) TIMEOUT 180 detik di app**
+```
+lib/core/api/api_client.dart:62  -> .timeout(const Duration(seconds: 180))
+Semua operasi berat (backup, restore, install skill besar) lewat jalur ini
+-> SELALU gagal "TimeoutException after 0:03:00" walau agent di laptop
+   masih bekerja & akhirnya sukses.
+SOLUSI: naikkan timeout (mis. 600s) untuk operasi panjang, atau buat
+endpoint/klien khusus tanpa batas 180s.
+```
+
+**#79 — Agent TIDAK tahu perintah native `synapse backup` / `synapse import`**
+```
+Agent (LLM) diberi instruksi bebas "buat backup ... ke .zip" -> ia MENGARANG
+skrip ad-hoc `_make_backup.py` dengan os.walk TANPA pengecualian:
+  - ikut men-zip  C:\...\synapse\synapse-agent\venv  (ribuan file paket)
+  - hasil zip 604 MB+ dan MASIH berjalan; zip TIDAK VALID (central
+    directory belum ditulis) -> `unzip -t` gagal.
+SOLUSI: SELALU suruh agent pakai perintah NATIVE:
+  backup  : C:\Users\user\AppData\Local\synapse\bin\synapse.exe backup -o <file.zip>
+  restore : C:\Users\user\AppData\Local\synapse\bin\synapse.exe import <file.zip>
+Perintah native sudah BENAR: mengecualikan synapse-agent/, node_modules/,
+__pycache__/, backups/, .venv, cache/; snapshot SQLite konsisten via
+sqlite3.backup(); output ~231 MB (bukan 604 MB).
+```
+
+**#80 — Deteksi zip BELUM SELESAI**
+```
+`unzip -t <file>` -> "cannot find zipfile directory ... End-of-central-directory
+signature not found"  = zip masih ditulis / korup.
+Ciri lain: ukuran file masih BERTAMBAH saat diperiksa.
+```
+
+### 40.3 PERINTAH NATIVE (hafalkan — ini cara yang benar)
+```
+BACKUP  : ~/.synapse/bin/synapse.exe backup -o "C:\Users\user\backup\synapse-backup-<stamp>.zip"
+          (~128s, ~231 MB, 2235 file; opsi --quick untuk snapshot cepat)
+RESTORE : ~/.synapse/bin/synapse.exe import <file.zip>     (menimpa ~/.synapse)
+          -> konfirmasi dulu; berisiko menimpa data hidup.
+```
+CATATAN: `synapse-agent/` DIKECUALIKAN dari backup (kode bisa di-clone ulang).
+Yang di-backup = "diri" Synapse (config, .env, memori, skill, SOUL, sesi, cron).
+
+### 40.4 CARA MEMBUAT ZIP HASIL NATIVE MUNCUL DI "Daftar Backup" APP
+```
+App hanya menampilkan daftar dari agent. Kalau ingin zip hasil native
+terlihat: simpan ke folder yang dilaporkan app (mis. C:\Users\user\backup\)
+lalu minta agent "tampilkan daftar backup" -> agent akan ls folder tsb.
+```
+
+---
+
+## BAGIAN 41 — PERBAIKAN APP v1.2.2 (Backup/Restore) — 26 Sep 2026
+
+### 41.1 AKAR MASALAH & PERBAIKAN
+
+```
+AKAR 1: api_client.dart  chat()  timeout 180s  (operasi berat selalu putus).
+FIX   : chat(..., {Duration timeout}) + perintahAgent(..., {bool panjang}).
+        panjang:true -> pakai chatStream().join()  (STREAMING, tanpa batas
+        180s; hanya dihentikan kalau koneksi benar-benar mati).
+
+AKAR 2: prompt backup/restore terlalu bebas -> agent mengarang skrip salah.
+FIX   : tombol "Buat Backup PENUH" & "Restore dari Backup" sekarang menyuruh
+        agent menjalankan PERINTAH NATIVE:
+          bin\synapse.exe backup -o "C:\Users\user\backup\synapse-backup-<stamp>.zip"
+          bin\synapse.exe import "C:\Users\user\backup\<file>.zip"
+        Restore juga WAJIB bikin backup pengaman "sebelum-restore-<stamp>.zip"
+        dulu (biar data lama tak hilang).
+
+TAMBAHAN: "Lihat Daftar Backup" -> lihat folder C:\Users\user\backup\.
+          install/uninstall skill & "Pasang" MCP/Skill juga pakai panjang:true.
+```
+
+### 41.2 FILE YANG DIUBAH (v1.2.2)
+```
+lib/core/api/api_client.dart            (timeout param + perintahAgent panjang)
+lib/features/backup/backup_screen.dart  (_jalankan panjang + prompt native)
+lib/features/mcp/mcp_screen.dart        (pasang -> panjang:true)
+lib/features/skills/skills_screen.dart  (pasang & install/uninstall -> panjang:true)
+android/app/build.gradle.kts            (versionCode 2202, versionName 1.2.2)
+assets/patchnote.json                   (entri 1.2.2)
+```
+
+### 41.3 CARA UJI ULANG (setelah install v1.2.2)
+```
+1. Setelan -> Backup & Restore -> "Buat Backup PENUH Sekarang"
+   -> tunggu ~2-3 menit (tombol jadi abu-abu = sedang jalan)
+   -> harus muncul Hasil: berhasil + path .zip + ukuran  (~230 MB)
+2. "Lihat Daftar Backup" -> file muncul.
+3. "Restore dari Backup" -> isi nama file -> "Ya, Restore"
+   -> agent backup pengaman dulu, lalu import. Cek hasil.
+```
+
+---
+
+## BAGIAN 42 — RESTORE v1.2.2: HASIL UJI + INSIDEN state.db (26 Sep 2026)
+
+### 42.1 HASIL UJI RESTORE (lewat app)
+```
+Langkah 1 (backup pengaman otomatis):
+  sebelum-restore-20260926-105022.zip  (243.631.185 byte)  ✅ BERHASIL
+Langkah 2 (synapse import):
+  "Import complete: 2232 files restored in 24.7s (exit 0)"  ✅ (perintah jalan)
+  Preserved 3 runtime state files: gateway.lock, gateway_state.json, processes.json
+  Warning: bin/synapse.exe: Permission denied (file dipakai — tidak masalah)
+Dipulihkan: config.yaml, .env, SOUL.md, memories/, skills/ (24), cron/, auth.json, *.db
+```
+CATATAN: agent juga sempat mengarang skrip backup rogue (`_full_backup_v2.py`)
+-> dihentikan (lihat #79). Bukan penyebab insiden di bawah.
+
+### 42.2 JEBAKAN KRITIS #81 — RESTORE SAAT SYNAPSE HIDUP MERUSAK state.db
+```
+GEJALA: setelah restore, `synapse sessions list` -> exit=1
+  sqlite3.DatabaseError: database disk image is malformed (tabel `messages`)
+  -> riwayat sesi/pesan tidak bisa diakses.
+PENYEBAB: `synapse import` menimpa state.db SAAT ada 4 proses synapse.exe yang
+  memegang DB terbuka + WAL besar (67 MB). Import hanya menaruh file .db baru
+  sementara WAL/SHM lama masih dipakai proses hidup -> DB tidak konsisten.
+  (Arsip backup-nya SENDIRI SEHAT — sudah dibuktikan: ekstrak state.db dari
+   arsip -> integrity `ok`, 23 tabel. Jadi BUKAN arsipnya yang rusak.)
+ATURAN BARU: RESTORE WAJIB dijalankan saat Synapse TIDAK AKTIF (gateway stop
+  + semua sesi synapse.exe berhenti). Kalau tidak, state.db bisa rusak.
+
+### 42.3 PROSEDUR RESTORE YANG BENAR (terbukti 26 Sep 2026)
+```
+1. AMANKAN dulu:  bin\synapse.exe backup -o <sebelum-restore>.zip
+2. HENTIKAN gateway:  bin\synapse.exe gateway stop
+   (kalau state.db masih terkunci -> hentikan proses synapse.exe)
+3. SWAP state.db:  hapus state.db-wal & state.db-shm, ganti state.db dengan
+   state.db dari arsip backup (ekstrak dulu).
+4. VERIFIKASI: integrity_check='ok', jumlah tabel (23), COUNT(sessions),
+   COUNT(messages).
+5. JALANKAN ulang:  bin\synapse.exe gateway start
+6. CEK:  curl http://127.0.0.1:8642/health -> HTTP 200
+```
+HASIL PERBAIKAN 26 Sep 2026 (nyata):
+```
+integrity=ok | tabel=23 | sessions=131 | messages=32.577  ✅
+`synapse sessions list` -> NORMAL (error hilang)             ✅
+gateway start -> PID jalan, health HTTP 200                  ✅
+```
+Script perbaikan tersimpan: C:\Users\user\backup
+epair_statedb.sh
+DB sehat cadangan:        C:\Users\user\backup\state_db_SEHAT\state.db
+
+### 42.4 BUKTI SCREENSHOT (v1.2.2)
+```
+bukti\V122_DIALOG_UPDATE.png      -> dialog "Update dari v1.2.1 ke v1.2.2"
+bukti\V122_BACKUP_berhasil.png    -> Backup: Berhasil, 2236 file, 232,4 MB, 121,3s
+bukti\V122_RESTORE_hasil.png      -> laporan restore + peringatan state.db
+bukti\V122_SETELAH_PERBAIKAN.png  -> kondisi setelah state.db diperbaiki
+bukti\V121_BACKUP_GAGAL_timeout.png -> bukti bug lama (timeout 180s)
+```
+
+---
+
+## BAGIAN 43 — FITUR "UPDATE DARI GITHUB" v1.2.3 (26 Sep 2026)
+
+### 43.1 MASALAH LAMA (sebelum v1.2.3)
+```
+- "Cek Update" (update_screen.dart) hanya membandingkan versi terpasang vs
+  patchnote.json DI DALAM APK itu sendiri -> APK lama tak pernah tahu ada
+  versi baru.
+- Tombol "Update Sekarang" PALSU: animasi 2,5 detik lalu bilang
+  "Update selesai — restart aplikasi" TANPA mengunduh/memasang apa pun.
+- TIDAK ADA kode yang menghubungi GitHub sama sekali.
+```
+
+### 43.2 YANG DIBUAT DI v1.2.3
+```
+- Cek update NYATA: GET https://api.github.com/repos/johsua092-ui/synapse-ai-agent/releases/latest
+  -> baca tag_name + aset .apk + body (catatan rilis).
+- Bandingkan versi secara ANGKA (1.2.10 > 1.2.9), bukan sekadar != .
+- Unduh APK aset rilis ke getApplicationDocumentsDirectory()/synapse-update.apk
+  dengan progres nyata (contentLength).
+- Buka installer Android via open_file (type application/vnd.android.package-archive).
+- Tampilkan "Catatan rilis" + "Info Update" (sukses/gagal + path file).
+
+BATAS ANDROID (JELASKAN KE USER): app TIDAK BISA memasang APK sendiri secara
+senyap — Android WAJIB menampilkan konfirmasi "Install" (permission
+REQUEST_INSTALL_PACKAGES). Jadi "1 klik" = tap tombol -> tap "Install".
+```
+
+### 43.3 FILE YANG DIUBAH (v1.2.3)
+```
+pubspec.yaml                                  (+ open_file: ^3.5.10)
+android/app/src/main/AndroidManifest.xml      (+ REQUEST_INSTALL_PACKAGES, + FileProvider)
+android/app/src/main/res/xml/file_paths.xml   (BARU — path FileProvider)
+lib/features/update/update_screen.dart        (logika GitHub nyata)
+android/app/build.gradle.kts                  (versionCode 2203, versionName 1.2.3)
+assets/patchnote.json                         (entri 1.2.3)
+```
+
+### 43.4 JEBAKAN BARU #82 — UPDATE "SENYAP" MUSTAHIL DI ANDROID
+```
+Android melarang app memasang APK sendiri tanpa persetujuan user.
+Minimal: user tap "Install" sekali (bisa dibuat 1 klik dari dalam app).
+FileProvider + REQUEST_INSTALL_PACKAGES WAJIB ada, kalau tidak
+open_file gagal membuka installer.
+```
+
+### 43.5 CARA UPDATE UNTUK TEMAN (setelah v1.2.3 dipasang 1x)
+```
+1. Pasang APK v1.2.3 SEKALI (kirim file / link GitHub Release).
+2. Setiap ada versi baru: buka app -> Setelan -> Update & Patchnote
+   -> "Cek Update" -> "Unduh & Pasang Update" -> tap "Install".
+   Data TIDAK hilang (keystore sama: CN=Synapse Mobile).
+CATATAN: agar "Cek Update" menemukan versi, rilis GitHub HARUS punya
+tag versi (mis. v1.2.4) + aset .apk.
+```
