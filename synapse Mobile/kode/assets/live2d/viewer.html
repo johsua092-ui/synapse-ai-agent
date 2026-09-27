@@ -50,13 +50,19 @@ function mulai(){
       width: LW,
       height: LH,
       backgroundAlpha: 0,
-      antialias: false,   // WAJIB false: kalau true, clipping mask Live2D rusak (kaki/tangan dobel)
-      resolution: 1,      // 1 = tajam & stabil (2x bikin patah-patah di WebView)
-      autoDensity: false
+      antialias: false,   // WAJIB false: kalau true, clipping mask Live2D rusak
+      // JEBAKAN #87 (v1.2.4) — AKAR "BURIK/BURAM":
+      // Canvas dirender 1x (backing store = CSS px) lalu di-UPSCALE ke layar
+      // fisik 1220x2712 -> karakter kabur (padahal background <img> tajam).
+      // Paksa 3x TANPA bergantung devicePixelRatio WebView (bisa 1).
+      // autoDensity:true -> ukuran TAMPIL tetap, hanya resolusi internal naik.
+      resolution: 3,
+      autoDensity: true
     });
     muatModel('Hiyori');
-    // pantau ukuran wadah (keyboard muncul -> tinggi berubah)
-    setInterval(cekUkuran, 300);
+    // JEBAKAN #88 (v1.2.4): JANGAN polling resize tiap 300ms — berkelahi
+    // dengan autoDensity -> ukuran bolak-balik (besar<->normal). Cukup
+    // andalkan event 'resize' (sudah terpasang di bawah).
   }catch(e){ kabar('X mulai: ' + e.message); }
 }
 
@@ -69,10 +75,9 @@ function cekUkuran(){
     var cv = document.getElementById('peta');
     var w = Math.max(1, cv.clientWidth);
     var h = Math.max(1, cv.clientHeight);
-    if(Math.abs(w - LW) <= 2 && Math.abs(h - LH) <= 2) return;
+    var r = app.renderer;
+    if(r.width !== w || r.height !== h){ r.resize(w, h); aturModel(); }
     LW = w; LH = h;
-    app.renderer.resize(w, h);
-    aturModel();
   }catch(e){}
 }
 
@@ -99,7 +104,10 @@ function muatModel(nama){
 // Karakter selalu MUAT penuh di wadah (kepala sampai kaki terlihat).
 function aturModel(){
   if(!model || !app) return;
-  var W = app.screen.width, H = app.screen.height;
+  // JEBAKAN #88: pakai LW/LH (CSS px yang kita lacak) — JANGAN app.screen,
+  // karena dengan resolution>1 + autoDensity nilainya bisa tak stabil
+  // sehingga skala model melonjak (hanya kaki yang terlihat).
+  var W = LW, H = LH;
   var mw = model.width, mh = model.height;
   if(!mw || !mh || W < 2 || H < 2) return;
   var skala = Math.min(W / mw, (H * 0.92) / mh);

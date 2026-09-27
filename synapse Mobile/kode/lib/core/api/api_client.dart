@@ -14,27 +14,87 @@ class ApiClient {
         if (cfg.apiKey.isNotEmpty) 'Authorization': 'Bearer ${cfg.apiKey}',
       };
 
-  Uri _u(String path) =>
-      Uri.parse('${cfg.baseUrl.replaceAll(RegExp(r"/+$"), "")}$path');
-
-  Future<Map<String, dynamic>> health() async {
-    final r = await http
-        .get(_u('/health'), headers: _headers)
-        .timeout(const Duration(seconds: 10));
-    if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
-    return jsonDecode(r.body) as Map<String, dynamic>;
+  /// Susun URL dengan BENAR — tahan terhadap Base URL yang sudah berakhiran
+  /// `/v1`.
+  ///
+  /// JEBAKAN (v1.2.3): kalau user mengisi Base URL `https://host/v1` lalu kita
+  /// tempel `/v1/models`, hasilnya `https://host/v1/v1/models` -> HTTP 404.
+  Uri _u(String path) {
+    final base = cfg.baseUrl.trim().replaceAll(RegExp(r"/+$"), "");
+    var p = path;
+    if (base.endsWith('/v1') && p.startsWith('/v1/')) {
+      p = p.substring(3); // buang '/v1' supaya tidak dobel
+    }
+    return Uri.parse('$base$p');
   }
 
+  /// Cek koneksi — TOLERAN.
+  ///
+  /// Router kustom (mis. 9router) TIDAK punya `/health` khas Synapse. Dulu ini
+  /// melempar HTTP 404 sehingga DETEKSI MODEL GAGAL walau `/v1/models`
+  /// sebenarnya jalan. Sekarang: kembalikan `null` (bukan error) kalau server
+  /// tidak punya endpoint health.
+  Future<Map<String, dynamic>?> health() async {
+    for (final p in const ['/health', '/v1/health']) {
+      try {
+        final r = await http
+            .get(_u(p), headers: _headers)
+            .timeout(const Duration(seconds: 10));
+        if (r.statusCode == 200) {
+          try {
+            return jsonDecode(r.body) as Map<String, dynamic>;
+          } catch (_) {
+            return <String, dynamic>{};
+          }
+        }
+      } catch (_) {}
+    }
+    return null; // tidak ada /health -> BUKAN kegagalan
+  }
+
+  /// Ambil daftar model — TOLERAN terhadap berbagai bentuk respons:
+  /// `{data:[{id}]}` (OpenAI) maupun `{models:[...]}`.
+  ///
+  /// JEBAKAN (v1.2.3): dulu hanya coba `/v1/models`. Kalau base sudah berakhir
+  /// `/v1` -> jadi `/v1/v1/models` -> 404. Sekarang dicoba `/v1/models` dulu,
+  /// lalu `/models`, dan pesan galat menampilkan URL yang benar-benar dicoba.
   Future<List<String>> daftarModel() async {
-    final r = await http
-        .get(_u('/v1/models'), headers: _headers)
-        .timeout(const Duration(seconds: 15));
-    if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}: ${r.body}');
-    final d = jsonDecode(r.body) as Map<String, dynamic>;
-    return ((d['data'] as List?) ?? const [])
-        .map((e) => (e['id'] ?? '').toString())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final dicoba = <String>[];
+    String? galat;
+    for (final p in const ['/v1/models', '/models']) {
+      final u = _u(p);
+      dicoba.add(u.toString());
+      try {
+        final r = await http
+            .get(u, headers: _headers)
+            .timeout(const Duration(seconds: 20));
+        if (r.statusCode != 200) {
+          if (r.statusCode == 401 || r.statusCode == 403) {
+            galat = 'HTTP ${r.statusCode} — API Key DITOLAK.\n'
+                'Pastikan kunci SAMA dengan yang dipakai Synapse CLI, '
+                'dan diizinkan untuk akses remote.';
+          } else if (r.statusCode == 404) {
+            galat = 'HTTP 404 — endpoint /v1/models tidak ada di server ini.';
+          } else {
+            galat = 'HTTP ${r.statusCode}';
+          }
+          continue;
+        }
+        final d = jsonDecode(r.body) as Map<String, dynamic>;
+        final list = (d['data'] ?? d['models']) as List?;
+        final hasil = (list ?? const [])
+            .map((e) => e is Map
+                ? (e['id'] ?? e['name'] ?? '').toString()
+                : e.toString())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        if (hasil.isNotEmpty) return hasil;
+        galat = 'respons tidak memuat daftar model';
+      } catch (e) {
+        galat = e.toString();
+      }
+    }
+    throw Exception('${galat ?? "gagal"}\nURL dicoba:\n  ${dicoba.join("\n  ")}');
   }
 
   Future<List<Map<String, dynamic>>> daftarSkill() async {
@@ -44,6 +104,21 @@ class ApiClient {
     if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
     final d = jsonDecode(r.body) as Map<String, dynamic>;
     return ((d['data'] as List?) ?? const []).cast<Map<String, dynamic>>();
+  }
+
+  /// Daftar TOOLSET (kemampuan agent) dari `/v1/toolsets`.
+  ///
+  /// Permintaan tim v1.2.4: "sediain tools nya dong minimal kaya yang di cli".
+  /// Server Synapse punya ~28 toolset (web, browser, terminal, file, dll).
+  Future<List<Map<String, dynamic>>> toolsets() async {
+    final r = await http
+        .get(_u('/v1/toolsets'), headers: _headers)
+        .timeout(const Duration(seconds: 20));
+    if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
+    final d = jsonDecode(r.body) as Map<String, dynamic>;
+    return ((d['data'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
   }
 
   // ================= CHAT (teks) =================

@@ -10,8 +10,14 @@ final apiClientProvider = Provider<ApiClient?>((ref) {
 });
 
 /// Status koneksi (untuk indikator di UI).
-final koneksiProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+///
+/// TOLERAN: router kustom (mis. 9router) tidak punya `/health`. Dulu itu
+/// membuat status tampak OFFLINE walau server jalan. Sekarang "tanpa /health"
+/// dianggap TERHUBUNG (dengan platform generik).
+final koneksiProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final c = ref.watch(apiClientProvider);
   if (c == null) throw Exception('Belum diatur');
-  return c.health();
+  final h = await c.health();
+  return h ?? <String, dynamic>{'platform': 'server', 'version': '?'};
 });

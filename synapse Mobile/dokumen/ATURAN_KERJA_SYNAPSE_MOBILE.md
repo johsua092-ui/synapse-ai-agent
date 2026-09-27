@@ -3458,9 +3458,135 @@ Token TIDAK boleh ditulis di file yang di-commit / ditampilkan ke user.
 
 ---
 
-*Dokumen ini adalah ATURAN KERJA PENGEMBANGAN SYNAPSE MOBILE.
-Wajib dibaca setelah AGENTS.md. Fokus: UI/UX mobile (9:16 & 16:9) +
-integrasi dengan inti Synapse. Rencana dulu → konfirmasi → baru kode.*
+## BAGIAN 44 — v1.2.4: TOOLS + FIX KONEKSI AI (27 Sep 2026)
+
+### 44.1 FIX FATAL #3 — DETEKSI MODEL GAGAL "HTTP 404"
+
+**Keluhan tim (verbatim):**
+> *"ketika saya memasukkan base url dengan kayak gini: https://9router.aikernel.qzz.io/v1
+> dan dengan api key nya punya saya lalu saya deteksi model malah gagal... peringatan
+> 'gagal: exception: HTTP 404'"*
+
+**AKAR MASALAH (di `lib/core/api/api_client.dart`):**
+```dart
+Uri _u(String path) => Uri.parse('${cfg.baseUrl...}$path');
+.get(_u('/v1/models'))     // base sudah berakhir /v1 -> jadi /v1/v1/models -> 404
+await klien.health();      // /v1/health (khas Synapse) -> router kustom 404 -> deteksi gagal
+```
+DUA bug: (1) `/v1` DOBEL, (2) `health()` dipanggil DULU dan 404-nya menggagalkan seluruh deteksi.
+
+**PERBAIKAN (terbukti di HP):**
+```
+1. _u() anti-dobel  : kalau base berakhir '/v1', jangan tempel '/v1' lagi.
+2. health() TOLERAN : coba /health lalu /v1/health; kalau tidak ada -> return null
+                      (BUKAN error). Router tanpa /health tidak lagi "gagal".
+3. daftarModel()    : coba '/v1/models' lalu '/models'; terima {data:[]} ATAU {models:[]}.
+4. Model manual     : kolom baru, kalau server tidak menyediakan /v1/models.
+5. Pesan error jelas: 401/403 -> "API Key DITOLAK", 404 -> "endpoint tidak ada".
+```
+**Bukti:** Base URL `http://127.0.0.1:8642/v1` (bentuk yang DULU 404) -> kini
+**"Terhubung ke synapse-agent v0.20.5 — 1 model ditemukan"** ✅
+
+### 44.2 JEBAKAN BARU (#83-86)
+
+| # | Jebakan | Gejala | Solusi |
+|---|---|---|---|
+| **83** | Base URL berakhiran `/v1` + app menempel `/v1/...` | HTTP 404 di SEMUA endpoint | `_u()` cek `base.endsWith('/v1')` -> buang `/v1` dari path |
+| **84** | `health()` memanggil endpoint khas Synapse | Deteksi GAGAL total walau `/v1/models` jalan | `health()` **TOLERAN** (null, bukan throw) |
+| **85** | "Kunci jalan di CLI tapi 401 di mobile" | Tim bingung, menyalahkan app | **UJI endpoint**: kunci CLI di `/v1/models` -> 200; kunci tim -> 401 `"API key required for remote API access"`. Artinya **kunci tim tidak diizinkan akses remote** — masalah SISI SERVER, bukan bug app. Selalu uji dengan `curl` dulu sebelum menyalahkan kode. |
+| **86** | Menganggap router kustom punya `synapse-agent` | Chat 403 `"Model not allowed for this API key"` | Router kustom punya daftar model SENDIRI -> user harus PILIH dari hasil deteksi, jangan pakai nama default. |
+
+### 44.3 FITUR BARU — LAYAR TOOLS (permintaan tim)
+
+> *"Sediain tools nya dong minimal kaya yang di cli, misal ga di sediain tools
+> si synapse mobile cman kaya ai chatbot biasa"*
+
+**Sumber data:** endpoint yang SUDAH ADA — `GET /v1/toolsets` (jangan bikin protokol baru!).
+Menghasilkan **28 toolset / 70 tool**: web, browser (14 tool), terminal, file, code_execution,
+vision, image_gen, bfl, skills, todo, memory, session_search, delegation, cronjob, dll.
+
+**Yang dibuat:**
+```
+lib/core/api/api_client.dart      + toolsets()
+lib/features/tools/tools_screen.dart   layar baru (kartu per toolset + chip tools + perintah bebas)
+lib/shell/routes.dart             + rute /tools
+lib/shell/app_shell.dart          + tab Tools (kini 7 tab)
+```
+**Bukti (dibaca dari UI Android):** "28 toolset ditemukan", "14 aktif dari 28 toolset",
+daftar Web/Browser/Terminal tampil; Tools = Tab 4 of 7 ✅
+
+**ATURAN:** tab = 7 sekarang: Chat | Special Chat | Skills | **Tools** | MCP | CLI | Setelan.
+Kalau menambah tab lagi, pastikan label muat (Android memotong label panjang).
+
+### 44.4 PELAJARAN VERIFIKASI (SANGAT PENTING — WAJIB DIWARISKAN)
+
+**A. `vision_analyze` (model default) SERING HALUSINASI.**
+Contoh nyata: pada frame avatar yang SAMA, ia bilang "kaki 3 + ghosting" — padahal
+Gemini (model lain) bilang "2 kaki, tidak ada ghosting". **Jangan percaya satu model.**
+- Pakai **banyak model** / **Gemini REST langsung**.
+- Script siap pakai: `apps/mobile/_tmp_uji/baca_gambar.py <file> "<tanya>" [model]`
+  (baca `GEMINI_API_KEY` dari `.env`, model default `gemini-flash-latest`).
+
+**B. Uji A/B WAJIB apple-to-apple.**
+Percobaan `premultipliedAlpha` dulu TAMPAK berhasil — ternyata karena diuji di **latar
+HITAM** (ghosting transparan tak terlihat). Wajib: **background & ukuran SAMA**, dan
+**ukur objektif** (selisih piksel `ImageChops`, metrik ketajaman `FIND_EDGES`), bukan
+deskripsi vision semata.
+
+**C. Jangan menebak berulang.**
+`resolution: 1` -> `2` TIDAK berpengaruh (terbukti: ketajaman 21,13 vs 21,09). Isolasi
+dulu: bundle `live2dcubismcore.min.js` versi yang cocok (bukan CDN terbaru) sebelum
+mengubah kode lain.
+
+**D. Verifikasi struktur UI tanpa vision.**
+`adb shell uiautomator dump /sdcard/ui.xml` lalu `cat` -> baca `content-desc`/`bounds`
+persis (dipakai untuk membuktikan 7 tab & isi layar Tools). Jauh lebih andal dari screenshot.
+
+**E. Avatar HD — AKHIRNYA SELESAI (v1.2.4). AKAR = CACHE HTTP!**
+
+**Gejala:** karakter Live2D **BURAM/burik** (background <img> tajam, karakter kabur).
+
+**AKAR SEBENARNYA (JEBAKAN #87 — paling penting):**
+`lib/features/special/live2d_server.dart` mengirim header
+`Cache-Control: max-age=86400` untuk **SEMUA** file — **termasuk `viewer.html`**.
+Akibatnya WebView memakai `viewer.html` **LAMA yang ter-cache**, sehingga
+**SETIAP perubahan** di viewer.html (premultipliedAlpha, resolution, autoDensity)
+**TIDAK PERNAH dipakai**. Itu sebabnya 3 percobaan pertama diff-nya ~0!
+
+**PERBAIKAN (terbukti — ketajaman 16,4 -> 25,5 = +56%):**
+```
+1. live2d_server.dart : HTML/JS/JSON/CSS -> 'no-store, no-cache, must-revalidate';
+                        aset besar (tekstur/background) tetap boleh di-cache.
+2. live2d_view.dart   : loadRequest(..., '?v=<timestamp>') -> cache-bust tiap buka.
+3. viewer.html        : resolution: 3 + autoDensity: true (buffer internal 3x,
+                        ukuran TAMPIL tetap) -> karakter tajam.
+```
+
+**JEBAKAN #88 (bug baru yang muncul lalu diperbaiki):**
+`autoDensity:true` + `setInterval(cekUkuran, 300)` -> **ukuran bolak-balik
+besar<->normal** (kadang hanya kaki yang terlihat). Sebab: polling berkelahi dengan
+autoDensity + `app.screen` tak stabil. **Solusi:** BUANG polling, cukup event
+`'resize'`; dan `aturModel()` pakai **LW/LH** (CSS px yang dilacak), bukan `app.screen`.
+
+**Hasil akhir (diverifikasi):** UTUH kepala-kaki · tidak ada kaki ganda · TAJAM · STABIL.
+
+**PELAJARAN EMAS:** kalau perubahan di file yang disajikan lewat HTTP **tidak
+berefek sama sekali**, **CURIGAI CACHE** dulu — sebelum mengubah-ubah kode lain
+(3 percobaan terbuang karena ini).
+
+**F. JANGAN uji fitur DESTRUKTIF di HP user (JEBAKAN #89).**
+Menguji tombol "Hapus Konfigurasi" **mengosongkan Base URL + API Key user** ->
+app jadi "Gagal: Belum diatur". Config harus dipulihkan manual. Kalau perlu uji,
+catat nilai lama dulu & kembalikan.
+
+**G. `adb shell input text` MENAMBAH, bukan mengganti (JEBAKAN #90).**
+Isi ulang kolom setelah `input tap` menghasilkan Base URL DOBEL
+(`...8642http://...`). **Solusi:** kirim `keyevent 123` (END) + banyak `keyevent 67`
+(DEL) dulu untuk mengosongkan, baru `input text`.
+
+---
+
+*BAGIAN 44 ditambahkan 27 Sep 2026. Status: #3 (404) & Tools SELESAI; avatar BELUM.*
 
 ---
 

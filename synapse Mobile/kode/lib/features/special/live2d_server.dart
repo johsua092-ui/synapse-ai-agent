@@ -45,7 +45,25 @@ class Live2DServer {
         try {
           final data = await rootBundle.load(asset);
           req.response.headers.contentType = _tipe(bersih);
-          req.response.headers.set('Cache-Control', 'max-age=86400');
+          // JEBAKAN #87 (v1.2.4) — AKAR SEMUA PERUBAHAN "TIDAK BEREFFECT":
+          // dulu header ini `max-age=86400` untuk SEMUA file, termasuk
+          // viewer.html -> WebView memakai viewer.html LAMA yang ter-cache,
+          // jadi setiap perbaikan (resolution/premultipliedAlpha/dll) TIDAK
+          // pernah dipakai. HTML/JS/JSON WAJIB no-store.
+          final l = bersih.toLowerCase();
+          final janganCache = l.endsWith('.html') ||
+              l.endsWith('.js') ||
+              l.endsWith('.json') ||
+              l.endsWith('.css');
+          if (janganCache) {
+            req.response.headers.set('Cache-Control',
+                'no-store, no-cache, must-revalidate, max-age=0');
+            req.response.headers.set('Pragma', 'no-cache');
+            req.response.headers.set('Expires', '0');
+          } else {
+            // aset besar (tekstur/background) boleh di-cache
+            req.response.headers.set('Cache-Control', 'max-age=86400');
+          }
           req.response.headers.set('Access-Control-Allow-Origin', '*');
           req.response.add(Uint8List.view(data.buffer));
           print('[Live2DServer] OK  $asset');

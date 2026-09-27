@@ -22,6 +22,7 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
   late TextEditingController _key;
   late TextEditingController _name;
   late TextEditingController _ctx;
+  late TextEditingController _manual;
   String _vision = 'auto';
 
   List<String> _model = [];
@@ -38,13 +39,14 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
     _key = TextEditingController(text: c.apiKey);
     _name = TextEditingController(text: c.displayName ?? '');
     _ctx = TextEditingController(text: (c.contextWindow ?? 128000).toString());
+    _manual = TextEditingController();
     _dipilih = c.model;
     _vision = c.visionProvider;
   }
 
   @override
   void dispose() {
-    _url.dispose(); _key.dispose(); _name.dispose(); _ctx.dispose();
+    _url.dispose(); _key.dispose(); _name.dispose(); _ctx.dispose(); _manual.dispose();
     super.dispose();
   }
 
@@ -53,19 +55,65 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
     try {
       final cfg = ApiConfig(baseUrl: _url.text.trim(), apiKey: _key.text.trim());
       final klien = ApiClient(cfg);
-      final h = await klien.health();
+      final h = await klien.health(); // TOLERAN: boleh null (tanpa /health)
       final m = await klien.daftarModel();
       setState(() {
         _model = m;
         _dipilih = m.isNotEmpty ? m.first : null;
         _ok = true;
-        _pesan = 'Terhubung ke ${h['platform'] ?? 'server'} v${h['version'] ?? '?'} — ${m.length} model ditemukan';
+        final info = (h == null)
+            ? 'Terhubung — ${m.length} model ditemukan'
+            : 'Terhubung ke ${h['platform'] ?? 'server'} v${h['version'] ?? '?'} — ${m.length} model ditemukan';
+        _pesan = info;
       });
     } catch (e) {
       setState(() { _ok = false; _pesan = 'Gagal: $e'; });
     } finally {
       setState(() => _sibuk = false);
     }
+  }
+
+  /// Hapus konfigurasi (Base URL + API Key) DENGAN konfirmasi.
+  /// Permintaan user v1.2.4: biar bisa mengosongkan cepat tanpa hapus 1-1.
+  Future<void> _hapusKonfigurasi() async {
+    final ya = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Hapus konfigurasi?'),
+        content: const Text(
+            'Apakah kamu ingin menghapus konfigurasi yang sudah ada dan ingin menggantinya?\n\n'
+            'Base URL dan API Key akan DIKOSONGKAN, dan koneksi AI dimatikan. '
+            'Kamu harus mengetik ulang untuk menyambung lagi.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Tidak')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Ya, hapus'),
+          ),
+        ],
+      ),
+    );
+    if (ya != true) return;
+
+    await ref.read(apiConfigProvider.notifier).kosongkan();
+    if (!mounted) return;
+    setState(() {
+      _url.clear();
+      _key.clear();
+      _name.clear();
+      _manual.clear();
+      _model = [];
+      _dipilih = null;
+      _pesan = null;
+      _ok = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Konfigurasi dihapus — Base URL & API Key dikosongkan')),
+    );
   }
 
   Future<void> _simpan() async {
@@ -86,7 +134,7 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
     final c = ApiConfig(
       baseUrl: _url.text.trim(),
       apiKey: _key.text.trim(),
-      model: _dipilih,
+      model: _dipilih ?? (_manual.text.trim().isEmpty ? null : _manual.text.trim()),
       displayName: _name.text.trim().isEmpty ? null : _name.text.trim(),
       contextWindow: int.tryParse(_ctx.text.trim()),
       visionProvider: _vision,
@@ -127,6 +175,19 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text('Koneksi Server', style: t.textTheme.titleSmall),
+          ),
+          // TOMBOL MERAH: kosongkan Base URL + API Key dengan cepat
+          // (permintaan user v1.2.4) — tanpa hapus karakter satu per satu.
+          TextButton.icon(
+            onPressed: _sibuk ? null : _hapusKonfigurasi,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            icon: const Icon(Icons.delete_forever, size: 18, color: Colors.red),
+            label: const Text('Hapus Konfigurasi',
+                style: TextStyle(color: Colors.red, fontSize: 12)),
           ),
         ]),
         const SizedBox(height: 4),
@@ -172,6 +233,18 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.wifi_find),
           label: Text(_sibuk ? 'Mendeteksi...' : 'Deteksi Model'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        // Model MANUAL — untuk server/router yang tidak menyediakan /v1/models.
+        TextField(
+          controller: _manual,
+          decoration: const InputDecoration(
+            labelText: 'Model manual (opsional)',
+            hintText: 'mis. synapse-agent / gpt-4o-mini',
+            border: OutlineInputBorder(),
+            helperText:
+                'Isi ini kalau daftar model kosong. Dipakai bila tidak ada model terpilih di atas.',
+          ),
         ),
 
         if (_pesan != null) ...[
@@ -277,10 +350,7 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         TextButton.icon(
-          onPressed: () async {
-            await ref.read(apiConfigProvider.notifier).kosongkan();
-            setState(() { _key.clear(); _model = []; _dipilih = null; _pesan = null; });
-          },
+          onPressed: _sibuk ? null : _hapusKonfigurasi,
           icon: const Icon(Icons.logout),
           label: const Text('Hapus konfigurasi'),
         ),

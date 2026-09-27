@@ -1,6 +1,24 @@
 {
- "versi_terbaru": "1.2.3",
+ "versi_terbaru": "1.2.4",
  "riwayat": [
+  {
+   "versi": "1.2.4",
+   "tanggal": "27 September 2026",
+   "judul": "Tools + Perbaikan Koneksi AI",
+   "perbaikan": [
+    "FIX FATAL: deteksi model gagal HTTP 404 saat Base URL sudah berakhiran /v1 (dulu jadi /v1/v1/models)",
+    "health() kini TOLERAN: server tanpa /health (mis. 9router) tidak lagi dianggap gagal/offline",
+    "Pesan error 401/403 jelas: 'API Key DITOLAK' (bukan cuma kode angka)",
+    "Kolom 'Model manual' untuk server yang tidak menyediakan /v1/models",
+    "FIX AVATAR HD: karakter Live2D dulu BURAM karena viewer.html ter-cache WebView. Kini tajam (ketajaman +56%) & ukuran stabil (tidak bolak-balik lagi)"
+   ],
+   "fitur_baru": [
+    "Layar TOOLS baru: 28 toolset + 70 tool dari server (web, browser, terminal, file, dll)",
+    "Tombol ON/OFF toolset di layar Tools (enable/disable langsung, konfirmasi Ya/Tidak)",
+    "Perintah bebas ke agent dari layar Tools",
+    "Tombol merah 'Hapus Konfigurasi' di Koneksi AI (kosongkan Base URL + API Key cepat, dengan konfirmasi)"
+   ]
+  },
   {
    "versi": "1.2.3",
    "tanggal": "26 September 2026",

@@ -14,6 +14,7 @@ import '../features/sesi/sesi_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/skills/skills_screen.dart';
 import '../features/status/status_screen.dart';
+import '../features/tools/tools_screen.dart';
 import '../features/update/update_screen.dart';
 import 'app_shell.dart';
 
@@ -28,6 +29,7 @@ final router = GoRouter(
         GoRoute(path: '/chat', builder: (c, s) => const ChatScreen()),
         GoRoute(path: '/special', builder: (c, s) => const SpecialChatScreen()),
         GoRoute(path: '/skills', builder: (c, s) => const SkillsScreen()),
+        GoRoute(path: '/tools', builder: (c, s) => const ToolsScreen()),
         GoRoute(path: '/mcp', builder: (c, s) => const McpScreen()),
         GoRoute(path: '/cli', builder: (c, s) => const CliScreen()),
         GoRoute(path: '/koneksi', builder: (c, s) => const KoneksiScreen()),

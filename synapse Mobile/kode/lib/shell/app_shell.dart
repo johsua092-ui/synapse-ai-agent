@@ -29,6 +29,7 @@ const _nav = <_Nav>[
   _Nav('/special', Icons.auto_awesome_outlined, Icons.auto_awesome,
       'Special Chat', adaBadge: true),
   _Nav('/skills', Icons.extension_outlined, Icons.extension, 'Skills'),
+  _Nav('/tools', Icons.handyman_outlined, Icons.handyman, 'Tools'),
   _Nav('/mcp', Icons.hub_outlined, Icons.hub, 'MCP'),
   _Nav('/cli', Icons.terminal_outlined, Icons.terminal, 'CLI'),
   _Nav('/settings', Icons.settings_outlined, Icons.settings, 'Setelan'),

@@ -86,7 +86,8 @@ class _Live2DViewState extends State<Live2DView> {
           },
           onWebResourceError: (_) {},
         ));
-      await c.loadRequest(Uri.parse('http://127.0.0.1:$port/live2d/viewer.html'));
+      await c.loadRequest(Uri.parse(
+          'http://127.0.0.1:$port/live2d/viewer.html?v=${DateTime.now().millisecondsSinceEpoch}'));
       if (mounted) setState(() => _c = c);
     } catch (e) {
       if (mounted) setState(() => _pesan = 'Gagal: $e');
