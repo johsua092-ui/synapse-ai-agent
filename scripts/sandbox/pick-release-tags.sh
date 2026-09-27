@@ -72,6 +72,26 @@ mapfile -t tags < <(
     | sort -V
 )
 
+# Fallback: a checkout may carry only APP version tags (vMAJOR.MINOR.PATCH, e.g.
+# v1.2.4) instead of the vYYYY.M.D release tags above. Those are real git refs
+# the install/update E2E can install FROM just the same, so use them rather than
+# failing the whole matrix.
+#
+# JEBAKAN #96: the date-tag pattern is hardcoded here, so a repo whose tags do
+# not follow it fails this job outright -- and because the workflow also runs on
+# a 12h schedule, it fails even when nobody pushed anything. Symptom:
+#   error: no release tags found in <repo>
+#      A shallow clone has no tags: fetch with tags ...
+# which misleads: the clone DID fetch tags, they just did not match the pattern.
+if [ "${#tags[@]}" -eq 0 ]; then
+  echo 'note: no vYYYY.M.D release tags; falling back to app version tags (vX.Y.Z)' >&2
+  mapfile -t tags < <(
+    git -C "$REPO" tag --list 'v*' \
+      | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+      | sort -V
+  )
+fi
+
 total="${#tags[@]}"
 if [ "$total" -eq 0 ]; then
   echo "error: no release tags found in $REPO" >&2
