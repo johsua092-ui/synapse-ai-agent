@@ -154,8 +154,8 @@ export {
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
   delimiterForPlatform,
-  synapseManagedNodePathEntries,
   normalizeSynapseHomeRoot,
   pathEnvKey,
-  POSIX_SANE_PATH_ENTRIES
+  POSIX_SANE_PATH_ENTRIES,
+  synapseManagedNodePathEntries
 }

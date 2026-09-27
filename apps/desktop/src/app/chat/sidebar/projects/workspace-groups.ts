@@ -1,6 +1,6 @@
 import type { SynapseGitWorktree } from '@/global'
-import type { ProjectInfo, SessionInfo } from '@/synapse'
 import { normalize } from '@/lib/text'
+import type { ProjectInfo, SessionInfo } from '@/synapse'
 
 import { rankSessions } from '../order'
 

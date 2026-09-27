@@ -10,7 +10,7 @@ import type {
   WebhooksResponse
 } from '@/types/synapse'
 
-import { synapseApi, profileScoped } from './client'
+import { profileScoped, synapseApi } from './client'
 
 export function getMessagingPlatforms(profile?: null | string): Promise<MessagingPlatformsResponse> {
   return synapseApi<MessagingPlatformsResponse>({

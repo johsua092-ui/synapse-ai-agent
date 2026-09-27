@@ -6,14 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $terminalTakeover, setTerminalTakeover } from '@/app/right-sidebar/store'
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
-import {
-  deleteSession,
-  getAllSessionMessages,
-  getLatestSessionMessages,
-  getSession,
-  type SessionInfo,
-  type SessionResumeResponse
-} from '@/synapse'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { clearSessionDraft, stashSessionDraft, takeSessionDraft } from '@/store/composer'
 import { requestGatewayForAgent } from '@/store/gateway'
@@ -50,6 +42,14 @@ import {
 } from '@/store/session'
 import type { SessionProfileRoute } from '@/store/session-request-router'
 import { $sessionTiles } from '@/store/session-states'
+import {
+  deleteSession,
+  getAllSessionMessages,
+  getLatestSessionMessages,
+  getSession,
+  type SessionInfo,
+  type SessionResumeResponse
+} from '@/synapse'
 
 import sessionResumeActiveTurn from '../../../../../../tests/fixtures/session-resume-active-turn.json'
 import { deferred } from '../../../test/deferred'

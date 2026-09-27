@@ -1,4 +1,4 @@
-import { getGlobalModelOptions, type SynapseGateway, type ModelOptionsResponse } from '@/synapse'
+import { getGlobalModelOptions, type ModelOptionsResponse, type SynapseGateway } from '@/synapse'
 import type { ModelOptionProvider } from '@/types/synapse'
 
 /**

@@ -1,11 +1,11 @@
-import { isGatewayReauthRequired, resolveGatewayWsUrl } from '@synapse/shared'
 import { useStore } from '@nanostores/react'
+import { isGatewayReauthRequired, resolveGatewayWsUrl } from '@synapse/shared'
 import { useCallback, useEffect, useRef } from 'react'
 
-import type { SynapseGateway } from '@/synapse'
 import { $gateway, ensureActiveGatewayOpen, isActivePrimary } from '@/store/gateway'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $gatewayState, setConnection } from '@/store/session'
+import type { SynapseGateway } from '@/synapse'
 
 export function useGatewayRequest() {
   const gatewayState = useStore($gatewayState)

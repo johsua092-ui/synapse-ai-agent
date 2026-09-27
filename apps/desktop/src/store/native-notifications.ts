@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
-import { type SynapseOpenTarget, resolveSynapseOpenPath } from '@/lib/synapse-open-target'
 import { persistString, storedString } from '@/lib/storage'
+import { resolveSynapseOpenPath, type SynapseOpenTarget } from '@/lib/synapse-open-target'
 
 import { $gateway } from './gateway'
 import { withinNativeNotifyBaseline } from './notify-baseline'

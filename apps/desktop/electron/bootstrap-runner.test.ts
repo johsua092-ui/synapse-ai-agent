@@ -91,7 +91,16 @@ test('fresh bootstrap args include the packaged commit pin', () => {
       activeRoot: '/tmp/synapse-agent',
       synapseHome: '/tmp/synapse'
     }),
-    ['--dir', '/tmp/synapse-agent', '--synapse-home', '/tmp/synapse', '--branch', 'main', '--commit', installStamp.commit]
+    [
+      '--dir',
+      '/tmp/synapse-agent',
+      '--synapse-home',
+      '/tmp/synapse',
+      '--branch',
+      'main',
+      '--commit',
+      installStamp.commit
+    ]
   )
 })
 

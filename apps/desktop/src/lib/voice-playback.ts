@@ -1,6 +1,5 @@
 import { resolveGatewayWsUrl } from '@synapse/shared'
 
-import { getApiRequestConnection, getApiRequestProfile, speakText } from '@/synapse'
 import {
   cutSentences,
   directTtsConfig,
@@ -13,6 +12,7 @@ import {
   type VoicePlaybackSource,
   type VoicePlaybackState
 } from '@/store/voice-playback'
+import { getApiRequestConnection, getApiRequestProfile, speakText } from '@/synapse'
 
 import { sanitizeTextForSpeech } from './speech-text'
 

@@ -7,10 +7,10 @@ import {
   appendUniquePathEntries,
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
-  synapseManagedNodePathEntries,
   normalizeSynapseHomeRoot,
   pathEnvKey,
-  POSIX_SANE_PATH_ENTRIES
+  POSIX_SANE_PATH_ENTRIES,
+  synapseManagedNodePathEntries
 } from './backend-env'
 
 test('desktop backend PATH adds Synapse-managed bins and missing POSIX sane entries', () => {

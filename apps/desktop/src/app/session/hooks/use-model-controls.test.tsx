@@ -2,7 +2,6 @@ import { QueryClient } from '@tanstack/react-query'
 import { cleanup, render, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getGlobalModelInfo } from '@/synapse'
 import { modelOptionsQueryKey } from '@/lib/model-options'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
@@ -15,6 +14,7 @@ import {
   setCurrentProvider
 } from '@/store/session'
 import type * as SessionStates from '@/store/session-states'
+import { getGlobalModelInfo } from '@/synapse'
 
 import { deferred } from '../../../test/deferred'
 

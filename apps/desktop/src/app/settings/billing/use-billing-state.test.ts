@@ -721,19 +721,15 @@ describe('buildManageSubscriptionUrl', () => {
   })
 
   it('appends plan=<tierId> when a tier is chosen', () => {
-    expect(
-      buildManageSubscriptionUrl(
-        { org_id: 'org_123', portal_url: 'https:///billing' },
-        null,
-        'tier_abc'
-      )
-    ).toBe('https:///manage-subscription?org_id=org_123&plan=tier_abc')
+    expect(buildManageSubscriptionUrl({ org_id: 'org_123', portal_url: 'https:///billing' }, null, 'tier_abc')).toBe(
+      'https:///manage-subscription?org_id=org_123&plan=tier_abc'
+    )
   })
 
   it('omits the plan param when no tier is given', () => {
-    expect(
-      buildManageSubscriptionUrl({ org_id: 'org_123', portal_url: 'https:///billing' }, null)
-    ).toBe('https:///manage-subscription?org_id=org_123')
+    expect(buildManageSubscriptionUrl({ org_id: 'org_123', portal_url: 'https:///billing' }, null)).toBe(
+      'https:///manage-subscription?org_id=org_123'
+    )
   })
 
   it('applies org_id + plan to the hard-coded portal fallback when no portal_url resolves', () => {

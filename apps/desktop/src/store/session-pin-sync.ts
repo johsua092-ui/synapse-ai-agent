@@ -23,11 +23,11 @@
 
 import { atom } from 'nanostores'
 
-import { setSessionPinnedRemote } from '@/synapse'
 import { onConnectionScopeChange } from '@/lib/connection-scoped'
 import { $pinnedSessionIds, pinSession, unpinSession } from '@/store/layout'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { $sessions, sessionMatchesStoredId, sessionPinId } from '@/store/session'
+import { setSessionPinnedRemote } from '@/synapse'
 import type { SessionInfo } from '@/types/synapse'
 
 // pin ids we've successfully PATCHed pinned=true this session.

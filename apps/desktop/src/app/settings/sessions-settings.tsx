@@ -3,13 +3,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/ui/tooltip'
-import {
-  deleteSession,
-  getSynapseConfigRecord,
-  listAllProfileSessions,
-  saveSynapseConfig,
-  setSessionArchived
-} from '@/synapse'
 import { useI18n } from '@/i18n'
 import { sessionTitle } from '@/lib/chat-runtime'
 import { pathLeaf } from '@/lib/display-path'
@@ -20,7 +13,14 @@ import { notify, notifyError } from '@/store/notifications'
 import { untombstoneSessions } from '@/store/projects'
 import { applyConfiguredDefaultProjectDir, ensureDefaultWorkspaceCwd, setSessions } from '@/store/session'
 import { forgetSessionUnread } from '@/store/session-unread'
-import type { SynapseConfigRecord, SessionInfo } from '@/types/synapse'
+import {
+  deleteSession,
+  getSynapseConfigRecord,
+  listAllProfileSessions,
+  saveSynapseConfig,
+  setSessionArchived
+} from '@/synapse'
+import type { SessionInfo, SynapseConfigRecord } from '@/types/synapse'
 
 import { EmptyState, ListRow, SectionHeading, SettingsContent, SettingsSkeleton, ToggleRow } from './primitives'
 import { useDeepLinkHighlight } from './use-deep-link-highlight'

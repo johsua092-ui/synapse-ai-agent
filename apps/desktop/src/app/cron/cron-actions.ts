@@ -1,4 +1,3 @@
-import { type CronJob, getApiRequestConnection, getCronJobs, triggerCronJob } from '@/synapse'
 import {
   beginCronJobsAction,
   beginCronJobsRequest,
@@ -7,6 +6,7 @@ import {
   isCronJobsRequestCurrent,
   isCronJobsScopeCurrent
 } from '@/store/cron'
+import { type CronJob, getApiRequestConnection, getCronJobs, triggerCronJob } from '@/synapse'
 
 export interface CronTriggerRefreshResult {
   jobs: CronJob[] | null

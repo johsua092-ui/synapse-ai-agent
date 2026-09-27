@@ -530,10 +530,7 @@ test('makeNousCloudBackendDownError returns null for a non-Cloud 503 (generic re
 })
 
 test('makeNousCloudBackendDownError preserves legacy string-prefix compatibility', () => {
-  const result = makeNousCloudBackendDownError(
-    'https://',
-    new Error('503: Service Unavailable')
-  )
+  const result = makeNousCloudBackendDownError('https://', new Error('503: Service Unavailable'))
 
   assert.ok(result)
   assert.equal((result as any).isCloudBackendDown, true)

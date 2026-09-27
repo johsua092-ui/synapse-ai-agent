@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  getSynapseConfigRecord,
   getMcpCatalog,
   getSkillContent,
   getSkills,
+  getSynapseConfigRecord,
   getToolsets,
   getUsageAnalytics,
   installSkillFromHub,

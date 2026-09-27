@@ -1,7 +1,6 @@
 import { atom, batch, computed } from 'nanostores'
 
 import type { SynapseConnection } from '@/global'
-import { getProfiles, synapseApi, setApiRequestProfile, STARTUP_REQUEST_TIMEOUT_MS } from '@/synapse'
 import { invalidateProfileScopedQueries } from '@/lib/query-client'
 import {
   arraysEqual,
@@ -23,6 +22,7 @@ import {
 import { notifyRemoteOverrideAuthFailure } from '@/store/profile-remote-override'
 import { setConnection } from '@/store/session'
 import { resetStarmapGraph } from '@/store/starmap'
+import { getProfiles, setApiRequestProfile, STARTUP_REQUEST_TIMEOUT_MS, synapseApi } from '@/synapse'
 import type { ProfileInfo } from '@/types/synapse'
 
 // Canonical key for a profile: trimmed, empty → "default". Used everywhere we

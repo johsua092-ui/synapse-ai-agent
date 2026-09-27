@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from 'react-router'
 import { codiconIcon } from '@/components/ui/codicon'
 import { KbdCombo } from '@/components/ui/kbd'
 import { Tip } from '@/components/ui/tooltip'
-import { getSynapseConfigDefaults, getSynapseConfigRecord, saveSynapseConfig } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import {
@@ -31,6 +30,7 @@ import { $commandPaletteOpen, openCommandPalettePage } from '@/store/command-pal
 import { confirm } from '@/store/confirm'
 import { bindingsFor } from '@/store/keybinds'
 import { notifyError } from '@/store/notifications'
+import { getSynapseConfigDefaults, getSynapseConfigRecord, saveSynapseConfig } from '@/synapse'
 
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
 import { OverlayIconButton } from '../overlays/overlay-chrome'

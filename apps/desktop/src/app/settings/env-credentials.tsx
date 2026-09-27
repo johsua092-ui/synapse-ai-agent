@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 
-import { deleteEnvVar, getEnvVars, revealEnvVar, setEnvVar } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { type IconComponent } from '@/lib/icons'
 import { confirm } from '@/store/confirm'
 import { notify, notifyError } from '@/store/notifications'
+import { deleteEnvVar, getEnvVars, revealEnvVar, setEnvVar } from '@/synapse'
 import type { EnvVarInfo } from '@/types/synapse'
 
 import { asText, includesQuery, redactedValue, withoutKey } from './helpers'

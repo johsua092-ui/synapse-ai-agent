@@ -1,7 +1,7 @@
 // FPS counter overlay (SYNAPSE_TUI_FPS=1). Zero-cost when disabled.
 
-import { Text } from '@synapse/ink'
 import { useStore } from '@nanostores/react'
+import { Text } from '@synapse/ink'
 
 import { SHOW_FPS } from '../config/env.js'
 import { $fpsState } from '../lib/fpsStore.js'

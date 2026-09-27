@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { getElevenLabsVoices, getSynapseConfigSchema, saveSynapseConfig } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
+import { getElevenLabsVoices, getSynapseConfigSchema, saveSynapseConfig } from '@/synapse'
 import type { SynapseConfigRecord } from '@/types/synapse'
 
 import { setSynapseConfigCache, useSynapseConfigRecord } from '../hooks/use-config-record'

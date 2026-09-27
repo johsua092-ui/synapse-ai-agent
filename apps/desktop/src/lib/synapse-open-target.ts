@@ -155,7 +155,11 @@ export function resolveSynapseOpenPath(target: SynapseOpenTarget | null | undefi
  * Build a navigate path from a parsed deep-link payload
  * (`synapse://<kind>/<name>?…` → kind/name/params).
  */
-export function pathFromSynapseDeepLink(kind: string, name: string, params: Record<string, string> = {}): string | null {
+export function pathFromSynapseDeepLink(
+  kind: string,
+  name: string,
+  params: Record<string, string> = {}
+): string | null {
   if (!kind || !name) {
     return null
   }

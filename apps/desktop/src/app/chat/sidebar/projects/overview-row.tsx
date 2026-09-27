@@ -2,9 +2,9 @@ import type * as React from 'react'
 import { useRef } from 'react'
 
 import { Codicon } from '@/components/ui/codicon'
-import type { SessionInfo } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
+import type { SessionInfo } from '@/synapse'
 
 import {
   SIDEBAR_LEAD_ICON_SIZE,

@@ -5,14 +5,21 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { useI18n } from '@/i18n'
+import { AlertTriangle, Cpu, Loader2 } from '@/lib/icons'
+import { DEFAULT_REASONING_EFFORT, REASONING_EFFORT_VALUES } from '@/lib/reasoning-effort'
+import { cn } from '@/lib/utils'
+import { setMainModelAssignment } from '@/store/cron-model-impact'
+import { notifyError } from '@/store/notifications'
+import { startManualLocalEndpoint, startManualOnboarding, startManualProviderOAuth } from '@/store/onboarding'
 import {
   getAuxiliaryModels,
   getGlobalModelInfo,
   getGlobalModelOptions,
   getMoaModels,
   getRecommendedDefaultModel,
-  saveSynapseConfig,
   saveMoaModels,
+  saveSynapseConfig,
   setEnvVar,
   setModelAssignment
 } from '@/synapse'
@@ -23,15 +30,8 @@ import type {
   ModelOptionProvider,
   StaleAuxAssignment
 } from '@/synapse'
-import { useI18n } from '@/i18n'
-import { AlertTriangle, Cpu, Loader2 } from '@/lib/icons'
-import { DEFAULT_REASONING_EFFORT, REASONING_EFFORT_VALUES } from '@/lib/reasoning-effort'
-import { cn } from '@/lib/utils'
-import { setMainModelAssignment } from '@/store/cron-model-impact'
-import { notifyError } from '@/store/notifications'
-import { startManualLocalEndpoint, startManualOnboarding, startManualProviderOAuth } from '@/store/onboarding'
 
-import { synapseConfigCacheWriter, invalidateSynapseConfig, useSynapseConfigRecord } from '../hooks/use-config-record'
+import { invalidateSynapseConfig, synapseConfigCacheWriter, useSynapseConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 
 import { CONTROL_TEXT } from './constants'

@@ -1,7 +1,7 @@
-import type { SessionInfo } from '@/synapse'
-import { getAllSessionMessages } from '@/synapse'
 import { translateNow } from '@/i18n'
 import { notify, notifyError } from '@/store/notifications'
+import type { SessionInfo } from '@/synapse'
+import { getAllSessionMessages } from '@/synapse'
 
 interface ExportSessionParams {
   sessionId: string

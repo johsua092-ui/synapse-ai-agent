@@ -8,7 +8,7 @@ import type {
 } from '@/types/synapse'
 import type { ActionResponse } from '@/types/synapse'
 
-import { capabilityScoped, synapseApi, type ProfileScope, profileScoped } from './client'
+import { capabilityScoped, type ProfileScope, profileScoped, synapseApi } from './client'
 
 export function getSkills(profile?: ProfileScope): Promise<SkillInfo[]> {
   return window.synapseDesktop.api<SkillInfo[]>({

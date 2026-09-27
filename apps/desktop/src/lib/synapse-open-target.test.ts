@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   normalizeSynapseOpenString,
-  pathFromSynapseDeepLink,
   pathFromOpenDeepLink,
+  pathFromSynapseDeepLink,
   resolveSynapseOpenPath
 } from './synapse-open-target'
 

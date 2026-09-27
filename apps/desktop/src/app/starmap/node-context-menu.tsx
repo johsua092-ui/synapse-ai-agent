@@ -5,9 +5,9 @@ import { CodeEditor } from '@/components/chat/code-editor'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { deleteLearningNode, editLearningNode, getLearningNode } from '@/synapse'
 import { notifyError } from '@/store/notifications'
 import { evictStarmapNode, loadStarmapGraph } from '@/store/starmap'
+import { deleteLearningNode, editLearningNode, getLearningNode } from '@/synapse'
 
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 

@@ -12,12 +12,12 @@
  * the other just learned.
  */
 
-import { getSynapseConfigRecord, type McpTestResult, testMcpServer } from '@/synapse'
 import { translateNow } from '@/i18n'
 import { classifyProbe, freshProbe, probeCache, probeKey } from '@/lib/mcp-probe-cache'
 import { notify } from '@/store/notifications'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { $gatewayState } from '@/store/session'
+import { getSynapseConfigRecord, type McpTestResult, testMcpServer } from '@/synapse'
 
 // A constant, not a config knob: the sweep is cheap (a handful of sequential
 // HTTP probes at most) and the notification is transition-gated below, so

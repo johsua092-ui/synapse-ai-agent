@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { useSessionView } from '@/app/chat/session-view'
 import { Codicon } from '@/components/ui/codicon'
 import { DropdownMenuItem, dropdownMenuRow } from '@/components/ui/dropdown-menu'
-import type { SynapseGateway } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { currentPickerSelection } from '@/lib/model-status-label'
@@ -21,6 +20,7 @@ import {
   setCurrentReasoningEffort
 } from '@/store/session'
 import { sessionTileDelegate } from '@/store/session-states'
+import type { SynapseGateway } from '@/synapse'
 import type { ModelOptionsResponse } from '@/types/synapse'
 
 import { ModelCatalogMenu, type ModelMenuController } from './model-catalog-menu'

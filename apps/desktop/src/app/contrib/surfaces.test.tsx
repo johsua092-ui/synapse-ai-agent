@@ -3,9 +3,9 @@ import { atom } from 'nanostores'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { SynapseGateway } from '@/synapse'
 import { $gateway } from '@/store/gateway'
 import { $activeGatewayProfile } from '@/store/profile'
+import type { SynapseGateway } from '@/synapse'
 
 import { ChatRoutesSurface } from './surfaces'
 import type { WiringActions } from './types'

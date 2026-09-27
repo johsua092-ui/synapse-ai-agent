@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 
-import type { SynapseGateway } from '@/synapse'
 import type { IconComponent } from '@/lib/icons'
+import type { SynapseGateway } from '@/synapse'
 import type { EnvVarInfo } from '@/types/synapse'
 
 export type SettingsView =

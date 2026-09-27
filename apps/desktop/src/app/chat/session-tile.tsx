@@ -30,7 +30,6 @@ import { findGroupOfPane } from '@/components/pane-shell/tree/model'
 import { $layoutTree, closeTreePane, moveTreePane, setTreeGroupTabStrip } from '@/components/pane-shell/tree/store'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { transcribeAudio } from '@/synapse'
 import { useI18n } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { NEW_SESSION_TITLE, sessionTitle } from '@/lib/chat-runtime'
@@ -58,6 +57,7 @@ import {
   sessionTileDelegate,
   sessionTileOwnerRoute
 } from '@/store/session-states'
+import { transcribeAudio } from '@/synapse'
 import type { SessionInfo } from '@/types/synapse'
 
 import type { SessionDragPayload } from './composer/inline-refs'

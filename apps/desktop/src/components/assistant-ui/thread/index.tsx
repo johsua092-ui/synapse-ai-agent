@@ -10,9 +10,9 @@ import { UserEditComposer } from '@/components/assistant-ui/thread/user-edit-com
 import { UserMessage } from '@/components/assistant-ui/thread/user-message'
 import { Intro, type IntroProps } from '@/components/chat/intro'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import type { SynapseGateway } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
+import type { SynapseGateway } from '@/synapse'
 
 type ThreadLoadingState = 'response' | 'session'
 

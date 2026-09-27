@@ -8,8 +8,8 @@ import {
   attachmentPreviewDataUrl,
   type DroppedFile,
   extractDroppedFiles,
-  SYNAPSE_PATHS_MIME,
   partitionDroppedFiles,
+  SYNAPSE_PATHS_MIME,
   useComposerActions
 } from './use-composer-actions'
 

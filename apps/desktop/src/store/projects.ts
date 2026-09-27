@@ -6,7 +6,6 @@ import {
   type SidebarProjectTree
 } from '@/app/chat/sidebar/projects/workspace-groups'
 import type { SynapseGitBaseBranch, SynapseGitBranch } from '@/global'
-import { getSynapseConfig, synapseApi, type SynapseGateway } from '@/synapse'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths, writeDesktopFileText } from '@/lib/desktop-fs'
 import { desktopGit } from '@/lib/desktop-git'
@@ -30,6 +29,7 @@ import {
   setSessions,
   workspaceCwdForNewSession
 } from '@/store/session'
+import { getSynapseConfig, synapseApi, type SynapseGateway } from '@/synapse'
 import type { ProjectInfo, ProjectsPayload } from '@/types/synapse'
 
 // First-class, per-profile Projects (named, multi-folder workspaces). State is

@@ -45,7 +45,7 @@ import {
 } from './backend-claim'
 import { dashboardFallbackArgs, sourceDeclaresServe } from './backend-command'
 import { createBackendConnectionState } from './backend-connection-state'
-import { buildDesktopBackendEnv, synapseManagedNodePathEntries, normalizeSynapseHomeRoot } from './backend-env'
+import { buildDesktopBackendEnv, normalizeSynapseHomeRoot, synapseManagedNodePathEntries } from './backend-env'
 import {
   isReauthRequiredError,
   makeNousCloudBackendDownError,
@@ -352,12 +352,6 @@ import {
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
 import { hiddenWindowsChildOptions } from './windows-child-options'
-import {
-  buildPathExtCandidates,
-  chooseUpdaterArgs,
-  getVenvSitePackagesEntries,
-  resolveVenvSynapseCommand
-} from './windows-synapse-path'
 import { connectWindowsRemote, detectRemotePlatform, helper } from './windows-remote-lifecycle'
 import {
   alreadyHasNoSandbox,
@@ -373,6 +367,12 @@ import {
   shouldRelaunchForRendererSandboxCrashLoop,
   writeSandboxMarker
 } from './windows-sandbox-fallback'
+import {
+  buildPathExtCandidates,
+  chooseUpdaterArgs,
+  getVenvSitePackagesEntries,
+  resolveVenvSynapseCommand
+} from './windows-synapse-path'
 import { installWindowsSystemCaTrust } from './windows-system-ca'
 import { readWindowsUserEnvVar } from './windows-user-env'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
@@ -4504,7 +4504,8 @@ function createActiveBackend(backendArgs) {
 function resolveSynapseBackend(backendArgs) {
   // 1. Explicit override -- SYNAPSE_DESKTOP_SYNAPSE_ROOT points at a developer
   //    checkout. Honour it as-is (no bootstrap; the user is driving).
-  const overrideRoot = process.env.SYNAPSE_DESKTOP_SYNAPSE_ROOT && path.resolve(process.env.SYNAPSE_DESKTOP_SYNAPSE_ROOT)
+  const overrideRoot =
+    process.env.SYNAPSE_DESKTOP_SYNAPSE_ROOT && path.resolve(process.env.SYNAPSE_DESKTOP_SYNAPSE_ROOT)
 
   if (overrideRoot && isSynapseSourceRoot(overrideRoot)) {
     const backend = createPythonBackend(overrideRoot, `Synapse source at ${overrideRoot}`, backendArgs)

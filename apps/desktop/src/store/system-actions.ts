@@ -1,8 +1,8 @@
 import { atom } from 'nanostores'
 
-import { getActionStatus, restartGateway } from '@/synapse'
 import { translateNow } from '@/i18n'
 import { notifyError } from '@/store/notifications'
+import { getActionStatus, restartGateway } from '@/synapse'
 import type { ActionResponse } from '@/types/synapse'
 
 const POLL_ATTEMPTS = 18

@@ -11,6 +11,15 @@ import { ErrorBanner } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
+import { type Translations, useI18n } from '@/i18n'
+import { openExternalLink } from '@/lib/external-link'
+import { ExternalLink, Save, Trash2 } from '@/lib/icons'
+import { normalize } from '@/lib/text'
+import { cn } from '@/lib/utils'
+import { $changeEventsAvailable, $pairingChangeTick, $platformsChangeTick } from '@/store/live-sync'
+import { notify, notifyError } from '@/store/notifications'
+import { $settingsRequestProfile } from '@/store/settings-scope'
+import { runGatewayRestart } from '@/store/system-actions'
 import {
   approvePairing,
   getMessagingPlatforms,
@@ -21,15 +30,6 @@ import {
   revokePairing,
   updateMessagingPlatform
 } from '@/synapse'
-import { type Translations, useI18n } from '@/i18n'
-import { openExternalLink } from '@/lib/external-link'
-import { ExternalLink, Save, Trash2 } from '@/lib/icons'
-import { normalize } from '@/lib/text'
-import { cn } from '@/lib/utils'
-import { $changeEventsAvailable, $pairingChangeTick, $platformsChangeTick } from '@/store/live-sync'
-import { notify, notifyError } from '@/store/notifications'
-import { $settingsRequestProfile } from '@/store/settings-scope'
-import { runGatewayRestart } from '@/store/system-actions'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'

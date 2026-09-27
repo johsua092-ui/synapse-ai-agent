@@ -213,9 +213,9 @@ export {
   canImportSynapseCli,
   DEFAULT_PROBE_TIMEOUT_MS,
   execProbeSync,
-  synapseRuntimeImportProbe,
   PROBE_TIMEOUT_MS,
   resolveProbeTimeoutMs,
   shouldTrustSynapseOverride,
+  synapseRuntimeImportProbe,
   verifySynapseCli
 }

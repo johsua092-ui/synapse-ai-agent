@@ -15,9 +15,9 @@
  * drift on the next page.
  */
 
-import { getOlderSessionMessages } from '@/synapse'
 import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import { recordTranscriptBackfillPage, type TranscriptProfileScope, transcriptTailState } from '@/store/transcript-tail'
+import { getOlderSessionMessages } from '@/synapse'
 
 /** Older rows likely exist beyond what the in-memory store holds. */
 export function transcriptBackfillAvailable(

@@ -1,6 +1,6 @@
 import type { McpCatalogResponse, McpServerSummary } from '@/types/synapse'
 
-import { capabilityScoped, synapseApi, type ProfileScope, profileScoped } from './client'
+import { capabilityScoped, type ProfileScope, profileScoped, synapseApi } from './client'
 
 export interface McpTestResult {
   ok: boolean
@@ -137,11 +137,13 @@ export function installMcpCatalogEntry(
   env: Record<string, string> = {},
   profile?: ProfileScope
 ): Promise<{ ok: boolean; name?: string; pid?: number; action?: string; background?: boolean }> {
-  return window.synapseDesktop.api<{ ok: boolean; name?: string; pid?: number; action?: string; background?: boolean }>({
-    ...capabilityScoped(profile),
-    path: '/api/mcp/catalog/install',
-    method: 'POST',
-    body: { name, env, enable: true },
-    timeoutMs: 60_000
-  })
+  return window.synapseDesktop.api<{ ok: boolean; name?: string; pid?: number; action?: string; background?: boolean }>(
+    {
+      ...capabilityScoped(profile),
+      path: '/api/mcp/catalog/install',
+      method: 'POST',
+      body: { name, env, enable: true },
+      timeoutMs: 60_000
+    }
+  )
 }

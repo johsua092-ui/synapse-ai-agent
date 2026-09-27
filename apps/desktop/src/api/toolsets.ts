@@ -7,7 +7,7 @@ import type {
   ToolsetModelsResponse
 } from '@/types/synapse'
 
-import { capabilityScoped, synapseApi, type ProfileScope, profileScoped } from './client'
+import { capabilityScoped, type ProfileScope, profileScoped, synapseApi } from './client'
 
 // The optional trailing `profile` on every capability fetcher below is the
 // Capabilities view's profile-scope override: it lets the Skills/Tools/MCP

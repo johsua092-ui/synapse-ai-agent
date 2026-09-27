@@ -13,7 +13,7 @@
  * authored.
  */
 
-import type { SynapsePlugin, PaletteContribution } from '@synapse/plugin-sdk'
+import type { PaletteContribution, SynapsePlugin } from '@synapse/plugin-sdk'
 import { $accentOverride, PALETTE_AREA, setAccentOverride, STATUSBAR_AREAS } from '@synapse/plugin-sdk'
 
 import { AccentPickerTrigger } from './picker'

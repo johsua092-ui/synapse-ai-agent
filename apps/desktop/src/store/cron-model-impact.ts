@@ -1,4 +1,3 @@
-import { getApiRequestProfile, setModelAssignment } from '@/synapse'
 import { translateNow } from '@/i18n'
 import { requestCronReview } from '@/store/cron'
 import {
@@ -8,6 +7,7 @@ import {
   onCronModelImpactScopeInvalidated
 } from '@/store/cron-model-impact-scope'
 import { dismissNotification, notify } from '@/store/notifications'
+import { getApiRequestProfile, setModelAssignment } from '@/synapse'
 import type {
   CronModelDriftAxis,
   CronModelImpact,

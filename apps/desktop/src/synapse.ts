@@ -7,13 +7,13 @@
 export {
   getApiRequestConnection,
   getApiRequestProfile,
-  synapseApi,
-  SynapseGateway,
   profileScopeKey,
   PROMPT_SUBMIT_REQUEST_TIMEOUT_MS,
   setApiRequestConnection,
   setApiRequestProfile,
-  STARTUP_REQUEST_TIMEOUT_MS
+  STARTUP_REQUEST_TIMEOUT_MS,
+  synapseApi,
+  SynapseGateway
 } from './api/client'
 export type { ProfileScope } from './api/client'
 export * from './api/config'
@@ -63,8 +63,6 @@ export type {
   ElevenLabsVoicesResponse,
   EnvVarInfo,
   GatewayReadyPayload,
-  SynapseConfig,
-  SynapseConfigRecord,
   LogsResponse,
   McpCatalogEntry,
   McpCatalogResponse,
@@ -118,6 +116,8 @@ export type {
   StaleAuxAssignment,
   StarmapGraph,
   StatusResponse,
+  SynapseConfig,
+  SynapseConfigRecord,
   ToolsetConfig,
   ToolsetInfo,
   ToolsetModel,

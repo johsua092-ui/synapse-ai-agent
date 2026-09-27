@@ -12,11 +12,11 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldHint } from '@/components/ui/field'
 import { SanitizedInput } from '@/components/ui/sanitized-input'
-import { renameProfile } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { AlertTriangle } from '@/lib/icons'
 import { slug } from '@/lib/sanitize'
 import { retireLocalProfileGateways } from '@/store/gateway'
+import { renameProfile } from '@/synapse'
 
 import { isValidProfileName } from './create-profile-dialog'
 

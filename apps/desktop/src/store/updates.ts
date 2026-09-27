@@ -14,13 +14,13 @@ import type {
   DesktopUpdateStatus,
   DesktopVersionInfo
 } from '@/global'
-import { checkSynapseUpdate, getActionStatus, updateSynapse } from '@/synapse'
 import { translateNow } from '@/i18n'
 import { persistString, storedString } from '@/lib/storage'
 import { $connectionsRegistry, refreshConnectionsRegistry } from '@/store/connections'
 import { reconnectGateway } from '@/store/gateway-reconnect'
 import { dismissNotification, notify } from '@/store/notifications'
 import { $connection } from '@/store/session'
+import { checkSynapseUpdate, getActionStatus, updateSynapse } from '@/synapse'
 import type { BackendUpdateCheckResponse } from '@/types/synapse'
 
 export interface UpdateApplyState {

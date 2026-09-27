@@ -15,7 +15,7 @@
  * still picks `.dark` from the real background luminance.
  */
 
-import type { SynapseSkin, SkinColors } from '@synapse/shared/skin'
+import type { SkinColors, SynapseSkin } from '@synapse/shared/skin'
 
 import { ensureContrast, luminance, mix, normalizeHex, readableOn } from './color'
 import type { DesktopTheme, DesktopThemeColors } from './types'

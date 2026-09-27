@@ -895,11 +895,7 @@ describe('ToolsetConfigPanel', () => {
         warning!.action!.onClick()
 
         await waitFor(() => expect(startOAuthLogin).toHaveBeenCalledWith('nous'))
-        expect(openSpy).toHaveBeenCalledWith(
-          'https:///device?user_code=NOUS-1234',
-          '_blank',
-          'noopener,noreferrer'
-        )
+        expect(openSpy).toHaveBeenCalledWith('https:///device?user_code=NOUS-1234', '_blank', 'noopener,noreferrer')
         // Approved poll → the panel refetches the config so status flips.
         await waitFor(() => expect(pollOAuthSession).toHaveBeenCalledWith('nous', 'sess-1'), { timeout: 8000 })
         await waitFor(() => expect(getToolsetConfig).toHaveBeenCalled(), { timeout: 8000 })

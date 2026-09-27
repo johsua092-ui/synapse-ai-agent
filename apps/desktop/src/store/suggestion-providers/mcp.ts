@@ -1,3 +1,10 @@
+import { translateNow } from '@/i18n'
+import { completeMcpDesktopOAuth, McpOAuthCancelled } from '@/lib/mcp-dashboard-oauth'
+import { MCP_DIRECTORY } from '@/lib/mcp-directory'
+import { prettyName } from '@/lib/text'
+import { type ComposerSuggestion, registerDraftProvider } from '@/store/composer-suggestions'
+import { $gateway } from '@/store/gateway'
+import { notifyError } from '@/store/notifications'
 import {
   addMcpServer,
   authMcpServer,
@@ -7,13 +14,6 @@ import {
   listMcpServers,
   removeMcpServer
 } from '@/synapse'
-import { translateNow } from '@/i18n'
-import { completeMcpDesktopOAuth, McpOAuthCancelled } from '@/lib/mcp-dashboard-oauth'
-import { MCP_DIRECTORY } from '@/lib/mcp-directory'
-import { prettyName } from '@/lib/text'
-import { type ComposerSuggestion, registerDraftProvider } from '@/store/composer-suggestions'
-import { $gateway } from '@/store/gateway'
-import { notifyError } from '@/store/notifications'
 
 /**
  * The MCP draft provider — the suggestion bus's founding member (PR #85036).

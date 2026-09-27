@@ -946,11 +946,19 @@ test('cookiesHaveSession handles non-arrays', () => {
 })
 
 test('AT_COOKIE_VARIANTS covers all three deploy shapes', () => {
-  assert.deepEqual(AT_COOKIE_VARIANTS, ['__Host-synapse_session_at', '__Secure-synapse_session_at', 'synapse_session_at'])
+  assert.deepEqual(AT_COOKIE_VARIANTS, [
+    '__Host-synapse_session_at',
+    '__Secure-synapse_session_at',
+    'synapse_session_at'
+  ])
 })
 
 test('RT_COOKIE_VARIANTS covers all three deploy shapes', () => {
-  assert.deepEqual(RT_COOKIE_VARIANTS, ['__Host-synapse_session_rt', '__Secure-synapse_session_rt', 'synapse_session_rt'])
+  assert.deepEqual(RT_COOKIE_VARIANTS, [
+    '__Host-synapse_session_rt',
+    '__Secure-synapse_session_rt',
+    'synapse_session_rt'
+  ])
 })
 
 // --- cookiesHaveLiveSession (AT or RT — the connectivity check) ---

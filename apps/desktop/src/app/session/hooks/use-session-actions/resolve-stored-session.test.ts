@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type * as SynapseModule from '@/synapse'
-import { getSession } from '@/synapse'
 import { $activeGatewayProfile, $profiles } from '@/store/profile'
 import { $cronSessions, $messagingSessions, $sessions } from '@/store/session'
+import type * as SynapseModule from '@/synapse'
+import { getSession } from '@/synapse'
 import type { SessionInfo } from '@/types/synapse'
 
 import { resolveSessionProfile, resolveStoredSession } from './utils'

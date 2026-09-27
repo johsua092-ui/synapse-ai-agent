@@ -15,10 +15,10 @@ import { test } from 'vitest'
 import {
   canImportSynapseCli,
   DEFAULT_PROBE_TIMEOUT_MS,
-  synapseRuntimeImportProbe,
   PROBE_TIMEOUT_MS,
   resolveProbeTimeoutMs,
   shouldTrustSynapseOverride,
+  synapseRuntimeImportProbe,
   verifySynapseCli
 } from './backend-probes'
 

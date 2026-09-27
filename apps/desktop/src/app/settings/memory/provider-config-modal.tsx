@@ -11,10 +11,10 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { saveMemoryProviderConfig } from '@/synapse'
 import { ExternalLink, Loader2, Save, SlidersHorizontal } from '@/lib/icons'
 import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile } from '@/store/profile'
+import { saveMemoryProviderConfig } from '@/synapse'
 import type { MemoryProviderConfig, MemoryProviderField } from '@/types/synapse'
 
 import { ListRow } from '../primitives'

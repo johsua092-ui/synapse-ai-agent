@@ -102,7 +102,10 @@ test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
 })
 
 test('resolveRemovableAppPath finds the unpacked dir on Linux', () => {
-  assert.equal(resolveRemovableAppPath('/opt/synapse/linux-unpacked/synapse', 'linux', {}), '/opt/synapse/linux-unpacked')
+  assert.equal(
+    resolveRemovableAppPath('/opt/synapse/linux-unpacked/synapse', 'linux', {}),
+    '/opt/synapse/linux-unpacked'
+  )
   // A system-package install (/usr/bin) → null, left to apt/dnf.
   assert.equal(resolveRemovableAppPath('/usr/bin/synapse', 'linux', {}), null)
 })

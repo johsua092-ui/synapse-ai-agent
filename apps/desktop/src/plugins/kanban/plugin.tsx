@@ -14,7 +14,6 @@ import './kanban.css'
 import {
   cn,
   Codicon,
-  type SynapsePlugin,
   host,
   type KeybindContribution,
   KEYBINDS_AREA,
@@ -25,6 +24,7 @@ import {
   SIDEBAR_NAV_AREA,
   type SidebarNavContribution,
   STATUSBAR_AREAS,
+  type SynapsePlugin,
   Tip,
   useQuery,
   useValue

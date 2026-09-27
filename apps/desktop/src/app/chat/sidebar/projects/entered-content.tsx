@@ -5,12 +5,12 @@ import { useMemo, useState } from 'react'
 import { Codicon } from '@/components/ui/codicon'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { SynapseGitWorktree } from '@/global'
-import type { SessionInfo } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { displayPath } from '@/lib/display-path'
 import { $dismissedWorktreeIds, dismissWorktree, setWorkspaceNodeOpen } from '@/store/layout'
 import { notifyError } from '@/store/notifications'
 import { removeWorktreePath } from '@/store/projects'
+import type { SessionInfo } from '@/synapse'
 
 import { SidebarRowStack } from '../chrome'
 

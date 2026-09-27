@@ -6,7 +6,7 @@ import type {
   ProfilesResponse
 } from '@/types/synapse'
 
-import { capabilityScoped, synapseApi, type ProfileScope, STARTUP_REQUEST_TIMEOUT_MS } from './client'
+import { capabilityScoped, type ProfileScope, STARTUP_REQUEST_TIMEOUT_MS, synapseApi } from './client'
 
 export function getProfiles(): Promise<ProfilesResponse> {
   return synapseApi<ProfilesResponse>({

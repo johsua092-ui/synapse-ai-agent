@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getSynapseConfigRecord, type SynapseConfigRecord, saveSynapseConfig } from '@/synapse'
+import { getSynapseConfigRecord, saveSynapseConfig, type SynapseConfigRecord } from '@/synapse'
 
 import { TRANSLATIONS } from './catalog'
 import { DEFAULT_LOCALE, localeConfigValue, normalizeLocale } from './languages'

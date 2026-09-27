@@ -1,9 +1,8 @@
 import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
-import { JsonRpcGatewayError } from '@synapse/shared'
 import { useStore } from '@nanostores/react'
+import { JsonRpcGatewayError } from '@synapse/shared'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 
-import { transcribeAudio } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { stripAnsi } from '@/lib/ansi'
 import { type ChatMessage, textPart } from '@/lib/chat-messages'
@@ -41,6 +40,7 @@ import { $sessionStates } from '@/store/session-states'
 import { clearSessionSubagents } from '@/store/subagents'
 import { clearSessionTodos } from '@/store/todos'
 import { setSessionDraftingTool } from '@/store/tool-drafting'
+import { transcribeAudio } from '@/synapse'
 
 import type {
   ClientSessionState,

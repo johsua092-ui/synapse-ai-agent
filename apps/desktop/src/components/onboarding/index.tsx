@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { getGlobalModelOptions } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { Check, ChevronDown, ChevronLeft, KeyRound, Loader2 } from '@/lib/icons'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
@@ -26,6 +25,7 @@ import {
   setOnboardingMode,
   startProviderOAuth
 } from '@/store/onboarding'
+import { getGlobalModelOptions } from '@/synapse'
 import type { ModelOptionProvider, OAuthProvider } from '@/types/synapse'
 
 import { DocsLink, FlowPanel, Status } from './flow'

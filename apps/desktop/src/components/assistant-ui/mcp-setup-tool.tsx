@@ -10,18 +10,6 @@ import { WIDGET_SHELL_CLASS } from '@/components/chat/widget-shell'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Input } from '@/components/ui/input'
-import {
-  addMcpServer,
-  authMcpServer,
-  cancelMcpOAuthFlow,
-  getActionStatus,
-  getMcpCatalog,
-  getMcpOAuthFlow,
-  installMcpCatalogEntry,
-  type McpCatalogEntry,
-  removeMcpServer,
-  setMcpServerEnabled
-} from '@/synapse'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { AlertCircle, CheckCircle2, Loader2 } from '@/lib/icons'
@@ -34,6 +22,18 @@ import { $gateway } from '@/store/gateway'
 import { clearMcpSetupRequest, type McpSetupOutcome, sessionMcpSetupRequest } from '@/store/mcp-setup'
 import { notifyError } from '@/store/notifications'
 import { invalidateMcpSuggestionIndex } from '@/store/suggestion-providers/mcp'
+import {
+  addMcpServer,
+  authMcpServer,
+  cancelMcpOAuthFlow,
+  getActionStatus,
+  getMcpCatalog,
+  getMcpOAuthFlow,
+  installMcpCatalogEntry,
+  type McpCatalogEntry,
+  removeMcpServer,
+  setMcpServerEnabled
+} from '@/synapse'
 
 import { selectMessageRunning } from './tool/fallback-model'
 import { parseMaybeObject } from './tool/fallback-model/format'

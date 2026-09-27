@@ -8,7 +8,7 @@ import type {
   SessionSearchResponse
 } from '@/types/synapse'
 
-import { capabilityScoped, synapseApi, type ProfileScope } from './client'
+import { capabilityScoped, type ProfileScope, synapseApi } from './client'
 
 const SESSION_LIST_REQUEST_TIMEOUT_MS = 60_000
 

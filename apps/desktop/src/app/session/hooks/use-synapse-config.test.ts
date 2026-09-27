@@ -3,7 +3,6 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $terminalFontFamily, setTerminalFontFamilyFromConfig } from '@/app/right-sidebar/terminal/terminal-font'
-import { getSynapseConfig } from '@/synapse'
 import { persistString } from '@/lib/storage'
 import {
   $currentCwd,
@@ -17,6 +16,7 @@ import {
   setCurrentReasoningEffort,
   setDefaultReasoningEffort
 } from '@/store/session'
+import { getSynapseConfig } from '@/synapse'
 
 import { deferred } from '../../../test/deferred'
 

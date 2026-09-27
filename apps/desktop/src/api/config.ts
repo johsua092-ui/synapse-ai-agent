@@ -4,17 +4,17 @@ import type {
   CustomEndpointUpdate,
   CustomEndpointValidationResponse,
   EnvVarInfo,
-  SynapseConfig,
-  SynapseConfigRecord,
   LogsResponse,
   OAuthPollResponse,
   OAuthProvidersResponse,
   OAuthStartResponse,
   OAuthSubmitResponse,
-  StatusResponse
+  StatusResponse,
+  SynapseConfig,
+  SynapseConfigRecord
 } from '@/types/synapse'
 
-import { capabilityScoped, synapseApi, type ProfileScope, profileScoped, STARTUP_REQUEST_TIMEOUT_MS } from './client'
+import { capabilityScoped, type ProfileScope, profileScoped, STARTUP_REQUEST_TIMEOUT_MS, synapseApi } from './client'
 
 export function getStatus(): Promise<StatusResponse> {
   return synapseApi<StatusResponse>({

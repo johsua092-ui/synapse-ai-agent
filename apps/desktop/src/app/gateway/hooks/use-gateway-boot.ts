@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react'
 
 import { shouldApplyPostBootProgressError } from '@/components/boot-failure-reauth'
 import type { SynapseConnection } from '@/global'
-import { SynapseGateway } from '@/synapse'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd } from '@/lib/desktop-fs'
 import { reconnectBackoffDelayMs } from '@/lib/reconnect-backoff'
@@ -59,6 +58,7 @@ import {
   resetTileRuntimeBindings
 } from '@/store/session-states'
 import { windowProfileOverride } from '@/store/windows'
+import { SynapseGateway } from '@/synapse'
 import type { RpcEvent } from '@/types/synapse'
 
 import { stashGatewaySurvivor, survivorIsStale, takeGatewaySurvivor } from './gateway-hmr-survivor'
@@ -127,7 +127,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 /** Registry identity whose runtimes died with the primary connection. */
-export function primaryRuntimeConnectionId(connection: Pick<SynapseConnection, 'connectionId' | 'mode'>): null | string {
+export function primaryRuntimeConnectionId(
+  connection: Pick<SynapseConnection, 'connectionId' | 'mode'>
+): null | string {
   const connectionId = connection.connectionId?.trim()
 
   if (connectionId) {

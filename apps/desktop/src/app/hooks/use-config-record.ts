@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { getSynapseConfigRecord, type ProfileScope, profileScopeKey } from '@/synapse'
 import { queryClient, writeCache } from '@/lib/query-client'
+import { getSynapseConfigRecord, type ProfileScope, profileScopeKey } from '@/synapse'
 import type { SynapseConfigRecord } from '@/types/synapse'
 
 // One shared cache for the whole profile config record (`GET /api/config`).

@@ -8,9 +8,9 @@ import {
 } from '@/app/right-sidebar/terminal/terminal-font'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { saveSynapseConfig } from '@/synapse'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
+import { saveSynapseConfig } from '@/synapse'
 import type { SynapseConfigRecord } from '@/types/synapse'
 
 import { setSynapseConfigCache, useSynapseConfigRecord } from '../hooks/use-config-record'

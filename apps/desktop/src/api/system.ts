@@ -12,7 +12,7 @@ import type {
   MemoryStatusResponse
 } from '@/types/synapse'
 
-import { capabilityScoped, synapseApi, type ProfileScope, profileScoped } from './client'
+import { capabilityScoped, type ProfileScope, profileScoped, synapseApi } from './client'
 
 export const AUDIO_SPEAK_MIN_REQUEST_TIMEOUT_MS = 180_000
 export const AUDIO_SPEAK_MAX_REQUEST_TIMEOUT_MS = 600_000
