@@ -421,7 +421,7 @@ def read_env(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
     out = {}
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -731,7 +731,7 @@ def write_env(path: Path, data: dict[str, str]) -> None:
         lines.extend(sorted(grouped["other"]))
         lines.append("")
 
-    path.write_text("\n".join(lines))
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 # ── xAI Grok SuperGrok OAuth (Device Code — RFC 8628) ───────────────────────
@@ -1753,14 +1753,14 @@ async def api_config_reset(request: Request):
 # entries still work here because we treat the key as an opaque handle.
 def _pjson(path: Path) -> dict:
     try:
-        return json.loads(path.read_text()) if path.exists() else {}
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     except Exception:
         return {}
 
 
 def _wjson(path: Path, data: dict):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     try: os.chmod(path, 0o600)
     except OSError: pass
 

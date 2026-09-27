@@ -3586,7 +3586,204 @@ Isi ulang kolom setelah `input tap` menghasilkan Base URL DOBEL
 
 ---
 
-*BAGIAN 44 ditambahkan 27 Sep 2026. Status: #3 (404) & Tools SELESAI; avatar BELUM.*
+---
+
+## BAGIAN 45 — v1.2.4 DIRILIS + WARISAN PELAJARAN (27 Sep 2026)
+
+### 45.1 STATUS RILIS (terverifikasi)
+
+```
+Push normal   : commit c745de7 (lokal == remote/main)         ✅ LIVE
+GitHub Release: tag v1.2.4 (bukan draft), aset APK 58,8 MB    ✅ LIVE
+  URL publik  : .../releases/download/v1.2.4/SynapseMobile_v1.2.4.apk
+APK di HP     : /sdcard/Download/SynapseMobile_v1.2.4.apk     ✅ ADA
+```
+**Cara teman update:** app v1.2.3 ke atas -> Setelan -> Update & Patchnote ->
+"Cek Update" -> "Unduh & Pasang" -> tap "Install" (Android wajib konfirmasi sekali).
+Data TIDAK hilang (keystore sama).
+
+### 45.2 ALUR RILIS YANG BENAR (SOP — sudah terbukti)
+
+```bash
+# 0. Sinkronkan kode app -> folder "synapse Mobile/kode" (JANGAN path relatif salah!)
+SRC=/c/Users/user/synapse-ai-agent/apps/mobile
+DEST="/c/Users/user/synapse-ai-agent/synapse Mobile/kode"
+rm -rf "$DEST"; mkdir -p "$DEST"
+cp -r "$SRC"/{lib,assets,android,pubspec.yaml,pubspec.lock,analysis_options.yaml,test,README.md} "$DEST/"
+rm -f "$DEST/android/key.properties" "$DEST/android/synapse-release.jks"   # RAHASIA!
+rm -rf "$DEST/android/build" "$DEST/android/.gradle" "$DEST/android/app/build"
+
+# 1. APK -> apk/   + bukti screenshot -> bukti/
+cp apps/mobile/build/app/outputs/flutter-apk/app-release.apk \
+   "synapse Mobile/apk/SynapseMobile_v1.2.4.apk"
+
+# 2. Commit + PUSH NORMAL (DILARANG --force)
+git add "synapse Mobile"; git commit -m "feat(synapse-mobile): v1.2.4 ..."
+git push origin main
+git fetch origin && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] && echo LIVE
+
+# 3. GitHub RELEASE (WAJIB agar fitur "Cek Update" menemukan versi!)
+#    Token diambil dari credential manager (JANGAN tulis token di file/commit):
+TOK=$(printf "protocol=https\nhost=github.com\n\n" | git credential fill | grep '^password=' | cut -d= -f2)
+curl -X POST -H "Authorization: token $TOK" \
+  https://api.github.com/repos/johsua092-ui/synapse-ai-agent/releases \
+  -d '{"tag_name":"v1.2.4","target_commitish":"main","name":"Synapse Mobile v1.2.4","body":"..."}'
+curl -X POST -H "Authorization: token $TOK" -H "Content-Type: application/vnd.android.package-archive" \
+  --data-binary @"synapse Mobile/apk/SynapseMobile_v1.2.4.apk" \
+  "https://uploads.github.com/repos/.../releases/<ID>/assets?name=SynapseMobile_v1.2.4.apk"
+
+# 4. APK ke Download HP
+adb push "synapse Mobile/apk/SynapseMobile_v1.2.4.apk" /sdcard/Download/
+```
+
+### 45.3 JEBAKAN RILIS BARU (#91-94)
+
+| # | Jebakan | Gejala | Solusi |
+|---|---|---|---|
+| **91** | `apps/mobile/` TIDAK di-track git (untracked); yang masuk repo hanya folder `synapse Mobile/` | Perubahan kode app tidak muncul di repo | SELALU sinkronkan `apps/mobile` -> `synapse Mobile/kode` sebelum commit |
+| **92** | `cp -r "$DEST"` dgn path RELATIF dari `apps/mobile` -> nyasar ke `apps/synapse Mobile/` | Folder salah, commit kosong | PAKAI PATH ABSOLUT untuk SRC & DEST; verifikasi `du -sh` + grep versi |
+| **93** | **Tanda SILANG MERAH di GitHub** dikira push/release GAGAL | Panik padahal live | Itu **checks/CI workflow**, bukan status push. Cek kebenarannya via **API**: `releases/latest` -> `draft:false` + aset `state:uploaded` |
+| **94** | APK >50 MB di-commit ke git | warning GH001 (tapi tetap lolos krn <100MB) | Aman (<100 MB), tapi sebaiknya andalkan **Release asset** untuk distribusi |
+| **95** | Release TANPA aset `.apk` | "Cek Update" tidak menemukan apa pun | Release WAJIB punya `tag_name` + aset `.apk` (app mencari `assets[].browser_download_url`) |
+
+### 45.4 WARISAN: SEMUA PELAJARAN VERIFIKASI SESI INI (WAJIB DIINGAT)
+
+**1. CACHE HTTP adalah tersangka PERTAMA kalau perubahan "tidak berefek".**
+Ini yang menghabiskan 3 percobaan sia-sia pada avatar. Kalau diff piksel ~0
+padahal kode sudah diubah -> **cek header Cache-Control** di server file lokal.
+→ `live2d_server.dart`: HTML/JS/JSON/CSS = `no-store`; aset besar boleh di-cache.
+
+**2. `vision_analyze` (model default) SERING HALUSINASI — jangan percaya satu model.**
+Nyata: model default bilang "kaki 3 + ghosting"; Gemini bilang "2 kaki, tidak ada ghosting".
+→ Pakai **beberapa model**. Script: `apps/mobile/_tmp_uji/baca_gambar.py <img> "<tanya>" [model]`
+(baca `GEMINI_API_KEY` dari `.env`; model default `gemini-flash-latest`;
+`gemini-2.0-flash`/`gemini-2.5-flash` bisa 404 -> pakai `gemini-flash-lite-latest`).
+
+**3. Uji A/B WAJIB apple-to-apple + UKUR OBJEKTIF.**
+Jangan andalkan deskripsi vision. Ukur:
+- **ketajaman**: `ImageStat.Stat(img.convert('L').filter(ImageFilter.FIND_EDGES)).stddev[0]`
+- **perbedaan**: `ImageChops.difference(a,b)` rata-rata histogram
+- **stabilitas**: diff antar-frame berurutan (kecil = stabil)
+Percobaan di latar HITAM menyembunyikan ghosting transparan -> **selalu pakai
+background yang sama** seperti di app.
+
+**4. Verifikasi UI TANPA vision — pakai `uiautomator`.**
+`adb shell uiautomator dump /sdcard/ui.xml` lalu `cat` -> baca `content-desc` &
+`bounds` PERSIS. Dipakai membuktikan 7 tab, isi layar Tools, dialog, posisi tombol.
+Jauh lebih andal & murah daripada screenshot + vision.
+
+**5. JANGAN uji fitur DESTRUKTIF di HP user.** (JEBAKAN #89)
+Menguji "Hapus Konfigurasi" mengosongkan Base URL/API Key user -> app "Belum diatur".
+Catat nilai lama dulu & kembalikan; atau uji di layar tiruan.
+
+**6. `adb shell input text` MENAMBAH, bukan mengganti.** (JEBAKAN #90)
+Isi ulang kolom -> teks DOBEL. Kosongkan dulu: `keyevent 123` (END) + banyak
+`keyevent 67` (DEL).
+
+**7. Selalu `adb reverse tcp:8642 tcp:8642`** setelah install (HP -> api_server laptop),
+dan **`install -r`** (JANGAN uninstall) supaya data user aman.
+
+**8. Verifikasi build setelah edit** (JEBAKAN #24) — `flutter analyze` + build;
+perubahan signature widget (mis. `health()` jadi nullable) wajib update SEMUA pemanggil.
+
+### 45.5 RINGKASAN v1.2.4 (SELESAI & DIRILIS)
+
+| Item | Status |
+|---|---|
+| #3 Deteksi model 404 (FATAL) | ✅ fix + terbukti |
+| #1 Layar Tools (28 toolset / 70 tool) | ✅ + tombol ON/OFF |
+| Baru: Tombol merah "Hapus Konfigurasi" | ✅ dialog Ya/Tidak |
+| #2 **Avatar HD** | ✅ tajam (+57%) & stabil |
+| Regresi 7 tab · 0 crash | ✅ |
+| Rilis: push + Release v1.2.4 + APK di Download | ✅ LIVE |
+
+**7 tab sekarang:** Chat | Special Chat | Skills | **Tools** | MCP | CLI | Setelan
+
+*BAGIAN 45 ditambahkan 27 Sep 2026 — v1.2.4 dinyatakan SELESAI oleh user & dirilis.*
+
+---
+
+## BAGIAN 46 — CI MERAH vs RELEASE (jangan panik) — 27 Sep 2026
+
+### 46.1 KEJADIAN
+
+User melihat **tanda SILANG MERAH** di halaman GitHub dan bertanya
+*"udah live kah atau gimana? kenapa silang merah?"* — khawatir rilis gagal.
+
+### 46.2 JAWABAN: CI ≠ RELEASE
+
+```
+GitHub RELEASES  ->  dipakai fitur "Cek Update" app  ->  STATUS: LIVE ✅
+GitHub CI/CHECKS ->  pengujian internal repo (Python, Docker, docs, dll)
+                     ->  MERAH itu BUKAN tanda push/release gagal
+```
+Cara memastikan kebenaran (JANGAN menebak dari warna):
+```bash
+# push live?  lokal HEAD == remote/main
+git fetch origin && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] && echo LIVE
+# release live? draft:false + aset .apk state:uploaded (via API, bukan mata)
+curl -s -H "Authorization: token $TOK" .../releases/latest
+# riwayat CI: pakai API
+curl -s -H "Authorization: token $TOK" .../actions/workflows/<file>.yml/runs?per_page=6
+```
+
+### 46.3 JEBAKAN #96 — CI repo ini MEMANG sudah merah dari sananya
+
+**Gejala:** `Install & Update E2E / Pick release tags` gagal **SETIAP kali** —
+termasuk run **terjadwal otomatis (tiap 12 jam)** saat TIDAK ada yang push.
+
+```
+error: no release tags found in <repo>
+       A shallow clone has no tags: fetch with tags (actions/checkout ...)
+```
+Pesan itu **MENYESATKAN** — checkout-nya SUDAH mengambil tag; tag-nya cuma
+**tidak cocok pola**.
+
+**AKAR:** `scripts/sandbox/pick-release-tags.sh` hanya menerima tag
+**`vTAHUN.BULAN.HARI`** (`^v[0-9]{4}\.[0-9]+\.[0-9]+(\.[0-9]+)?$`), sedangkan
+repo ini hanya punya tag **versi app** (`v1.2.3`, `v1.2.4`).
+
+**CARA MEMBEDAKAN masalah LAMA vs BARU (WAJIB, sebelum menyalahkan diri):**
+```bash
+# cek run terjadwal / commit LAMA — kalau ikut merah, itu PRE-EXISTING
+curl .../actions/workflows/<file>.yml/runs?per_page=6     # lihat event=schedule
+curl .../commits/<sha-lama>/check-runs                    # conclusion tiap check
+```
+Bukti nyata: CI gagal juga di commit v1.2.3 & di 4 run `schedule` sebelum kita
+menyentuh apa pun → **pre-existing, bukan salah perubahan kita**.
+
+**PERBAIKAN (terbukti):** tambahkan **fallback** di `pick-release-tags.sh` —
+kalau tidak ada tag tanggal, pakai tag versi app (`vX.Y.Z`), karena tag itu
+tetap ref git yang sah untuk `--install-ref`:
+```bash
+if [ "${#tags[@]}" -eq 0 ]; then
+  mapfile -t tags < <(git -C "$REPO" tag --list 'v*' \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
+fi
+```
+Hasil uji: `exit 1` -> `["v1.2.3"] exit 0` ✅
+
+### 46.4 CI MERAH LAINNYA (pre-existing, DI LUAR lingkup mobile)
+
+Dari 30 check, beberapa merah sejak lama dan **tidak menyentuh folder mobile**:
+`uv.lock check` · `Docs Site` · `macOS-only tests` · `ruff enforcement` ·
+`Python tests / e2e`.
+
+**ATURAN:** CI merah hanya **WAJIB** dibereskan kalau **kita yang menyebabkan**.
+Kalau pre-existing & tidak berhubungan dengan aplikasi -> **laporkan jujur**
+mana yang kita perbaiki dan mana yang tidak, JANGAN diamkan atau klaim hijau.
+**Kesimpulan yang benar untuk user: "AMAN, aplikasi & fitur Update tidak
+terpengaruh."**
+
+### 46.5 CATATAN TEKNIS: tag & Release
+
+- `git push origin main` **TIDAK** otomatis mengirim tag. Push tag terpisah:
+  `git push origin v1.2.4`.
+- Namun **GitHub Release** (dibuat lewat API dengan `tag_name`) **membuat tag
+  itu sendiri** -> tag `refs/tags/v1.2.4` muncul tanpa push tag manual.
+- Verifikasi tag di remote: `git ls-remote --tags origin | grep v1.2`.
+
+*BAGIAN 46 ditambahkan 27 Sep 2026.*
 
 ---
 
