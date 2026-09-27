@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Folder cache internal app: tempat APK update diunduh.
+    <!-- Folder tempat APK update diunduh.
          getExternalStorageDirectory() -> /storage/emulated/0/Android/data/<pkg>/files -->
     <external-files-path name="apk_update" path="." />
     <cache-path name="cache" path="." />
     <external-cache-path name="ext_cache" path="." />
+    <!-- JEBAKAN #97 (v1.2.5): WAJIB ada juga. Kalau APK jatuh ke folder
+         INTERNAL app (getApplicationDocumentsDirectory = /data/data/<pkg>/app_flutter),
+         TANPA entri <files-path> ini FileProvider gagal membuat content:// URI
+         -> installer tidak terbuka ("update 100% tapi tidak terpasang"). -->
+    <files-path name="internal_files" path="." />
 </paths>

@@ -145,7 +145,17 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
         throw Exception('HTTP ${resp.statusCode}');
       }
       final total = resp.contentLength ?? 0;
-      final dir = await getApplicationDocumentsDirectory();
+      // JEBAKAN #97 (v1.2.5) — AKAR "update 100% tapi TIDAK terpasang / ngulang":
+      // dulu APK disimpan di getApplicationDocumentsDirectory() = INTERNAL
+      // (/data/data/<pkg>/app_flutter). FileProvider TIDAK mengizinkan folder itu
+      // (file_paths.xml hanya punya external-files/cache) sehingga
+      // OpenFile.open() gagal membuat content:// URI -> installer Android TIDAK
+      // pernah terbuka. FIX: simpan di folder yang MEMANG diizinkan FileProvider.
+      Directory? dir = await getExternalStorageDirectory();
+      dir ??= await getApplicationDocumentsDirectory();
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
       final file = File('${dir.path}/synapse-update.apk');
       final sink = file.openWrite();
       var terima = 0;

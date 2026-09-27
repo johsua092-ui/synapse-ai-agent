@@ -1,6 +1,15 @@
 {
- "versi_terbaru": "1.2.4",
+ "versi_terbaru": "1.2.5",
  "riwayat": [
+  {
+   "versi": "1.2.5",
+   "tanggal": "27 September 2026",
+   "judul": "Fix Update (100% tapi tidak terpasang)",
+   "perbaikan": [
+    "FIX: update terunduh 100% tapi TIDAK terpasang / mengulang terus. APK disimpan di folder internal yang TIDAK diizinkan FileProvider, sehingga installer Android tidak pernah terbuka. Kini disimpan di folder yang diizinkan + FileProvider dilengkapi"
+   ],
+   "fitur_baru": []
+  },
   {
    "versi": "1.2.4",
    "tanggal": "27 September 2026",
