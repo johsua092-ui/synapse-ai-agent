@@ -3821,6 +3821,78 @@ mengklaim hijau sebelum benar-benar `completed`.
 
 ---
 
+## BAGIAN 47 — v1.2.5: FIX UPDATE "100% TAPI TIDAK TERPASANG" (27 Sep 2026)
+
+### 47.1 KELUHAN (verbatim)
+
+> *"teman saya yang memiliki synapse mobile versi 1.2.3 ada bug dimana ketika dia
+> mau deteksi apakah ada versi baru... sudah detect 1.2.4 namun mau update gak bisa
+> karena udah 100% kagak ke update malanh ngulang!"*
+
+### 47.2 AKAR (dari kode nyata — bukan tebakan)
+
+| Bagian | Isi |
+|---|---|
+| APK update disimpan di | `getApplicationDocumentsDirectory()` = **`/data/data/<pkg>/app_flutter`** (INTERNAL) |
+| `file_paths.xml` (v1.2.3/1.2.4) | `external-files-path`, `cache-path`, `external-cache-path` — **TIDAK ada `<files-path>`** |
+| Akibat | `OpenFile.open()` **gagal** membuat `content://` URI untuk folder internal → **installer Android tidak pernah terbuka** → unduh 100% tapi tidak terpasang, lalu diulang |
+
+**PENTING:** `update_screen.dart` **tidak disentuh** di v1.2.4 → bug **BELUM** terfix di 1.2.4.
+
+### 47.3 FIX v1.2.5 (2 perubahan)
+
+```
+1. update_screen.dart : getExternalStorageDirectory() (folder yang DIIZINKAN
+                        FileProvider) + fallback + buat folder bila belum ada
+2. file_paths.xml     : tambah <files-path name="internal_files" path="." />
+                        (jaring pengaman kalau APK jatuh ke internal)
+3. build.gradle.kts   : versionCode 2205 / versionName 1.2.5
+4. assets/patchnote.json : entri 1.2.5
+```
+
+**Bukti struktural (dari APK rilis, `aapt2 dump xmltree`):**
+```
+E: paths
+  E: external-files-path name="apk_update"
+  E: cache-path          name="cache"
+  E: external-cache-path name="ext_cache"
+  E: files-path          name="internal_files"   <- BARU
+```
+
+### 47.4 JEBAKAN #97 — FileProvider vs lokasi file
+
+```
+GEJALA : update terunduh 100% tapi installer tidak terbuka / mengulang
+AKAR   : folder penyimpanan TIDAK tercakup file_paths.xml -> FileProvider
+         gagal membuat content:// URI
+ATURAN : lokasi file yang mau dibuka lewat FileProvider HARUS tercakup di
+         file_paths.xml. Pasangan yang benar:
+           getExternalStorageDirectory()  <->  <external-files-path>
+           getApplicationDocumentsDirectory() <-> <files-path>
+         JANGAN campur (internal vs external).
+CARA CEK: aapt2 dump xmltree <apk> --file res/xml/file_paths.xml
+```
+
+### 47.5 CATATAN PENTING UNTUK USER DI VERSI LAMA
+
+Fix ini **hanya berlaku mulai 1.2.5**. User di **1.2.3 / 1.2.4** masih memakai
+kode lama yang buggy → klik Update mereka **tetap bisa gagal**.
+→ **Mereka harus memasang APK 1.2.5 SEKALI secara manual**; setelah itu update
+berikutnya (1.2.5 → 1.2.6) baru bisa lewat tombol Update di app.
+
+### 47.6 RILIS v1.2.5 (terverifikasi)
+
+```
+Push normal : ef7649f (lokal == remote/main)          ✅ LIVE
+Release     : tag v1.2.5, aset SynapseMobile_v1.2.5.apk (58,9 MB, uploaded) ✅
+Download HP : /sdcard/Download/SynapseMobile_v1.2.5.apk
+              md5 lokal == md5 HP (9f281b76...)        ✅
+```
+
+*BAGIAN 47 ditambahkan 27 Sep 2026.*
+
+---
+
 ---
 
 ---
