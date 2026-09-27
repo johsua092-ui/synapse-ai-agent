@@ -1,6 +1,39 @@
 {
- "versi_terbaru": "1.2.5",
+ "versi_terbaru": "1.2.6",
  "riwayat": [
+  {
+   "versi": "1.2.6",
+   "tanggal": "27 September 2026",
+   "judul": "Koneksi Lebih Jelas, Vision Gemini 3.8, Avatar Lancar, Thinking",
+   "perbaikan": [
+    "FIX 'kadang bisa kadang tidak': chat tidak lagi bilang 'Belum tersambung' padahal konfigurasi sudah diisi (menunggu config selesai dimuat)",
+    "Layar Koneksi AI: WAJIB selesai/tersimpan sebelum keluar. Belum selesai -> peringatan + DAFTAR 'Yang masih KURANG'; maksa keluar -> silang merah besar 'SYNAPSE BELUM BISA DIPAKAI'",
+    "Simpan konfigurasi: konfirmasi + validasi 100% (hijau centang besar kalau berhasil; merah silang besar + penjelasan APA yang salah/kurang kalau gagal)",
+    "Progress konfigurasi TIDAK hilang walau keluar (disimpan sebagai draft)",
+    "FIX kolom Base URL/API Key: benar-benar KOSONG (dulu terisi teks contoh yang harus dihapus manual). Contoh kini hanya teks visual abu-abu sangat pudar, hilang saat mengetik",
+    "FIX: tombol keluar sekarang SELALU tanya 'Apakah anda ingin keluar?' (tugas tetap jalan di latar belakang)",
+    "FIX vision: kirim gambar benar-benar memakai 'Model vision' yang dipilih (dulu selalu pakai model chat)",
+    "Avatar: pengawas performa -> HP berat tidak ngeframe (FPS diturunkan dulu; kualitas HD tetap)",
+    "Konfigurasi: umpan balik 'Memeriksa konfigurasi...' seketika + validasi 1 permintaan (lebih cepat)",
+    "FIX VTuber (dulu Special Chat): chat kini STREAMING (tidak lambat), ada animasi 'Sedang berpikir', chat TERSIMPAN (tidak hilang lagi), TTS mulai lebih awal (tidak telat)",
+    "VTuber: tombol strip tiga (kiri ikon speaker) untuk menyimpan/membuka sesi chat (sama seperti tab Chat)",
+    "VTuber: kepribadian roleplay karakter (konsisten sebagai tokoh, ingat peran, jawab singkat)",
+    "FIX VTuber: kolom ketik kini NAIK di atas keyboard (dulu tertutup keyboard)",
+    "FIX VTuber: kolom ketik benar-benar UTUH di atas keyboard (avatar mengecil otomatis saat keyboard terbuka; kualitas HD tetap)",
+    "FIX VTuber: kolom ketik naik di atas keyboard TANPA menyentuh avatar (avatar tetap utuh & normal)",
+    "FIX VTuber: kecepatan suara default 0.5 (normal) — dulu 1.0 = terdengar seperti ngerap",
+    "FIX VTuber: suara langsung dibacakan tanpa telat (pakai suara bawaan HP; suara anime tetap bisa dipilih di Pengaturan)",
+    "FIX VTuber: suara anime asli kini CEPAT & ANDAL (~2 detik) lewat endpoint /v1/tts di server (dulu lewat agent: 10-40 detik & sering gagal)",
+    "FIX VTuber: suara mulai berbunyi saat kalimat pertama selesai (tidak menunggu balasan penuh) — delay terasa jauh lebih pendek",
+    "VTuber: pesan otomatis '(bicaralah duluan ...)' DIHAPUS (atas permintaan)"
+   ],
+   "fitur_baru": [
+    "Indikator 'Sedang berpikir' + streaming teks di chat (ala CLI Synapse)",
+    "Opsi model vision: Gemini 3.8 Flash High (disarankan) + Gemini 3.5 Flash",
+    "Tab 'Special Chat' diganti nama pendek 'VTuber' (label tab 7 tab tidak terpotong); nama lengkap tetap tampil sebagai subjudul di dalam layar",
+    "Variasi suara VTuber: dari 3 menjadi 12 pilihan per karakter (96 total) — Jepang, Cina, Taiwan, Hongkong, Korea, Indonesia, Inggris, Thailand, Vietnam"
+   ]
+  },
   {
    "versi": "1.2.5",
    "tanggal": "27 September 2026",

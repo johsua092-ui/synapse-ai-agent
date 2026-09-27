@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show rootBundle, SystemNavigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -21,13 +21,17 @@ class _Nav {
 
 /// Navigasi bawah Synapse Mobile.
 ///
-/// 6 tab: Chat | Special Chat | Skills | MCP | CLI | Setelan
+/// 7 tab: Chat | VTuber | Skills | Tools | MCP | CLI | Setelan
 /// (Notif DIHAPUS dari sini -> pindah jadi badge lonceng di pojok kanan atas)
+///
+/// JEBAKAN #105 (v1.2.6): nama "Special Chat" (12 huruf) TERLALU PANJANG untuk
+/// tab bar 7 tab -> rawan terpotong. Diganti label pendek **"VTuber"** (6 huruf).
+/// Nama panjangnya tetap ditampilkan DI DALAM layar sebagai subjudul.
 const _nav = <_Nav>[
   _Nav('/chat', Icons.chat_bubble_outline, Icons.chat_bubble, 'Chat',
       adaBadge: true),
   _Nav('/special', Icons.auto_awesome_outlined, Icons.auto_awesome,
-      'Special Chat', adaBadge: true),
+      'VTuber', adaBadge: true),
   _Nav('/skills', Icons.extension_outlined, Icons.extension, 'Skills'),
   _Nav('/tools', Icons.handyman_outlined, Icons.handyman, 'Tools'),
   _Nav('/mcp', Icons.hub_outlined, Icons.hub, 'MCP'),
@@ -181,7 +185,45 @@ class _AppShellState extends ConsumerState<AppShell> {
     final belumDibaca =
         ref.watch(notifProvider).where((n) => !n.dibaca).length;
 
-    return Scaffold(
+    // JEBAKAN #104 (v1.2.6): DULU AppShell TIDAK punya PopScope -> menekan
+    // tombol keluar (back) LANGSUNG menutup app tanpa peringatan.
+    // Sekarang: SELALU ada peringatan "Apakah anda ingin keluar?" dulu.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        // Ada riwayat (sub-halaman) -> kembali ke induk, bukan keluar app.
+        if (context.canPop()) {
+          context.pop();
+          return;
+        }
+        // Di layar utama -> TANYA dulu sebelum keluar.
+        final ya = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            icon: const Icon(Icons.exit_to_app, color: Colors.orange, size: 44),
+            title: const Text('Apakah anda ingin keluar?'),
+            content: const Text(
+                'Tugas yang sedang berjalan TETAP dilanjutkan di latar '
+                'belakang dan notifikasi akan muncul saat selesai.\n\n'
+                'Keluar dari aplikasi sekarang?'),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('Tetap di sini'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('Keluar'),
+              ),
+            ],
+          ),
+        );
+        if (ya == true) {
+          await SystemNavigator.pop(); // keluar beneran
+        }
+      },
+      child: Scaffold(
       // resize AKTIF: input naik sendiri saat keyboard muncul.
       // Avatar pakai TINGGI TETAP -> ukurannya tidak pernah berubah.
       resizeToAvoidBottomInset: true,
@@ -223,6 +265,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: e.label,
             ),
         ],
+      ),
       ),
     );
   }

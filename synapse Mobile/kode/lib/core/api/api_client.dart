@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
 
@@ -106,8 +107,117 @@ class ApiClient {
     return ((d['data'] as List?) ?? const []).cast<Map<String, dynamic>>();
   }
 
-  /// Daftar TOOLSET (kemampuan agent) dari `/v1/toolsets`.
+  // ================= TTS (suara) =================
+
+  /// Buat suara (mp3) dari teks lewat endpoint server `/v1/tts`.
   ///
+  /// JEBAKAN #119 (v1.2.6): dulu app menyuruh AGENT (LLM) menjalankan edge-tts
+  /// -> lambat (10-40s) & sering gagal. Sekarang server yang menjalankan
+  /// edge-tts LANGSUNG (tanpa LLM) -> cepat (~2 detik) & andal.
+  /// Mengembalikan bytes mp3, atau null kalau gagal.
+  Future<Uint8List?> tts(String teks, String suara) async {
+    try {
+      final r = await http
+          .post(
+            _u('/v1/tts'),
+            headers: _headers,
+            body: jsonEncode({'text': teks, 'voice': suara}),
+          )
+          .timeout(const Duration(seconds: 60));
+      if (r.statusCode != 200) return null;
+      return r.bodyBytes;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ================= VALIDASI KONFIGURASI =================
+
+  /// Periksa konfigurasi 100%: apakah benar-benar bisa dipakai untuk CHAT.
+  ///
+  /// Mengembalikan daftar masalah (kosong = valid). Tiap masalah berisi
+  /// [judul] singkat + [saran] perbaikan, supaya user tahu APA yang salah
+  /// dan APA yang kurang — bukan sekadar "gagal".
+  ///
+  /// CEPAT (v1.2.6): hanya SATU permintaan HTTP (bukan dua berurutan), dan
+  /// timeout dipendekkan supaya kegagalan tidak menggantung lama.
+  /// (Server lokal biasanya hanya butuh ~0,01 detik.)
+  Future<List<Map<String, String>>> validasi() async {
+    final masalah = <Map<String, String>>[];
+
+    // 1. Base URL
+    final base = cfg.baseUrl.trim();
+    if (base.isEmpty) {
+      masalah.add({
+        'judul': 'Base URL kosong',
+        'saran': 'Isi alamat server, mis. http://127.0.0.1:8642/v1',
+      });
+    } else {
+      final u = Uri.tryParse(base);
+      if (u == null || !u.hasScheme || u.host.isEmpty) {
+        masalah.add({
+          'judul': 'Base URL tidak valid: $base',
+          'saran': 'Harus lengkap dengan http:// atau https:// dan nama host',
+        });
+      }
+    }
+
+    // 2. API Key
+    if (cfg.apiKey.trim().isEmpty) {
+      masalah.add({
+        'judul': 'API Key kosong',
+        'saran': 'Isi API Key dari server (API_SERVER_KEY)',
+      });
+    }
+
+    // 3. Model
+    if ((cfg.model ?? '').trim().isEmpty) {
+      masalah.add({
+        'judul': 'Model belum dipilih',
+        'saran': 'Tekan "Deteksi Model" lalu pilih model',
+      });
+    }
+
+    // Masalah dasar sudah ada -> tidak perlu tanya server (langsung cepat).
+    if (masalah.isNotEmpty) return masalah;
+
+    // 4. Server benar-benar bisa dihubungi? -> SATU permintaan saja.
+    //    (Dulu: /v1/models lalu /models = 2 permintaan berurutan -> lambat.)
+    final u = _u('/v1/models');
+    try {
+      final r = await http
+          .get(u, headers: _headers)
+          .timeout(const Duration(seconds: 8)); // dipendekkan dari 15s
+      if (r.statusCode == 200) return masalah; // VALID
+      if (r.statusCode == 401 || r.statusCode == 403) {
+        masalah.add({
+          'judul': 'API Key DITOLAK (HTTP ${r.statusCode})',
+          'saran': 'Kunci tidak diizinkan server ini. Pastikan kunci sama '
+              'dengan yang dipakai Synapse CLI dan diizinkan akses remote.',
+        });
+      } else if (r.statusCode == 404) {
+        masalah.add({
+          'judul': 'Endpoint tidak ditemukan (HTTP 404)',
+          'saran': 'Base URL salah. Contoh benar: http://127.0.0.1:8642/v1',
+        });
+      } else {
+        masalah.add({
+          'judul': 'Server balas HTTP ${r.statusCode}',
+          'saran': 'Periksa Base URL dan status server',
+        });
+      }
+    } catch (e) {
+      masalah.add({
+        'judul': 'Tidak bisa menghubungi server',
+        'saran': 'Cek: (1) server hidup? (2) HP & server sejaringan? '
+            '(3) sudah "adb reverse tcp:8642 tcp:8642" kalau lewat USB? '
+            '(4) Base URL benar?\n\nURL dicoba: $u',
+      });
+    }
+    return masalah;
+  }
+
+  /// Daftar TOOLSET (kemampuan agent) dari `/v1/toolsets`.
   /// Permintaan tim v1.2.4: "sediain tools nya dong minimal kaya yang di cli".
   /// Server Synapse punya ~28 toolset (web, browser, terminal, file, dll).
   Future<List<Map<String, dynamic>>> toolsets() async {
@@ -144,11 +254,11 @@ class ApiClient {
   }
 
   Stream<String> chatStream(String pesan,
-          {List<Map<String, dynamic>>? riwayat}) =>
+          {List<Map<String, dynamic>>? riwayat, String? model}) =>
       _streamDari([
         ...?riwayat,
         {'role': 'user', 'content': pesan},
-      ]);
+      ], model: model);
 
   // ================= CHAT (gambar / multimodal) =================
 
@@ -172,10 +282,16 @@ class ApiClient {
       },
     ];
 
+    // JEBAKAN #99 (v1.2.6): dulu kirim gambar memakai cfg.model (model chat),
+    // sehingga pilihan "Model vision" di Setelan TIDAK dipakai — dan kalau
+    // model chat tidak bisa baca gambar (mis. deepseek), hasilnya ngawur.
+    // Sekarang: pakai cfg.visionModel kalau diisi, kalau tidak -> model chat.
     yield* _streamDari([
       ...?riwayat,
       {'role': 'user', 'content': isi},
-    ]);
+    ], model: (cfg.visionModel != null && cfg.visionModel!.isNotEmpty)
+        ? cfg.visionModel
+        : null);
   }
 
   /// Kirim DOKUMEN sebagai teks (file dibaca -> disisipkan ke pesan).
@@ -206,11 +322,16 @@ class ApiClient {
 
   // ================= STREAMING INTERNAL =================
 
-  Stream<String> _streamDari(List<Map<String, dynamic>> messages) async* {
+  /// [model] = override model (dipakai untuk VISION supaya gambar dikirim ke
+  /// model yang memang bisa membaca gambar, mis. ag/gemini-3.8-flash-high).
+  Stream<String> _streamDari(List<Map<String, dynamic>> messages,
+      {String? model}) async* {
     final req = http.Request('POST', _u('/v1/chat/completions'));
     req.headers.addAll(_headers);
     req.body = jsonEncode({
-      'model': cfg.model ?? 'synapse-agent',
+      'model': (model != null && model.isNotEmpty)
+          ? model
+          : (cfg.model ?? 'synapse-agent'),
       'stream': true,
       'messages': messages,
     });

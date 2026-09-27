@@ -63,7 +63,41 @@ function mulai(){
     // JEBAKAN #88 (v1.2.4): JANGAN polling resize tiap 300ms — berkelahi
     // dengan autoDensity -> ukuran bolak-balik (besar<->normal). Cukup
     // andalkan event 'resize' (sudah terpasang di bawah).
+
+    // ===== PENGAWAS PERFORMA (v1.2.6) — HP berat agar tidak ngeframe =====
+    // PRIORITAS MUTLAK: KUALITAS HD TIDAK BOLEH TURUN.
+    // Urutan penanganan saat lambat:
+    //   1) batasi FPS (60 -> 30)  -> kualitas SAMA, beban GPU separuh
+    //   2) baru turunkan resolusi (3 -> 2) HANYA kalau masih lambat
+    mulaiPengawas();
   }catch(e){ kabar('X mulai: ' + e.message); }
+}
+
+// Ukur waktu render; kalau lambat, kurangi beban TANPA menurunkan kualitas
+// (turunkan FPS dulu). Kalau masih lambat, baru resolusi diturunkan bertahap.
+function mulaiPengawas(){
+  var n = 0, total = 0, sudahBatasi = false, sudahTurun = false;
+  var t0 = 0;
+  var ticker = PIXI.Ticker.shared;
+  var lamaTick = ticker.add(function(){
+    var now = performance.now();
+    if(t0){ total += (now - t0); n++; }
+    t0 = now;
+    if(n < 90) return;
+    var rata = total / n;          // ms per frame
+    n = 0; total = 0;
+    if(rata > 26 && !sudahBatasi){
+      // lambat -> batasi 30 FPS (kualitas TETAP SAMA)
+      sudahBatasi = true;
+      try{ app.ticker.maxFPS = 30; }catch(e){}
+    } else if(rata > 33 && !sudahTurun){
+      // masih sangat lambat -> turunkan resolusi bertahap (3 -> 2)
+      sudahTurun = true;
+      try{ app.renderer.resolution = 2; app.renderer.resize(LW, LH); aturModel(); }catch(e){}
+    }
+  });
+  ticker.start();
+  window._lamaTick = lamaTick;
 }
 
 // PENTING: canvas selalu MENGIKUTI wadah (bukan di-stretch),

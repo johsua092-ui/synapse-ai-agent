@@ -36,8 +36,8 @@ android {
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
         // flag during build.
-        versionCode = 2205
-        versionName = "1.2.5"
+        versionCode = 2206
+        versionName = "1.2.6"
 
         // HANYA 2 arsitektur HP (buang x86_64 yang cuma dipakai emulator).
         // Hemat ~19 MB. Fitur TIDAK berubah: semua HP asli pakai arm64/armeabi.

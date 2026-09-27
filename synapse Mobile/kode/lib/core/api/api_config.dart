@@ -15,6 +15,14 @@ class ApiConfig {
   /// Provider vision: 'auto' | 'gemini' | 'openai'
   final String visionProvider;
 
+  /// JEBAKAN #102 (v1.2.6) — PENANDA "SUDAH SELESAI & TERBUKTI VALID".
+  ///
+  /// `true` HANYA kalau konfigurasi ini pernah DIVALIDASI NYATA ke server dan
+  /// BERHASIL. Inilah bukti 100% bahwa user benar-benar sudah selesai
+  /// (bukan sekadar "terisi"), sehingga app tidak salah bilang
+  /// "belum selesai" padahal sudah valid.
+  final bool tervalidasi;
+
   const ApiConfig({
     this.baseUrl = '',
     this.apiKey = '',
@@ -23,6 +31,7 @@ class ApiConfig {
     this.contextWindow,
     this.visionModel,
     this.visionProvider = 'auto',
+    this.tervalidasi = false,
   });
 
   bool get terisi => baseUrl.trim().isNotEmpty && apiKey.trim().isNotEmpty;
@@ -35,6 +44,7 @@ class ApiConfig {
     int? contextWindow,
     String? visionModel,
     String? visionProvider,
+    bool? tervalidasi,
   }) =>
       ApiConfig(
         baseUrl: baseUrl ?? this.baseUrl,
@@ -44,6 +54,7 @@ class ApiConfig {
         contextWindow: contextWindow ?? this.contextWindow,
         visionModel: visionModel ?? this.visionModel,
         visionProvider: visionProvider ?? this.visionProvider,
+        tervalidasi: tervalidasi ?? this.tervalidasi,
       );
 }
 
@@ -55,24 +66,40 @@ class VisionOption {
   const VisionOption(this.id, this.nama, this.deskripsi);
 }
 
-/// Daftar model vision yang bisa dipilih user (sesuai model di .env Synapse).
+/// Daftar model vision yang bisa dipilih user.
+///
+/// WAJIB: sediakan `ag/gemini-3.8-flash-high` (router 9router) sebagai pilihan
+/// UTAMA — model ini terbukti bisa membaca gambar dengan baik, sedangkan
+/// `cbai/deepseek-v4.1-flash` TIDAK bisa decode gambar (buta).
 const daftarVision = <VisionOption>[
+  VisionOption('ag/gemini-3.8-flash-high', 'Gemini 3.8 Flash High (disarankan)',
+      'Paling akurat untuk gambar. Router 9router. Context 1 juta token'),
   VisionOption('auto', 'Otomatis (ikut server)',
       'Pakai pengaturan vision dari config Synapse'),
   VisionOption('gemini-3-flash-preview', 'Gemini 3 Flash',
       'Cepat, cocok untuk teks & gambar umum'),
+  VisionOption('gemini-3.5-flash', 'Gemini 3.5 Flash', 'Versi lebih baru'),
   VisionOption('gemini-2.5-flash', 'Gemini 2.5 Flash', 'Seimbang, akurasi baik'),
   VisionOption('gemini-flash-latest', 'Gemini Flash Latest',
       'Selalu versi terbaru'),
-  VisionOption('gemini-2.0-flash', 'Gemini 2.0 Flash', 'Stabil & hemat'),
   VisionOption('gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite',
       'Paling ringan & cepat'),
 ];
 
 class ApiConfigNotifier extends StateNotifier<ApiConfig> {
   ApiConfigNotifier() : super(const ApiConfig()) {
-    _muat();
+    _muatSelesai = _muat();
   }
+
+  /// Selesai memuat konfigurasi dari storage.
+  ///
+  /// JEBAKAN #101 (v1.2.6) — BUG "kadang bisa, kadang tidak":
+  /// `_muat()` berjalan async. Kalau user cepat menekan Kirim / buka layar
+  /// sebelum pemuatan selesai, `apiClientProvider` melihat config KOSONG ->
+  /// muncul "Belum tersambung" padahal sudah diisi. Chat WAJIB menunggu
+  /// `siap` ini dulu sebelum memutuskan "belum tersambung".
+  late final Future<void> _muatSelesai;
+  Future<void> get siap => _muatSelesai;
 
   static const _kBase = 'api_base_url';
   static const _kKey = 'api_key';
@@ -81,6 +108,7 @@ class ApiConfigNotifier extends StateNotifier<ApiConfig> {
   static const _kCtx = 'api_context_window';
   static const _kVision = 'api_vision_model';
   static const _kVisionProv = 'api_vision_provider';
+  static const _kValid = 'api_tervalidasi';
 
   Future<void> _muat() async {
     final p = await SharedPreferences.getInstance();
@@ -92,9 +120,11 @@ class ApiConfigNotifier extends StateNotifier<ApiConfig> {
       contextWindow: p.getInt(_kCtx),
       visionModel: p.getString(_kVision),
       visionProvider: p.getString(_kVisionProv) ?? 'auto',
+      tervalidasi: p.getBool(_kValid) ?? false,
     );
   }
 
+  /// Simpan DRAFT (belum tentu valid) — progress user tetap tersimpan.
   Future<void> simpan(ApiConfig c) async {
     state = c;
     final p = await SharedPreferences.getInstance();
@@ -105,7 +135,12 @@ class ApiConfigNotifier extends StateNotifier<ApiConfig> {
     if (c.contextWindow != null) await p.setInt(_kCtx, c.contextWindow!);
     if (c.visionModel != null) await p.setString(_kVision, c.visionModel!);
     await p.setString(_kVisionProv, c.visionProvider);
+    await p.setBool(_kValid, c.tervalidasi);
   }
+
+  /// Simpan DRAFT cepat (mis. saat user keluar) — progress tidak hilang.
+  /// TIDAK menandai `tervalidasi` (biar status "sudah selesai" tetap akurat).
+  Future<void> simpanDraft(ApiConfig c) => simpan(c.copyWith(tervalidasi: false));
 
   Future<void> kosongkan() async {
     state = const ApiConfig();

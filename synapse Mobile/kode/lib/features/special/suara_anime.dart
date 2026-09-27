@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
@@ -52,54 +53,47 @@ class SuaraAnime {
     }
   }
 
-  /// Buat file suara anime lewat AGENT (edge-tts), lalu kembalikan path-nya.
+  /// Buat & putar suara anime lewat ENDPOINT SERVER (`/v1/tts`).
   ///
-  /// [klien] dipakai untuk mengirim perintah ke agent.
-  static Future<String?> buatLewatAgent({
+  /// JEBAKAN #119 (v1.2.6) — CARA YANG BENAR:
+  /// Server menjalankan edge-tts LANGSUNG (tanpa LLM) -> cepat (~2 detik) &
+  /// andal. Dulu lewat agent (LLM) -> 10-40 detik & sering gagal.
+  ///
+  /// Mengembalikan path file mp3 di HP, atau null kalau gagal.
+  static Future<String?> buatLewatServer({
     required dynamic klien,
     required String teks,
     required String suara,
   }) async {
     try {
+      final bytes = await klien.tts(teks, suara);
+      if (bytes == null || bytes.isEmpty) return null;
       final dir = await getTemporaryDirectory();
       final keluar = '${dir.path}/suara_vtuber.mp3';
-      // hapus file lama supaya tidak memutar suara sebelumnya
-      final f = File(keluar);
-      if (await f.exists()) await f.delete();
-
-      final aman = teks.replaceAll('"', "'").replaceAll('\n', ' ');
-      final perintah =
-          'Buat file suara dari teks berikut memakai edge-tts, lalu simpan ke '
-          'path ini persis:\n'
-          'FILE: $keluar\n'
-          'VOICE: $suara\n'
-          'TEKS: "$aman"\n\n'
-          'Perintah: `python -m edge_tts --voice $suara --text "$aman" '
-          '--write-media "$keluar"`\n'
-          'Setelah selesai, pastikan file ada dan laporkan ukurannya saja '
-          '(jangan tulis isi teksnya).';
-
-      await klien.perintahAgent(perintah);
-
-      // tunggu file muncul (maks 20 detik)
-      for (var i = 0; i < 20; i++) {
-        await Future.delayed(const Duration(milliseconds: 1000));
-        if (await f.exists() && await f.length() > 1000) {
-          return keluar;
-        }
-      }
-      return null;
+      await File(keluar).writeAsBytes(bytes);
+      return keluar;
     } catch (_) {
       return null;
     }
   }
 
   /// Putar file mp3.
+  ///
+  /// JEBAKAN #118 (v1.2.6): file berada di storage HP
+  /// (`/sdcard/Android/data/<pkg>/files/...`). Di Android modern jalur ini
+  /// TIDAK bisa dibaca langsung dengan path mentah -> gunakan
+  /// `UrlSource('file://...')`.
   static Future<void> putar(String path) async {
     try {
       await _pemutar.stop();
-      await _pemutar.play(DeviceFileSource(path));
-    } catch (_) {}
+      final url = path.startsWith('file://') ? path : 'file://$path';
+      await _pemutar.play(UrlSource(url));
+    } catch (_) {
+      // cadangan: coba sebagai file biasa
+      try {
+        await _pemutar.play(DeviceFileSource(path));
+      } catch (_) {}
+    }
   }
 
   static Future<void> berhenti() async {

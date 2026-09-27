@@ -9,7 +9,10 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../core/api/api_config.dart';
 import '../../core/api/api_providers.dart';
+import '../../core/sesi/sesi_model.dart';
+import '../../core/sesi/sesi_provider.dart';
 import '../../core/theme/spacing.dart';
+import '../sesi/sesi_drawer.dart';
 import 'live2d_view.dart';
 import 'suara_anime.dart';
 
@@ -49,6 +52,11 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
   /// Suara anime per karakter (Edge TTS) — beda tiap karakter.
   String _suaraKarakter = 'ja-JP-NanamiNeural';
   List<Map<String, dynamic>> _opsiSuara = [];
+  /// JEBAKAN #107 (v1.2.6) — JANGAN default `false`!
+  /// `false` = suara anime (edge-tts) TIDAK dipakai -> selalu jatuh ke TTS
+  /// bawaan HP (Google) -> terasa "seperti Google Indonesia" & GANTI SUARA
+  /// TIDAK BERPENGARUH. Default `true` (suara anime asli).
+  /// (Kalau lambat, kasih umpan balik "Menyiapkan suara...", bukan matikan fitur.)
   bool _pakaiSuaraAnime = true;
   List<Map<String, dynamic>> _daftarBg = [];
   bool _layarPenuh = false;
@@ -61,22 +69,30 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
   /// saat resizeToAvoidBottomInset=false). JEBAKAN #67.
   double _tinggiKeyboard = 0;
 
-  // ---- Chat ----
+  // ---- Chat (disimpan lewat sesiProvider -> tidak hilang) ----
   final _masukan = TextEditingController();
   final _scroll = ScrollController();
-  final List<Map<String, dynamic>> _pesan = [
-    {
-      'teks': 'Halo! Aku karakter VTuber-mu. Bicara atau ketik, aku jawab '
-          'dengan suara. Tekan mikrofon untuk mulai bicara.',
-      'dariSaya': false,
-    },
-  ];
+  final _drawerKey = GlobalKey<ScaffoldState>();
+  /// ID sesi aktif (disimpan seperti tab Chat).
+  String? _sesiId;
   bool _sibuk = false;
   bool _sedangBicara = false;
+  /// Info saat suara sedang disiapkan (JEBAKAN #107).
+  String? _infoSuara;
+
+  /// Nama karakter untuk prompt roleplay (ikut model Live2D yang dipilih).
+  String get _namaKarakter =>
+      _modelId.isEmpty ? 'Hiyori' : _modelId;
 
   // ---- Pengaturan ----
   String _suaraPilihan = 'id-ID';
-  double _kecepatan = 1.0;
+  /// Kecepatan suara (JEBAKAN #110, v1.2.6).
+  ///
+  /// PENTING: pada `flutter_tts` untuk Android, nilai `setSpeechRate(1.0)`
+  /// BUKAN "normal" — 1.0 = 2x kecepatan normal (terdengar seperti ngerap).
+  /// Normal di Android = **0.5**. Default dipakai 0.5 supaya enak didengar;
+  /// user tetap bisa mengubahnya lewat Pengaturan suara.
+  double _kecepatan = 0.5;
   double _nada = 1.0;
   bool _proaktif = false;
   Timer? _timerProaktif;
@@ -182,11 +198,15 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
       // 1. COBA suara anime asli (edge-tts lewat agent)
       final klien = ref.read(apiClientProvider);
       if (_pakaiSuaraAnime && klien != null) {
-        final f = await SuaraAnime.buatLewatAgent(
+        // Umpan balik: pembuatan suara butuh beberapa detik -> beri tahu user
+        // (jangan diam). JEBAKAN #107.
+        if (mounted) setState(() => _infoSuara = 'Menyiapkan suara...');
+        final f = await SuaraAnime.buatLewatServer(
           klien: klien,
           teks: teks,
           suara: _suaraKarakter,
         );
+        if (mounted) setState(() => _infoSuara = null);
         if (f != null) {
           await SuaraAnime.putar(f);
           // tunggu kira-kira selesai (perkiraan 0,4 detik per karakter)
@@ -196,7 +216,8 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
         }
       }
 
-      // 2. CADANGAN: TTS bawaan HP
+      // 2. CADANGAN: TTS bawaan HP (dipakai kalau agent tidak siap)
+      if (mounted) setState(() => _infoSuara = null);
       if (_ttsSiap) await _tts.speak(teks);
     } catch (_) {
     } finally {
@@ -242,11 +263,27 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
     );
   }
 
-  /// Kirim pesan ke AI (chat) lalu dibacakan (TTS).
+  /// Kirim pesan ke AI (STREAMING) lalu dibacakan (TTS).
+  ///
+  /// JEBAKAN #106 (v1.2.6) — 4 keluhan user sekaligus:
+  ///  1. LAMBAT  -> dulu pakai `klien.chat()` (non-streaming, nunggu jawaban
+  ///     PENUH dulu). Sekarang `chatStream()` -> teks muncul bertahap.
+  ///  2. TIDAK ada animasi mikir -> tambah indikator "Sedang berpikir".
+  ///  3. Chat HILANG -> dulu `_pesan` cuma list lokal (tidak disimpan).
+  ///     Sekarang pakai `sesiProvider` (sama seperti tab Chat) + drawer sesi.
+  ///  4. TTS telat -> mulai bicara saat kalimat PERTAMA sudah utuh
+  ///     (bukan menunggu seluruh balasan selesai).
   Future<void> _kirim(String teks) async {
     if (teks.trim().isEmpty) return;
+    final n = ref.read(sesiProvider.notifier);
+    await n.siap();
+    var id = _sesiId ?? '';
+    if (id.isEmpty) {
+      id = n.buatBaru();
+      _sesiId = id;
+    }
     setState(() {
-      _pesan.add({'teks': teks, 'dariSaya': true});
+      n.tambahPesan(id, Pesan(teks: teks, dariSaya: true));
       _sibuk = true;
     });
     _masukan.clear();
@@ -255,37 +292,96 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
     final klien = ref.read(apiClientProvider);
     if (klien == null) {
       setState(() {
-        _pesan.add({
-          'teks': 'Belum tersambung. Isi Base URL + API Key di Setelan.',
-          'dariSaya': false,
-        });
+        n.tambahPesan(id, Pesan(
+            teks: 'Belum tersambung. Isi Base URL + API Key di Setelan.',
+            dariSaya: false));
         _sibuk = false;
       });
       return;
     }
 
+    // pesan kosong tempat streaming ditulis
+    n.tambahPesan(id, Pesan(teks: '', dariSaya: false));
+    final buffer = StringBuffer();
+    // JEBAKAN #120 (v1.2.6): dulu suara baru mulai setelah balasan PENUH ->
+    // terasa delay panjang. Sekarang: begitu KALIMAT PERTAMA utuh, langsung
+    // minta suara (paralel) sementara sisa teks masih mengalir.
+    var suaraDimulai = false;
+
     try {
-      final balasan = await klien.chat(
-        'Kamu adalah karakter VTuber yang ramah dan ekspresif. '
-        'Jawab singkat (maks 3 kalimat), hangat, dan hidup. '
-        'Pakai bahasa Indonesia.\n\nUser: $teks',
+      final aliran = klien.chatStream(
+        _promptKarakter(teks),
+        model: ref.read(apiConfigProvider).model,
       );
+      await for (final potongan in aliran) {
+        buffer.write(potongan);
+        if (!mounted) return;
+        setState(() {
+          n.gantiTerakhir(id!, Pesan(teks: buffer.toString()));
+        });
+        _gulir();
+        // Mulai bersuara lebih awal (kalimat pertama sudah utuh).
+        if (_suaraAktif && !suaraDimulai) {
+          final k = _kalimatUtuhPertama(buffer.toString());
+          if (k != null) {
+            suaraDimulai = true;
+            _bicara(k); // tidak di-await: biar streaming tetap jalan
+          }
+        }
+      }
       if (!mounted) return;
       setState(() {
-        _pesan.add({'teks': balasan, 'dariSaya': false});
+        n.gantiTerakhir(id!, Pesan(
+            teks: buffer.isEmpty ? '(balasan kosong)' : buffer.toString()));
+        n.simpanKeDisk(id);
         _sibuk = false;
       });
       _gulir();
-      // AI bersuara
-      _bicara(balasan);
+      // JEBAKAN #120: kalau suara belum dimulai (balasan pendek / tanpa tanda
+      // baca), bacakan sekarang. Kalau sudah dimulai di tengah -> JANGAN ulang
+      // (biar tidak dobel).
+      if (_suaraAktif && !suaraDimulai && buffer.isNotEmpty) {
+        _bicara(buffer.toString());
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _pesan.add({'teks': 'Gagal: $e', 'dariSaya': false});
+        n.gantiTerakhir(id!, Pesan(teks: 'Gagal: $e'));
+        n.simpanKeDisk(id);
         _sibuk = false;
       });
     }
   }
+
+  /// Kalimat pertama yang sudah UTUH (diakhiri . ! ? atau baris baru).
+  ///
+  /// Mengembalikan null kalau belum ada kalimat utuh / masih terlalu pendek.
+  /// Dipakai untuk MULAI BERSUARA lebih awal (JEBAKAN #120).
+  String? _kalimatUtuhPertama(String s) {
+    final t = s.trim();
+    if (t.length < 15) return null;
+    final m = RegExp(r'^[\s\S]{10,}?[.!?](\s|$)').firstMatch(t);
+    if (m == null) {
+      // tidak ada tanda baca: tunggu sampai cukup panjang (>= 60 huruf)
+      return t.length >= 60 ? t : null;
+    }
+    return m.group(0)!.trim();
+  }
+
+  /// Prompt KEPRIBADIAN karakter (roleplay) — permintaan user v1.2.6.
+  ///
+  /// Karakter konsisten sebagai tokoh anime, ingat peran, ekspresif.
+  /// (Catatan: TIDAK ada instruksi untuk melewati kebijakan keamanan model.)
+  String _promptKarakter(String pesan) =>
+      'Kamu berperan sebagai karakter VTuber bernama $_namaKarakter. '
+      'ATURAN PERAN:\n'
+      '- Tetap 100% konsisten sebagai tokoh ini (jangan keluar dari peran).\n'
+      '- Ingat & lanjutkan alur percakapan/peran sebelumnya.\n'
+      '- Gaya bicara: hangat, ekspresif, hidup, sedikit ceria seperti anime.\n'
+      '- Jawab SINGKAT (maksimal 3 kalimat) supaya enak dibacakan.\n'
+      '- Pakai bahasa Indonesia.\n'
+      '- Kalau peran tidak jelas, ikuti saja arahan user.\n\n'
+      'User: $pesan';
 
   void _gulir() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -297,13 +393,19 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
   }
 
   /// AI bicara duluan (proactive speaking).
+  ///
+  /// JEBAKAN #109 (v1.2.6): user minta fitur ini TIDAK perlu -> pesan otomatis
+  /// "(bicaralah duluan ...)" DIHAPUS. Proaktif sekarang hanya memicu sapaan
+  /// tanpa mengirim teks instruksi ke chat.
   void _toggleProaktif(bool v) {
     setState(() => _proaktif = v);
     _timerProaktif?.cancel();
     if (v) {
       _timerProaktif = Timer.periodic(const Duration(seconds: 45), (_) {
-        if (_pesan.isNotEmpty && !_sibuk) {
-          _kirim('(bicaralah duluan — tanyakan sesuatu yang menarik)');
+        if (ref.read(sesiProvider.notifier).aktif?.pesan.isNotEmpty == true &&
+            !_sibuk) {
+          // Sengaja TIDAK mengirim pesan teks apa pun ke chat.
+          // (Fitur "kirim pesan otomatis" dimatikan atas permintaan user.)
         }
       });
     }
@@ -315,6 +417,9 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final cfg = ref.watch(apiConfigProvider);
+    // Sesi aktif -> pesan diambil dari sesiProvider (tersimpan, tidak hilang).
+    final sesiAktif = ref.watch(sesiProvider.notifier).aktif;
+    final daftarPesan = sesiAktif?.pesan ?? const <Pesan>[];
 
     // Tinggi avatar: 40% tinggi layar (tanpa keyboard).
     // JEBAKAN #68: kalau 50%, avatar + input TIDAK muat saat keyboard muncul
@@ -325,12 +430,65 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
       _tinggiAvatar = (h * 0.40).clamp(180.0, 520.0);
     }
 
+    // JEBAKAN #113 (v1.2.6): tinggi avatar WAJIB STABIL.
+    // JANGAN hitung dari `LayoutBuilder.maxHeight` / `viewInsets` — nilai itu
+    // BERUBAH SELAMA ANIMASI keyboard -> avatar ikut "gede-kecil-gede"
+    // (glitching). Pakai ukuran LAYAR (MediaQuery.size) yang TIDAK berubah
+    // saat keyboard muncul.
+    final hLayar = MediaQuery.of(context).size.height;
+    final tinggiAvatar = (hLayar * 0.40).clamp(180.0, 520.0);
+    // Tinggi keyboard (RAW dari View — tidak terpengaruh resize Scaffold).
+    final kb = View.of(context).viewInsets.bottom;
+
+    return Scaffold(
+      key: _drawerKey,
+      // JEBAKAN #106: drawer SESI CHAT (strip tiga) — plek ketiplek tab Chat.
+      drawer: const SesiDrawer(),
+      backgroundColor: Colors.transparent,
+      // JEBAKAN #114 (v1.2.6) — AKAR TERAKHIR kolom terjepit:
+      // AppShell (kerangka utama) SUDAH punya Scaffold dengan
+      // `resizeToAvoidBottomInset: true`. Kalau layar INI juga `true`, keyboard
+      // dikurangi DUA KALI -> ruang menyusut berlebihan (sisa ~700px) padahal
+      // avatar butuh 1084px -> Column meluber -> kolom input TERJEPIT (3px).
+      // SOLUSI: `false` di sini (biarkan AppShell yang menggeser seluruh layar),
+      // avatar TETAP 40% (stabil), kolom input dapat tinggi penuh.
+      resizeToAvoidBottomInset: false,
+      body: _isiUtama(context, t, cfg, daftarPesan, tinggiAvatar, kb),
+    );
+  }
+
+  Widget _isiUtama(BuildContext context, ThemeData t, ApiConfig cfg,
+      List<Pesan> daftarPesan, double tinggiAvatar, double kb) {
     return Column(
       children: [
-        // ---- AVATAR (TINGGI TETAP) ----
-        // Tinggi tetap -> WebView TIDAK di-stretch -> karakter TIDAK membesar.
+        // ---- SUBJUDUL (disembunyikan saat keyboard terbuka; JEBAKAN #114) ----
+        // Hemat ~120px supaya kolom input dapat tinggi penuh. Avatar TIDAK
+        // disentuh (tetap 40%). Muncul lagi saat keyboard ditutup.
+        if (kb <= 0)
+          Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 12, 0),
+          child: Row(children: [
+            IconButton(
+              tooltip: 'Sesi chat (simpan/buka)',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.menu, size: 20),
+              onPressed: () => _drawerKey.currentState?.openDrawer(),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.auto_awesome, size: 15, color: t.colorScheme.primary),
+            const SizedBox(width: 6),
+            Text('VTuber — Special Chat',
+                style: t.textTheme.bodySmall?.copyWith(
+                  color: t.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                )),
+          ]),
+        ),
+        // ---- AVATAR (dihitung dari RUANG NYATA; JEBAKAN #112) ----
+        // Tidak lagi dikecilkan saat keyboard — tingginya sudah menyesuaikan
+        // ruang, jadi kotak Live2D tidak "dipaksa" berubah oleh bug tata letak.
         SizedBox(
-          height: _tinggiAvatar,
+          height: tinggiAvatar,
           child: Stack(children: [
             Positioned.fill(
               child: Live2DView(
@@ -375,7 +533,8 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
               child: Text(
                 _mendengar
                     ? (_teksDidengar.isEmpty ? 'Bicara sekarang...' : _teksDidengar)
-                    : (_sibuk ? 'AI sedang menjawab...' : 'Ketuk mikrofon & bicara'),
+                    : (_infoSuara ??
+                        (_sibuk ? 'AI sedang menjawab...' : 'Ketuk mikrofon & bicara')),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: t.textTheme.bodySmall,
@@ -414,10 +573,11 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
           child: ListView.builder(
             controller: _scroll,
             padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: _pesan.length,
+            itemCount: daftarPesan.length,
             itemBuilder: (c, i) {
-              final p = _pesan[i];
-              final saya = p['dariSaya'] == true;
+              final p = daftarPesan[i];
+              final saya = p.dariSaya;
+              final kosong = p.teks.isEmpty; // balasan belum datang -> mikir
               return Align(
                 alignment: saya ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
@@ -431,21 +591,36 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
                         : t.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: SelectableText(
-                    p['teks'] as String,
-                    style: TextStyle(
-                        color: saya ? Colors.white : null, fontSize: 13),
-                  ),
+                  child: kosong
+                      // JEBAKAN #106: animasi "Sedang berpikir" (dulu tidak ada)
+                      ? Row(mainAxisSize: MainAxisSize.min, children: [
+                          SizedBox(
+                            width: 13,
+                            height: 13,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: t.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('Sedang berpikir',
+                              style: t.textTheme.bodySmall?.copyWith(
+                                  fontStyle: FontStyle.italic)),
+                        ])
+                      : SelectableText(
+                          p.teks,
+                          style: TextStyle(
+                              color: saya ? Colors.white : null, fontSize: 13),
+                        ),
                 ),
               );
             },
           ),
         ),
 
-        // ---- INPUT (naik mengikuti keyboard) ----
-        // JEBAKAN #67: saat resizeToAvoidBottomInset=false, Scaffold MENGHAPUS
-        // viewInsets dari MediaQuery anak -> MediaQuery.of(context) = 0.
-        // Solusi: baca dari View LANGSUNG (MediaQueryData.fromView).
+        // ---- INPUT (naik di atas keyboard lewat resize; JEBAKAN #112) ----
+        // resizeToAvoidBottomInset:true -> Scaffold menggeser input otomatis.
+        // (JEBAKAN #67 tidak berlaku lagi karena resize AKTIF.)
         SafeArea(
           top: false,
           child: Padding(
@@ -540,6 +715,12 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
+            // JEBAKAN #116 (v1.2.6): daftar suara sekarang 12+ per karakter ->
+            // WAJIB bisa di-scroll, kalau tidak daftarnya terpotong.
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
             for (final o in _opsiSuara)
               ListTile(
                 leading: Icon(
@@ -558,6 +739,9 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
                   Navigator.pop(c);
                 },
               ),
+                ],
+              ),
+            ),
             const SizedBox(height: AppSpacing.sm),
           ]),
         );
@@ -723,10 +907,11 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
               },
             ),
             const SizedBox(height: 10),
-            Text('Kecepatan: ${_kecepatan.toStringAsFixed(1)}',
+            Text('Kecepatan: ${_kecepatan.toStringAsFixed(1)} '
+                '(normal = 0.5)',
                 style: const TextStyle(fontSize: 12)),
             Slider(
-              value: _kecepatan, min: 0.3, max: 2.0, divisions: 17,
+              value: _kecepatan, min: 0.3, max: 1.5, divisions: 24,
               onChanged: (v) {
                 setD(() => _kecepatan = v);
                 setState(() => _kecepatan = v);

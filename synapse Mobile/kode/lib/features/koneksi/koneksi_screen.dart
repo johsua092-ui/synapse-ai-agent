@@ -35,7 +35,10 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
   void initState() {
     super.initState();
     final c = ref.read(apiConfigProvider);
-    _url = TextEditingController(text: c.baseUrl.isEmpty ? 'http://127.0.0.1:8642' : c.baseUrl);
+    // JEBAKAN #103 (v1.2.6): DULU kalau kosong diisi teks ASLI
+    // 'http://127.0.0.1:8642' -> user harus HAPUS manual dulu (merepotkan).
+    // Sekarang kolom BENAR-BENAR kosong; contoh hanya HINT (visual).
+    _url = TextEditingController(text: c.baseUrl);
     _key = TextEditingController(text: c.apiKey);
     _name = TextEditingController(text: c.displayName ?? '');
     _ctx = TextEditingController(text: (c.contextWindow ?? 128000).toString());
@@ -116,21 +119,52 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
     );
   }
 
-  Future<void> _simpan() async {
-    // VALIDASI: cegah simpan kalau Base URL / API Key kosong
-    if (_url.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Base URL belum diisi')),
+  /// Apakah isian form sekarang SAMA dengan config tersimpan (draft)?
+  bool get _samaDenganTersimpan {
+    final c = ref.read(apiConfigProvider);
+    return _url.text.trim() == c.baseUrl &&
+        _key.text.trim() == c.apiKey &&
+        _dipilih == c.model &&
+        _vision == c.visionProvider &&
+        _name.text.trim() == (c.displayName ?? '');
+  }
+
+  /// Apakah konfigurasi sudah LENGKAP (base url + api key + model)?
+  bool get _lengkap =>
+      _url.text.trim().isNotEmpty &&
+      _key.text.trim().isNotEmpty &&
+      (_dipilih != null || _manual.text.trim().isNotEmpty);
+
+  /// Apakah konfigurasi sudah TERBUKTI VALID (pernah dites ke server & sukses)?
+  bool get _tervalidasi => ref.read(apiConfigProvider).tervalidasi;
+
+  /// Simpan konfigurasi — DENGAN konfirmasi + validasi 100%.
+  ///
+  /// Permintaan user v1.2.6: user harus tahu persis berhasil atau tidak,
+  /// dan kalau gagal HARUS diberi tahu APA yang salah/kurang.
+  Future<void> _simpan({bool dariKeluar = false}) async {
+    // 1. Konfirmasi "apakah ingin menyimpan?"
+    if (!dariKeluar) {
+      final ya = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Simpan konfigurasi?'),
+          content: const Text(
+              'Apakah anda ingin menyimpan konfigurasi ini?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('Tidak')),
+            FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('Ya, simpan')),
+          ],
+        ),
       );
-      return;
-    }
-    if (_key.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API Key belum diisi')),
-      );
-      return;
+      if (ya != true) return;
     }
 
+    // 2. Cek kelengkapan dasar
     final c = ApiConfig(
       baseUrl: _url.text.trim(),
       apiKey: _key.text.trim(),
@@ -140,20 +174,274 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
       visionProvider: _vision,
       visionModel: _vision == 'auto' ? null : _vision,
     );
-    await ref.read(apiConfigProvider.notifier).simpan(c);
+
+    setState(() => _sibuk = true);
+    // UMPAN BALIK LANGSUNG (v1.2.6): tampilkan "Memeriksa..." SEKETIKA,
+    // supaya user tahu sedang diproses (dulu: layar diam -> terasa 4-5 detik).
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Konfigurasi disimpan')),
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          content: Row(children: [
+            SizedBox(
+                width: 22, height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5)),
+            SizedBox(width: 16),
+            Expanded(child: Text('Memeriksa konfigurasi...')),
+          ]),
+        ),
       );
     }
+    try {
+      // 3. VALIDASI 100% — benar-benar bisa dipakai chat?
+      final masalah = await ApiClient(c).validasi();
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop(); // tutup "Memeriksa..."
+
+      if (masalah.isNotEmpty) {
+        // GAGAL -> draft tetap tersimpan (progress user TIDAK hilang),
+        // tapi BELUM tervalidasi -> jangan sampai salah bilang "selesai".
+        await ref.read(apiConfigProvider.notifier).simpanDraft(c);
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.cancel, color: Colors.red, size: 56),
+            title: const Text('Konfigurasi GAGAL',
+                style: TextStyle(color: Colors.red)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Chat BELUM bisa dipakai. Yang perlu diperbaiki:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  for (final m in masalah) ...[
+                    Text('✗ ${m['judul']}',
+                        style: const TextStyle(
+                            color: Colors.red, fontWeight: FontWeight.bold)),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, top: 2, bottom: 8),
+                      child: Text(m['saran'] ?? '',
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                  const Divider(),
+                  const Text(
+                      'Isianmu SUDAH disimpan sebagai draft — tidak perlu '
+                      'mengetik ulang. Perbaiki lalu simpan lagi.',
+                      style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                ],
+              ),
+            ),
+            actions: [
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Perbaiki'),
+              ),
+            ],
+          ),
+        );
+        return; // tetap di layar
+      }
+
+      // 4. VALID -> simpan + TANDAI tervalidasi (bukti 100% sudah selesai)
+      await ref.read(apiConfigProvider.notifier).simpan(c.copyWith(tervalidasi: true));
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.check_circle, color: Colors.green, size: 56),
+          title: const Text('Konfigurasi BERHASIL',
+              style: TextStyle(color: Colors.green)),
+          content: const Text(
+              'Konfigurasi valid dan tersimpan.\nChat sudah siap dipakai.'),
+          actions: [
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () {
+                Navigator.pop(ctx);
+                if (dariKeluar) Navigator.pop(context); // keluar dari layar
+              },
+              child: const Text('Selesai'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sibuk = false);
+    }
+  }
+
+  /// Dipanggil saat user mau KELUAR dari layar ini (tombol back / back sistem).
+  ///
+  /// DETEKSI 100% (permintaan tim): status ditentukan oleh
+  /// `tervalidasi` — penanda yang HANYA di-set kalau konfigurasi benar-benar
+  /// sudah divalidasi nyata ke server & BERHASIL. Jadi app TIDAK akan salah
+  /// bilang "belum selesai" padahal user sudah beres.
+  Future<bool> _konfirmasiKeluar() async {
+    // Sudah TERSIMPAN & TERBUKTI VALID -> langsung boleh keluar (tanpa nag).
+    if (_tervalidasi && _samaDenganTersimpan) return true;
+
+    // Ada isian yang belum disimpan -> simpan draft dulu (progress TIDAK hilang).
+    if (!_samaDenganTersimpan && _lengkap) {
+      final ya = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Simpan konfigurasi ini?'),
+          content: const Text(
+              'Apakah anda ingin menyimpan konfigurasi ini?\n\n'
+              'Kalau tidak disimpan, isian ini hilang.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('Tidak')),
+            FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('Ya, simpan')),
+          ],
+        ),
+      );
+      if (ya == true) {
+        await _simpan(dariKeluar: true); // validasi + laporan
+        return false; // keluar ditangani dialog hasil
+      }
+      return false; // "Tidak" -> tetap di layar
+    }
+
+    // BELUM SELESAI / belum tervalidasi -> TAHAP 1: konfirmasi keluar
+    // + jelaskan APA YANG KURANG (permintaan tim: jangan sekadar bilang
+    //   "belum selesai" tanpa alasan yang jelas).
+    final kurang = <String>[];
+    if (_url.text.trim().isEmpty) kurang.add('Base URL belum diisi');
+    if (_key.text.trim().isEmpty) kurang.add('API Key belum diisi');
+    if (_dipilih == null && _manual.text.trim().isEmpty) {
+      kurang.add('Model belum dipilih (tekan "Deteksi Model")');
+    }
+    if (kurang.isEmpty && !_tervalidasi) {
+      kurang.add('Konfigurasi belum diverifikasi ke server '
+          '(tekan "Simpan" untuk memeriksa)');
+    }
+
+    final keluar = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        icon: const Icon(Icons.help_outline, color: Colors.orange, size: 48),
+        title: const Text('Konfigurasi belum selesai'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Yang masih KURANG:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            for (final k in kurang)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('• $k', style: const TextStyle(fontSize: 13)),
+              ),
+            const SizedBox(height: 10),
+            const Text('Apakah anda ingin keluar?'),
+          ],
+        ),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Lanjutkan konfigurasi')),
+          TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Keluar')),
+        ],
+      ),
+    );
+    if (keluar != true) return false;
+    if (!mounted) return false;
+
+    // Simpan draft supaya progress user TIDAK hilang walau keluar.
+    if (!_samaDenganTersimpan) {
+      final draft = ApiConfig(
+        baseUrl: _url.text.trim(),
+        apiKey: _key.text.trim(),
+        model: _dipilih ?? (_manual.text.trim().isEmpty ? null : _manual.text.trim()),
+        displayName: _name.text.trim().isEmpty ? null : _name.text.trim(),
+        contextWindow: int.tryParse(_ctx.text.trim()),
+        visionProvider: _vision,
+        visionModel: _vision == 'auto' ? null : _vision,
+      );
+      await ref.read(apiConfigProvider.notifier).simpanDraft(draft);
+      if (!mounted) return false;
+    }
+
+    // TAHAP 2: SILANG MERAH BESAR (user MEMAKSA keluar)
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        icon: const Icon(Icons.cancel, color: Colors.red, size: 64),
+        title: const Text('KONFIGURASI BELUM SELESAI',
+            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Yang masih KURANG:',
+                style: TextStyle(
+                    color: Colors.red, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            for (final k in kurang)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('• $k',
+                    style: const TextStyle(
+                        color: Colors.red, fontSize: 13)),
+              ),
+            const SizedBox(height: 10),
+            const Text('SYNAPSE BELUM BISA DIPAKAI.',
+                style: TextStyle(
+                    color: Colors.red, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+                'Chat akan tetap menampilkan "Belum tersambung" sampai '
+                'konfigurasi diselesaikan.\n\n'
+                'Isianmu sudah DISIMPAN sebagai draft — buka lagi: '
+                'Setelan -> Koneksi AI.',
+                style: TextStyle(fontSize: 12)),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Saya mengerti'),
+          ),
+        ],
+      ),
+    );
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final boleh = await _konfirmasiKeluar();
+        if (boleh && mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Koneksi AI'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            final boleh = await _konfirmasiKeluar();
+            if (boleh && mounted) Navigator.pop(context);
+          },
+        ),
         actions: [
           // Tombol Simpan SELALU terlihat di AppBar (tidak perlu scroll)
           TextButton.icon(
@@ -197,20 +485,29 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
 
         TextField(
           controller: _url,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Base URL',
-            hintText: 'http://127.0.0.1:8642',
-            border: OutlineInputBorder(),
+            // HINT = hanya VISUAL: abu-abu sangat pudar, hilang begitu user
+            // mengetik 1 karakter. Kolomnya sendiri BENAR-BENAR kosong.
+            hintText: 'contoh: http://127.0.0.1:8642/v1',
+            hintStyle: TextStyle(
+              color: t.colorScheme.onSurface.withValues(alpha: 0.18),
+            ),
+            border: const OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _key,
           obscureText: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'API Key',
-            hintText: 'API_SERVER_KEY',
-            border: OutlineInputBorder(),
+            // HINT = hanya VISUAL (abu-abu sangat pudar), hilang saat mengetik.
+            hintText: 'contoh: kunci API_SERVER_KEY',
+            hintStyle: TextStyle(
+              color: t.colorScheme.onSurface.withValues(alpha: 0.18),
+            ),
+            border: const OutlineInputBorder(),
           ),
         ),
 
@@ -345,7 +642,7 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
 
         const SizedBox(height: AppSpacing.lg),
         FilledButton(
-          onPressed: _simpan,
+          onPressed: _sibuk ? null : _simpan,
           child: const Text('Simpan'),
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -355,6 +652,7 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
           label: const Text('Hapus konfigurasi'),
         ),
       ],
+      ),
       ),
     );
   }

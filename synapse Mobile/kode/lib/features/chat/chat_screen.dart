@@ -149,6 +149,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
     final lamp = _lampiran;
     if ((teks.isEmpty && lamp == null) || _sibuk) return;
 
+    // JEBAKAN #101: tunggu config selesai dimuat dulu (kalau tidak -> "kadang
+    // bisa, kadang tidak": aksi cepat melihat config kosong).
+    await ref.read(apiConfigProvider.notifier).siap;
+    if (!mounted) return;
     final klien = ref.read(apiClientProvider);
     if (klien == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -458,13 +462,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
             if (p.namaFile != null && p.teks.isNotEmpty)
               const SizedBox(height: 4),
             kosong
-                ? SizedBox(
-                    width: 40,
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      _titik(t), const SizedBox(width: 4),
-                      _titik(t), const SizedBox(width: 4),
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 13,
+                        height: 13,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: saya
+                              ? t.colorScheme.onPrimary
+                              : t.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Sedang berpikir',
+                          style: t.textTheme.bodySmall?.copyWith(
+                            color: saya ? t.colorScheme.onPrimary : null,
+                            fontStyle: FontStyle.italic,
+                          )),
+                      const SizedBox(width: 4),
+                      _titik(t), const SizedBox(width: 3),
+                      _titik(t), const SizedBox(width: 3),
                       _titik(t),
-                    ]),
+                    ],
                   )
                 : SelectableText(
                     p.teks,

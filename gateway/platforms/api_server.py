@@ -2238,6 +2238,9 @@ class APIServerAdapter(BasePlatformAdapter):
             ("GET", "/v1/artifacts/download/{artifact_id}", self._handle_artifact_download),
             ("GET", "/v1/skills", self._handle_skills),
             ("GET", "/v1/toolsets", self._handle_toolsets),
+            # TTS lokal (edge-tts) untuk klien mobile (fitur VTuber).
+            # Menjalankan edge-tts LANGSUNG (tanpa LLM) -> cepat & andal.
+            ("POST", "/v1/tts", self._handle_tts),
             ("GET", "/api/sessions", self._handle_list_sessions),
             ("POST", "/api/sessions", self._handle_create_session),
             ("GET", "/api/sessions/{session_id}", self._handle_get_session),
@@ -4149,6 +4152,107 @@ class APIServerAdapter(BasePlatformAdapter):
             "platform": "api_server",
             "data": data,
         })
+
+    async def _handle_tts(self, request: "web.Request") -> "web.Response":
+        """POST /v1/tts — buat suara (mp3) dari teks memakai edge-tts.
+
+        Untuk klien MOBILE (fitur VTuber). Menjalankan **edge-tts langsung**
+        (TANPA LLM) sehingga CEPAT & ANDAL — dulu app menyuruh agent (LLM)
+        menjalankan edge-tts, yang lambat (10-40s) dan sering gagal.
+
+        Body JSON:
+            { "text": "...", "voice": "ja-JP-NanamiNeural" }
+
+        Balasan: audio/mpeg (bytes mp3).
+        """
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response(
+                _openai_error("Body JSON tidak valid", err_type="invalid_request_error"),
+                status=400,
+            )
+        if not isinstance(body, dict):
+            return web.json_response(
+                _openai_error("Body harus objek JSON", err_type="invalid_request_error"),
+                status=400,
+            )
+
+        teks = str(body.get("text") or "").strip()
+        suara = str(body.get("voice") or "id-ID-GadisNeural").strip()
+        if not teks:
+            return web.json_response(
+                _openai_error("Field 'text' wajib diisi", err_type="invalid_request_error"),
+                status=400,
+            )
+        # Batasi panjang supaya tidak menyiksa server (satu balasan VTuber pendek).
+        if len(teks) > 2000:
+            teks = teks[:2000]
+
+        # Nama voice hanya huruf/angka/dash/titik — cegah penyalahgunaan argumen.
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", suara):
+            return web.json_response(
+                _openai_error("Nama voice tidak valid", err_type="invalid_request_error"),
+                status=400,
+            )
+
+        try:
+            import asyncio
+            import sys as _sys
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as td:
+                keluar = os.path.join(td, "tts.mp3")
+                cmd = [
+                    _sys.executable, "-m", "edge_tts",
+                    "--voice", suara,
+                    "--text", teks,
+                    "--write-media", keluar,
+                ]
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    _, err = await asyncio.wait_for(proc.communicate(), timeout=60)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    return web.json_response(
+                        _openai_error("TTS timeout", err_type="server_error"),
+                        status=504,
+                    )
+                if proc.returncode != 0 or not os.path.exists(keluar):
+                    pesan = (err or b"").decode("utf-8", "replace")[:300]
+                    logger.warning("POST /v1/tts gagal: %s", pesan)
+                    return web.json_response(
+                        _openai_error(
+                            f"edge-tts gagal: {pesan or 'tanpa pesan'}",
+                            err_type="server_error",
+                        ),
+                        status=502,
+                    )
+                with open(keluar, "rb") as f:
+                    data = f.read()
+        except Exception:
+            logger.exception("POST /v1/tts failed")
+            return web.json_response(
+                _openai_error("TTS gagal", err_type="server_error"),
+                status=500,
+            )
+
+        return web.Response(
+            body=data,
+            content_type="audio/mpeg",
+            headers={
+                "Content-Disposition": 'inline; filename="tts.mp3"',
+                "Cache-Control": "no-store",
+            },
+        )
 
     # ------------------------------------------------------------------
     # /api/sessions — thin client/session resource API

@@ -6,15 +6,51 @@
    "opsi": [
     {
      "id": "ja-JP-NanamiNeural",
-     "nama": "Nanami (Jepang, ceria)"
+     "nama": "Jepang, cewek ceria (asli karakter)"
+    },
+    {
+     "id": "ja-JP-KeitaNeural",
+     "nama": "Keita (Jepang, cowok santai)"
     },
     {
      "id": "zh-CN-XiaoxiaoNeural",
-     "nama": "Xiaoxiao (Cina, lembut)"
+     "nama": "Xiaoxiao (Cina, cewek lembut)"
+    },
+    {
+     "id": "zh-CN-XiaoyiNeural",
+     "nama": "Xiaoyi (Cina, cewek manis)"
+    },
+    {
+     "id": "zh-CN-liaoning-XiaobeiNeural",
+     "nama": "Xiaobei (Cina, cewek anak)"
+    },
+    {
+     "id": "zh-CN-shaanxi-XiaoniNeural",
+     "nama": "Xiaoni (Cina, suara anak)"
+    },
+    {
+     "id": "zh-TW-HsiaoChenNeural",
+     "nama": "HsiaoChen (Taiwan, cewek kalem)"
+    },
+    {
+     "id": "zh-TW-HsiaoYuNeural",
+     "nama": "HsiaoYu (Taiwan, cewek muda)"
+    },
+    {
+     "id": "zh-HK-HiuGaaiNeural",
+     "nama": "HiuGaai (Hongkong, cewek)"
+    },
+    {
+     "id": "zh-HK-HiuMaanNeural",
+     "nama": "HiuMaan (Hongkong, cewek)"
+    },
+    {
+     "id": "ko-KR-SunHiNeural",
+     "nama": "SunHi (Korea, cewek)"
     },
     {
      "id": "id-ID-GadisNeural",
-     "nama": "Gadis (Indonesia)"
+     "nama": "Gadis (Indonesia, cewek)"
     }
    ]
   },
@@ -24,15 +60,51 @@
    "opsi": [
     {
      "id": "zh-CN-XiaoyiNeural",
-     "nama": "Xiaoyi (Cina, manis)"
+     "nama": "Cina, cewek manis (asli karakter)"
     },
     {
      "id": "ja-JP-NanamiNeural",
-     "nama": "Nanami (Jepang)"
+     "nama": "Nanami (Jepang, cewek ceria)"
+    },
+    {
+     "id": "ja-JP-KeitaNeural",
+     "nama": "Keita (Jepang, cowok santai)"
+    },
+    {
+     "id": "zh-CN-XiaoxiaoNeural",
+     "nama": "Xiaoxiao (Cina, cewek lembut)"
+    },
+    {
+     "id": "zh-CN-liaoning-XiaobeiNeural",
+     "nama": "Xiaobei (Cina, cewek anak)"
+    },
+    {
+     "id": "zh-CN-shaanxi-XiaoniNeural",
+     "nama": "Xiaoni (Cina, suara anak)"
+    },
+    {
+     "id": "zh-TW-HsiaoChenNeural",
+     "nama": "HsiaoChen (Taiwan, cewek kalem)"
+    },
+    {
+     "id": "zh-TW-HsiaoYuNeural",
+     "nama": "HsiaoYu (Taiwan, cewek muda)"
+    },
+    {
+     "id": "zh-HK-HiuGaaiNeural",
+     "nama": "HiuGaai (Hongkong, cewek)"
+    },
+    {
+     "id": "zh-HK-HiuMaanNeural",
+     "nama": "HiuMaan (Hongkong, cewek)"
+    },
+    {
+     "id": "ko-KR-SunHiNeural",
+     "nama": "SunHi (Korea, cewek)"
     },
     {
      "id": "id-ID-GadisNeural",
-     "nama": "Gadis (Indonesia)"
+     "nama": "Gadis (Indonesia, cewek)"
     }
    ]
   },
@@ -42,15 +114,51 @@
    "opsi": [
     {
      "id": "zh-CN-XiaoxiaoNeural",
-     "nama": "Xiaoxiao (Cina, lembut)"
+     "nama": "Cina, cewek lembut (asli karakter)"
+    },
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang, cewek ceria)"
+    },
+    {
+     "id": "ja-JP-KeitaNeural",
+     "nama": "Keita (Jepang, cowok santai)"
+    },
+    {
+     "id": "zh-CN-XiaoyiNeural",
+     "nama": "Xiaoyi (Cina, cewek manis)"
+    },
+    {
+     "id": "zh-CN-liaoning-XiaobeiNeural",
+     "nama": "Xiaobei (Cina, cewek anak)"
+    },
+    {
+     "id": "zh-CN-shaanxi-XiaoniNeural",
+     "nama": "Xiaoni (Cina, suara anak)"
+    },
+    {
+     "id": "zh-TW-HsiaoChenNeural",
+     "nama": "HsiaoChen (Taiwan, cewek kalem)"
     },
     {
      "id": "zh-TW-HsiaoYuNeural",
-     "nama": "HsiaoYu (Taiwan)"
+     "nama": "HsiaoYu (Taiwan, cewek muda)"
+    },
+    {
+     "id": "zh-HK-HiuGaaiNeural",
+     "nama": "HiuGaai (Hongkong, cewek)"
+    },
+    {
+     "id": "zh-HK-HiuMaanNeural",
+     "nama": "HiuMaan (Hongkong, cewek)"
+    },
+    {
+     "id": "ko-KR-SunHiNeural",
+     "nama": "SunHi (Korea, cewek)"
     },
     {
      "id": "id-ID-GadisNeural",
-     "nama": "Gadis (Indonesia)"
+     "nama": "Gadis (Indonesia, cewek)"
     }
    ]
   },
@@ -60,15 +168,51 @@
    "opsi": [
     {
      "id": "zh-TW-HsiaoChenNeural",
-     "nama": "HsiaoChen (Taiwan, kalem)"
+     "nama": "Taiwan, cewek kalem (asli karakter)"
+    },
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang, cewek ceria)"
+    },
+    {
+     "id": "ja-JP-KeitaNeural",
+     "nama": "Keita (Jepang, cowok santai)"
+    },
+    {
+     "id": "zh-CN-XiaoxiaoNeural",
+     "nama": "Xiaoxiao (Cina, cewek lembut)"
+    },
+    {
+     "id": "zh-CN-XiaoyiNeural",
+     "nama": "Xiaoyi (Cina, cewek manis)"
+    },
+    {
+     "id": "zh-CN-liaoning-XiaobeiNeural",
+     "nama": "Xiaobei (Cina, cewek anak)"
+    },
+    {
+     "id": "zh-CN-shaanxi-XiaoniNeural",
+     "nama": "Xiaoni (Cina, suara anak)"
+    },
+    {
+     "id": "zh-TW-HsiaoYuNeural",
+     "nama": "HsiaoYu (Taiwan, cewek muda)"
+    },
+    {
+     "id": "zh-HK-HiuGaaiNeural",
+     "nama": "HiuGaai (Hongkong, cewek)"
     },
     {
      "id": "zh-HK-HiuMaanNeural",
-     "nama": "HiuMaan (Hongkong)"
+     "nama": "HiuMaan (Hongkong, cewek)"
     },
     {
-     "id": "en-US-AriaNeural",
-     "nama": "Aria (Inggris)"
+     "id": "ko-KR-SunHiNeural",
+     "nama": "SunHi (Korea, cewek)"
+    },
+    {
+     "id": "id-ID-GadisNeural",
+     "nama": "Gadis (Indonesia, cewek)"
     }
    ]
   },
@@ -78,15 +222,51 @@
    "opsi": [
     {
      "id": "zh-CN-shaanxi-XiaoniNeural",
-     "nama": "Xiaoni (Cina, anak)"
+     "nama": "Cina, suara anak kecil (asli karakter)"
+    },
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang, cewek ceria)"
+    },
+    {
+     "id": "ja-JP-KeitaNeural",
+     "nama": "Keita (Jepang, cowok santai)"
+    },
+    {
+     "id": "zh-CN-XiaoxiaoNeural",
+     "nama": "Xiaoxiao (Cina, cewek lembut)"
+    },
+    {
+     "id": "zh-CN-XiaoyiNeural",
+     "nama": "Xiaoyi (Cina, cewek manis)"
     },
     {
      "id": "zh-CN-liaoning-XiaobeiNeural",
-     "nama": "Xiaobei (Cina, anak)"
+     "nama": "Xiaobei (Cina, cewek anak)"
+    },
+    {
+     "id": "zh-TW-HsiaoChenNeural",
+     "nama": "HsiaoChen (Taiwan, cewek kalem)"
+    },
+    {
+     "id": "zh-TW-HsiaoYuNeural",
+     "nama": "HsiaoYu (Taiwan, cewek muda)"
+    },
+    {
+     "id": "zh-HK-HiuGaaiNeural",
+     "nama": "HiuGaai (Hongkong, cewek)"
+    },
+    {
+     "id": "zh-HK-HiuMaanNeural",
+     "nama": "HiuMaan (Hongkong, cewek)"
+    },
+    {
+     "id": "ko-KR-SunHiNeural",
+     "nama": "SunHi (Korea, cewek)"
     },
     {
      "id": "id-ID-GadisNeural",
-     "nama": "Gadis (Indonesia)"
+     "nama": "Gadis (Indonesia, cewek)"
     }
    ]
   },
@@ -96,15 +276,51 @@
    "opsi": [
     {
      "id": "ja-JP-KeitaNeural",
-     "nama": "Keita (Jepang, santai)"
+     "nama": "Jepang, cowok santai (asli karakter)"
     },
     {
      "id": "zh-CN-YunxiNeural",
-     "nama": "Yunxi (Cina, muda)"
+     "nama": "Yunxi (Cina, cowok muda)"
+    },
+    {
+     "id": "zh-CN-YunjianNeural",
+     "nama": "Yunjian (Cina, cowok tegas)"
+    },
+    {
+     "id": "zh-CN-YunyangNeural",
+     "nama": "Yunyang (Cina, suara berita)"
+    },
+    {
+     "id": "zh-TW-YunJheNeural",
+     "nama": "YunJhe (Taiwan, cowok)"
+    },
+    {
+     "id": "zh-HK-WanLungNeural",
+     "nama": "WanLung (Hongkong, cowok)"
+    },
+    {
+     "id": "ko-KR-InJoonNeural",
+     "nama": "InJoon (Korea, cowok)"
+    },
+    {
+     "id": "ko-KR-HyunsuMultilingualNeural",
+     "nama": "Hyunsu (Korea, maskot ceria)"
     },
     {
      "id": "id-ID-ArdiNeural",
-     "nama": "Ardi (Indonesia)"
+     "nama": "Ardi (Indonesia, cowok)"
+    },
+    {
+     "id": "en-US-BrianNeural",
+     "nama": "Brian (Inggris, cowok)"
+    },
+    {
+     "id": "en-GB-RyanNeural",
+     "nama": "Ryan (Inggris-UK, cowok)"
+    },
+    {
+     "id": "th-TH-NiwatNeural",
+     "nama": "Niwat (Thailand, cowok)"
     }
    ]
   },
@@ -114,15 +330,51 @@
    "opsi": [
     {
      "id": "zh-CN-YunjianNeural",
-     "nama": "Yunjian (Cina, tegas)"
+     "nama": "Cina, cowok tegas (asli karakter)"
+    },
+    {
+     "id": "zh-CN-YunxiNeural",
+     "nama": "Yunxi (Cina, cowok muda)"
     },
     {
      "id": "zh-CN-YunyangNeural",
-     "nama": "Yunyang (Cina, berita)"
+     "nama": "Yunyang (Cina, suara berita)"
     },
     {
-     "id": "en-US-DavisNeural",
-     "nama": "Davis (Inggris)"
+     "id": "zh-TW-YunJheNeural",
+     "nama": "YunJhe (Taiwan, cowok)"
+    },
+    {
+     "id": "zh-HK-WanLungNeural",
+     "nama": "WanLung (Hongkong, cowok)"
+    },
+    {
+     "id": "ko-KR-InJoonNeural",
+     "nama": "InJoon (Korea, cowok)"
+    },
+    {
+     "id": "ko-KR-HyunsuMultilingualNeural",
+     "nama": "Hyunsu (Korea, maskot ceria)"
+    },
+    {
+     "id": "id-ID-ArdiNeural",
+     "nama": "Ardi (Indonesia, cowok)"
+    },
+    {
+     "id": "en-US-BrianNeural",
+     "nama": "Brian (Inggris, cowok)"
+    },
+    {
+     "id": "en-GB-RyanNeural",
+     "nama": "Ryan (Inggris-UK, cowok)"
+    },
+    {
+     "id": "th-TH-NiwatNeural",
+     "nama": "Niwat (Thailand, cowok)"
+    },
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang, cewek ceria)"
     }
    ]
   },
@@ -132,15 +384,51 @@
    "opsi": [
     {
      "id": "ko-KR-HyunsuMultilingualNeural",
-     "nama": "Hyunsu (Korea, ceria)"
+     "nama": "Korea, maskot ceria (asli karakter)"
+    },
+    {
+     "id": "ja-JP-NanamiNeural",
+     "nama": "Nanami (Jepang, cewek ceria)"
+    },
+    {
+     "id": "ja-JP-KeitaNeural",
+     "nama": "Keita (Jepang, cowok santai)"
+    },
+    {
+     "id": "zh-CN-XiaoxiaoNeural",
+     "nama": "Xiaoxiao (Cina, cewek lembut)"
+    },
+    {
+     "id": "zh-CN-XiaoyiNeural",
+     "nama": "Xiaoyi (Cina, cewek manis)"
+    },
+    {
+     "id": "zh-CN-liaoning-XiaobeiNeural",
+     "nama": "Xiaobei (Cina, cewek anak)"
+    },
+    {
+     "id": "zh-CN-shaanxi-XiaoniNeural",
+     "nama": "Xiaoni (Cina, suara anak)"
+    },
+    {
+     "id": "zh-TW-HsiaoChenNeural",
+     "nama": "HsiaoChen (Taiwan, cewek kalem)"
+    },
+    {
+     "id": "zh-TW-HsiaoYuNeural",
+     "nama": "HsiaoYu (Taiwan, cewek muda)"
+    },
+    {
+     "id": "zh-HK-HiuGaaiNeural",
+     "nama": "HiuGaai (Hongkong, cewek)"
+    },
+    {
+     "id": "zh-HK-HiuMaanNeural",
+     "nama": "HiuMaan (Hongkong, cewek)"
     },
     {
      "id": "ko-KR-SunHiNeural",
      "nama": "SunHi (Korea, cewek)"
-    },
-    {
-     "id": "ja-JP-NanamiNeural",
-     "nama": "Nanami (Jepang)"
     }
    ]
   }

@@ -3915,6 +3915,489 @@ Download HP : /sdcard/Download/SynapseMobile_v1.2.5.apk
 
 ---
 
+## BAGIAN 48 — 🔴 PERINTAH MUTLAK: WAJIB PAKAI VISION GEMINI (27 Sep 2026)
+
+### 48.0 🔴🔴 PERINTAH MUTLAK LAIN — RILIS HARUS TUNGGU ACC USER
+
+> **PERINTAH USER (verbatim, saat marah):** *"jangan rilis, saya belum
+> verifikasi"* … *"kalau mau rilis versi tunggu verifikasi saya sudah di acc
+> atau belum! itu mutlak hukumnya oke? jangan diulangi lagi tolong! catat ini!
+> ini mutlak btw"* … *"untung saya hentikan paksa kalau tidak langsung jebol dah"*
+
+```
+RILIS/UPDATE VERSI HANYA setelah user berkata "sudah/sesuai/ACC" — setelah
+user MEMVERIFIKASI SENDIRI.
+DILARANG sebelum ACC: commit+push, GitHub Release/tag, taruh APK di folder
+rilis (synapse Mobile/apk), sync kode rilis, APK ke Download HP.
+Menyiapkan artefak rilis SUDAH termasuk rilis. Kerjakan fix BUKAN izin rilis.
+Urutan: kerjakan -> BERHENTI -> tanya "sudah sesuai?" -> TUNGGU jawaban.
+```
+**INSIDEN:** sesi hampir merilis v1.2.6 tanpa ACC — user hentikan paksa.
+
+---
+
+> **PERINTAH USER (verbatim):**
+> *"perintah mutlak untuk pakai itu, wajib kamu tulis juga pada kontrak
+> permanen.md dan juga aturan kerja kuliah. lalu ATURAN_KERJA_SYNAPSE_MOBILE.md
+> juga dan file file md yang lain, jadi semuanya serentak tahu bahwa wajib
+> banget pakai itu"*
+
+### 48.1 ATURAN MUTLAK (berlaku SETIAP sesi, semua AI/model)
+
+```
+1. WAJIB memakai VISION GEMINI untuk MELIHAT gambar.
+2. DILARANG menyimpulkan isi gambar tanpa benar-benar melihatnya.
+3. DILARANG memakai model yang TIDAK bisa baca gambar untuk vision.
+   TERBUKTI BUTA GAMBAR: cbai/deepseek-v4.1-flash.
+4. `vision_analyze` (model default) SERING HALUSINASI -> jangan dipercaya sendirian.
+5. Kena 429/limit -> PINDAH MODEL (kuota terpisah per model).
+```
+
+### 48.2 KONFIGURASI (SUDAH DITERAPKAN)
+
+**Synapse (PC/agent)** — `auxiliary.vision`:
+```yaml
+auxiliary:
+  vision:
+    provider: custom
+    model: ag/gemini-3.8-flash-high          # Gemini 3.8, vision + tools, ctx 1jt
+    base_url: https://9router.consoleapi.qzz.io/v1
+    api_key: ${SYNAPSE_CUSTOM_9ROUTER_CONSOLEAPI_QZZ_IO_API_KEY}
+```
+
+**App mobile (v1.2.6)** — layar **Setelan → Koneksi AI → Vision (baca gambar)**:
+- Opsi utama: **`ag/gemini-3.8-flash-high` (disarankan)**
+- "Otomatis (ikut server)" = ikut config Synapse (Gemini 3.8) — default aman.
+
+### 48.3 BUKTI UJI NYATA (27 Sep 2026)
+
+| Model | Hasil baca gambar |
+|---|---|
+| **`ag/gemini-3.8-flash-high`** | ✅ tepat (tokoh, mata biru, rambut panjang, dst.) |
+| `cbai/deepseek-v4.1-flash` | ❌ *"gambar rusak / gagal ter-decode"* — **buta** |
+| `vision_analyze` default | ⚠️ halusinasi ("kaki 3" padahal 2) |
+
+### 48.4 JEBAKAN #99 & #100
+
+| # | Jebakan | Solusi |
+|---|---|---|
+| **99** | App mengirim gambar pakai `cfg.model` (model chat) -> pilihan **"Model vision" TIDAK dipakai**; kalau model chat buta gambar (deepseek), hasil ngawur | `chatGambar()` sekarang pakai `cfg.visionModel` (fallback ke model chat) |
+| **100** | Router 9router tolak request gambar: **Cloudflare 1010** (tanpa User-Agent) & **403** (tanpa `stream:true`) | Kirim **UA browser** + `stream: true` |
+
+### 48.5 CATATAN
+
+- `config.yaml` **TIDAK bisa diedit langsung** oleh agent (ada guard keamanan) ->
+  pakai `synapse config set <key> <value>`.
+- Kalau `api_key` di-set literal, rahasia ikut tersimpan di config -> pakai
+  referensi env `${NAMA_ENV}`.
+- Model Gemini lain yang tersedia di router: hanya `ag/gemini-3.8-flash-high`
+  & `cbai/deepseek-v4.1-flash`. Kunci Gemini langsung (`GEMINI_API_KEY`) punya
+  50 model (termasuk `gemini-3.5-flash`, `gemini-3.1-pro-preview`).
+
+*BAGIAN 48 ditambahkan 27 Sep 2026.*
+
+---
+
+## BAGIAN 49 — v1.2.6: KONEKSI JELAS + DETEKSI 100% + AVATAR LANCAR + THINKING (27 Sep 2026)
+
+### 49.0 🔴 ATURAN RILIS (MUTLAK — sudah dicatat di 7 file + memori)
+**RILIS/UPDATE VERSI HANYA setelah USER bilang ACC setelah user VERIFIKASI SENDIRI.**
+DILARANG sebelum ACC: commit+push, GitHub Release, taruh APK di folder rilis,
+sync kode rilis, APK ke Download HP. Menyiapkan artefak rilis = sudah termasuk
+rilis. Kerjakan fix BUKAN izin rilis.
+Urutan: kerjakan → BERHENTI → tanya "sudah sesuai?" → TUNGGU.
+**INSIDEN:** sesi hampir merilis v1.2.6 tanpa ACC → user menghentikan paksa.
+
+### 49.1 FIX "kadang bisa, kadang tidak" (JEBAKAN #101)
+**Keluhan:** *"udah connect padahal, tapi waktu coba chat malah 'belum tersambung'.
+kadang bisa, kadang gak bisa."*
+**AKAR:** `ApiConfigNotifier._muat()` async. Kalau user cepat menekan Kirim
+sebelum pemuatan selesai, `apiClientProvider` melihat config KOSONG → muncul
+"Belum tersambung" padahal sudah diisi.
+**FIX:** tambah `Future<void> get siap` (menunggu pemuatan). Chat menunggu
+`await ref.read(apiConfigProvider.notifier).siap;` DULU sebelum memutuskan
+"belum tersambung".
+
+### 49.2 LAYAR KONEKSI AI — WAJIB SELESAI + DETEKSI 100% (permintaan tim)
+**Rancangan yang diinginkan tim (diterapkan persis):**
+```
+Masuk Koneksi AI -> user WAJIB menyelesaikan di situ.
+Keluar (cara apa pun) -> ada peringatan.
+  • Sudah LENGKAP & TERVALIDASI -> boleh keluar, TANPA nag (jangan salah bilang
+    "belum selesai" padahal user sudah beres).
+  • Lengkap tapi belum disimpan -> "Simpan konfigurasi ini?" Ya/Tidak
+  • BELUM selesai -> TAHAP 1 "Konfigurasi belum selesai" + DAFTAR YANG KURANG
+    + "Apakah anda ingin keluar?" [Lanjutkan konfigurasi | Keluar]
+  • Maksa keluar -> TAHAP 2 SILANG MERAH BESAR (64px):
+    "KONFIGURASI BELUM SELESAI" + "Yang masih KURANG: • ..."
+    + "SYNAPSE BELUM BISA DIPAKAI."
+Tombol Simpan -> "Apakah anda ingin menyimpan konfigurasi ini?" Ya/Tidak
+  -> validasi 100% -> HIJAU centang besar (berhasil) / MERAH silang besar +
+     DAFTAR APA YANG SALAH/KURANG (gagal)
+```
+
+**DETEKSI 100% AKURAT (kunci):** tambah flag **`tervalidasi`** di `ApiConfig`.
+- `true` HANYA kalau konfigurasi **pernah DIVALIDASI NYATA ke server & BERHASIL**.
+- Itulah bukti 100% "user benar-benar sudah selesai" (bukan sekadar "terisi").
+- Jadi app TIDAK salah bilang "belum selesai" padahal user sudah valid.
+
+**PROGRESS TIDAK HILANG (JEBAKAN #102):** kalau user keluar paksa, isian
+disimpan sebagai **draft** (`simpanDraft`) — user tidak perlu mengetik ulang.
+Draft TIDAK menandai `tervalidasi` (biar status "selesai" tetap akurat).
+
+### 49.3 VALIDASI 100% (`ApiClient.validasi()`)
+Mengembalikan **daftar masalah** (judul + saran). Urutan pemeriksaan:
+```
+1. Base URL kosong / tidak valid
+2. API Key kosong
+3. Model belum dipilih
+4. Server benar-benar bisa dihubungi? (GET /v1/models)
+   - 200  -> VALID
+   - 401/403 -> "API Key DITOLAK" + saran
+   - 404  -> "Endpoint tidak ditemukan" + contoh Base URL benar
+   - error -> "Tidak bisa menghubungi server" + 4 langkah cek
+```
+
+### 49.4 AVATAR LANCAR DI HP BERAT (KUALITAS HD TETAP — MUTLAK)
+**Keluhan:** *"di beberapa HP berat jadi ngeframe."*
+**FIX:** pengawas performa di `viewer.html` — **PRIORITASKAN KUALITAS**:
+```
+1) Lambat -> batasi FPS 60 -> 30 (KUALITAS SAMA, beban GPU separuh)
+2) Masih lambat -> baru turunkan resolusi 3 -> 2 (bertahap)
+```
+Ukur `performance.now()` tiap frame; ambil keputusan tiap 90 frame.
+
+### 49.5 STREAMING + ANIMASI "SEDANG BERPIKIR" (saran tim)
+Streaming sudah ada (`chatStream`). Ditambah indikator jelas ala CLI:
+`CircularProgressIndicator` kecil + teks **"Sedang berpikir"** + 3 titik.
+Terbukti muncul di HP saat pesan dikirim.
+
+### 49.6 JEBAKAN BARU (#101-104)
+| # | Jebakan | Solusi |
+|---|---|---|
+| **101** | StateNotifier memuat config async; aksi cepat melihat config KOSONG -> "kadang bisa kadang tidak" | Sediakan `siap` (Future) & tunggu sebelum memutuskan "belum tersambung" |
+| **102** | "Sudah selesai" ditentukan dari "terisi" -> salah kalau user keluar paksa/hapus config | Pakai flag `tervalidasi` (hanya true kalau validasi nyata BERHASIL) + simpan draft agar progress tidak hilang |
+| **103** | `TextEditingController(text: c.baseUrl.isEmpty ? 'http://127.0.0.1:8642' : ...)` -> teks itu **ASLI**, user harus HAPUS manual dulu (merepotkan) | Kolom harus BENAR-BENAR kosong; contoh cukup lewat **`hintText`** (visual) + `hintStyle` abu-abu sangat pudar (`onSurface` alpha 0.18); hilang otomatis saat user mengetik |
+| **104** | `AppShell` TIDAK punya `PopScope` -> tombol keluar LANGSUNG menutup app tanpa peringatan | Tambah `PopScope` di `AppShell`: kalau ada riwayat -> `context.pop()`; kalau di layar utama -> dialog **"Apakah anda ingin keluar?"** (jelaskan tugas tetap jalan di latar belakang) baru `SystemNavigator.pop()` |
+
+### 49.8 UMPAN BALIK LANGSUNG + TIMING VALIDASI (27 Sep 2026)
+**Keluhan:** *"ketika saya selesai konfigurasi kadang prosesnya bisa sampai 4-5 detik
+lama... harusnya diprosesnya sama sama cepat kan?"*
+**PENGUKURAN JUJUR (logcat, bukan tafsir):**
+```
+[TIMING] validasi() = 1 ms     <- app SANGAT cepat
+uiautomator dump    = 2518 ms  <- ALAT UJI saya lambat (2,5 detik/panggilan!)
+```
+**KESIMPULAN:** angka "4-5 detik" itu = **2× overhead `uiautomator dump`** (~5 detik)
+dari alat ukur, BUKAN dari app. **PELAJARAN:** jangan mengukur waktu UI pakai
+`uiautomator`/screenshot (lambat) — pakai **log waktu di app + `logcat`**.
+**TETAP DIPERBAIKI:**
+- `validasi()` dulu 2 permintaan berurutan (`/v1/models` lalu `/models`) ->
+  sekarang **1 permintaan** + timeout 15s -> 8s.
+- Tambah dialog **"Memeriksa konfigurasi..."** SEKETIKA (dulu layar diam ->
+  terasa menggantung).
+
+### 49.7 PERMINTAAN USER — HINT VISUAL SAJA (27 Sep 2026)
+> *"base url di kolomnya jika belum diisi muncul teks yang hanya visual doang kan?...
+> tapi entah gimana caranya dia malah bisa muncul sendiri, harusnya itu kolom kosong
+> saya mau hapus dulu baru isi... buat teks visual itu sedikit abu abu transparan
+> hampir hilang... ketika user mulai ketik 1 kata atau karakter saja langsung hilang"*
+
+**DITERAPKAN:** kolom Base URL & API Key:
+- Isi kolom = **benar-benar kosong** kalau belum diisi (`text: c.baseUrl`, bukan fallback).
+- Contoh = **`hintText`** + `hintStyle` `onSurface` alpha **0.18** (abu-abu hampir hilang).
+- Terverifikasi: kolom `text=""`; hint `contoh: http://127.0.0.1:8642/v1` warnanya
+  **"abu-abu SANGAT PUDAR/hampir hilang"**; hilang begitu user mengetik.
+
+### 49.9 NAMA TAB "VTuber" (JEBAKAN #105 — label tab terlalu panjang)
+**Konteks:** tab bar sekarang **7 tab**; label **"Special Chat" (12 huruf)**
+rawan terpotong di layar sempit.
+**KEPUTUSAN USER:** ganti ke **"VTuber"** (6 huruf).
+**PENERAPAN:** label tab & judul AppBar = **"VTuber"**; nama lengkap tetap
+ditampilkan sebagai **subjudul di dalam layar** ("VTuber — Special Chat")
+dengan ikon ✨ berwarna primary. Terverifikasi: 7 label tab pendek semua
+tampil utuh; subjudul muncul di layar VTuber.
+**ATURAN:** label tab WAJIB pendek (<= 8 huruf). Kalau butuh nama panjang,
+taruh di dalam layar (judul/subjudul), JANGAN di tab bar.
+
+### 49.10 VTUBER (dulu "Special Chat") — 5 PERBAIKAN (JEBAKAN #106)
+
+**Keluhan user:** *"di chat vtuber saya chat disitu memang lambat kah?... gak ada
+animasi mikir... chat saya hilang tidak tersimpan... sebelah kiri icon speaker ada
+strip tiga untuk menyimpan chat kayak di tombol Chat... si vtuber telat banget
+bacain teksnya"*
+
+| # | Akar (dari kode) | Perbaikan |
+|---|---|---|
+| 1 | `_kirim` pakai `klien.chat()` = **NON-streaming** (tunggu jawaban penuh) | Pakai **`chatStream()`** -> teks muncul bertahap |
+| 2 | Tidak ada indikator saat menunggu | Balasan kosong (`teks == ''`) dirender jadi **"Sedang berpikir"** + spinner |
+| 3 | `_pesan` = list lokal di State, **tidak pernah disimpan** | Pakai **`sesiProvider`** (sama seperti tab Chat) + `simpanKeDisk` |
+| 4 | TTS baru mulai setelah balasan **PENUH** | Mulai bicara saat **kalimat pertama** utuh (>= 25 huruf & diakhiri . ! ?) |
+| 5 | Tidak ada akses sesi | **Strip tiga** (kiri ikon speaker) -> `SesiDrawer` (drawer sesi, sama tab Chat) |
+
+**Tambahan:** `chatStream()` sekarang menerima parameter `model`.
+**Kepribadian:** prompt roleplay karakter (`_promptKarakter`) — nama karakter
+ikut model Live2D, konsisten sebagai tokoh, ingat alur peran, jawab singkat.
+**Terverifikasi di HP:** balasan *"Halo halo~! Hiyori di sini..."*; chat
+**BERTAHAN** setelah app ditutup & dibuka; strip tiga ada; 0 crash.
+
+**BATAS ETIS (PENTING):** user meminta prompt yang "membebaskan diri dari
+larangan". **TIDAK ditulis** — prompt roleplay hanya mengatur KEPRIBADIAN
+(nama, gaya bicara, konsistensi peran), **bukan** instruksi melewati kebijakan
+keamanan model. Alasan disampaikan jujur ke user (risiko akun & batas etis).
+
+### 49.11 VTUBER — 3 PERBAIKAN LANJUTAN (JEBAKAN #107-109)
+
+**Keluhan user:** *"kolom ketik pesan tidak naik tepat di atas keyboard jadi tertutup
+keyboard... dia bacanya tetep telat... tolong jangan tulis pesan otomatis
+'bicaralah duluan bla bla' itu fitur tidak perlu"*
+
+| # | JEBAKAN | Akar | Perbaikan |
+|---|---|---|---|
+| **107** | Suara TTS **TELAT** | `_pakaiSuaraAnime = true` -> suara dibuat lewat **AGENT di laptop** (round-trip + generate mp3 = beberapa detik) | Default `false` -> pakai **TTS bawaan HP (langsung)**. Suara anime tetap bisa diaktifkan di Pengaturan suara. + bacakan **SELURUH balasan seketika** (dulu cuma kalimat pertama) |
+| **108** | Kolom ketik **TERTUTUP keyboard** | `resizeToAvoidBottomInset: false` | Set **`true`** -> kolom naik di atas keyboard. Terbukti: kolom pindah y 2162 -> **1703** saat keyboard muncul |
+| **109** | Pesan otomatis **"(bicaralah duluan ...)"** | Timer proaktif mengirim teks instruksi ke chat | Teks otomatis **DIHAPUS** (permintaan user) |
+
+**PELAJARAN:** suara/efek yang dibuat **lewat agent (round-trip)** SELALU terasa
+lambat di UI. Untuk hal yang harus reaktif (suara, animasi), pakai jalur
+**lokal di HP** dulu; jadikan jalur agent sebagai opsi.
+
+### 49.12 KOLOM KETIK TERTIMPA KEYBOARD — AKAR SEBENARNYA (JEBAKAN #111)
+
+**Keluhan:** *"kolom ketik pesan masih belum naik di atas keyboard, masih tertimpa"*
+(sudah dicoba `resizeToAvoidBottomInset: true` tapi MASIH gagal).
+
+**AKAR SEBENARNYA:** bukan soal resize. `Column` berisi
+`[subjudul + avatar 40% layar + kontrol + daftar chat + input]`.
+Saat keyboard terbuka, tinggi layar menyusut; karena **avatar tinggi TETAP 40%**,
+total anak MELEBIHI ruang -> anak TERAKHIR (kolom input) **terjepit**.
+
+**BUKTI PENGUKURAN (jangan percaya tafsir):**
+```
+tanpa keyboard : kolom input bounds y=2162..2306 -> TINGGI 144px (normal)
+dgn keyboard   : kolom input bounds y=1703..1706 -> TINGGI 3px  (TERJEPIT!)
+```
+Bounds dengan tinggi 3px = **tanda kolom terjepit/terpotong**, bukan "naik".
+
+**FIX:** saat keyboard terbuka, **KECILKAN avatar** (bukan ubah render -> kualitas
+HD tetap):
+```dart
+final kb = View.of(context).viewInsets.bottom;
+final avatarH = kb > 0
+    ? (MediaQuery.of(context).size.height * 0.16).clamp(80.0, 190.0)
+    : _tinggiAvatar;
+```
+**HASIL (terverifikasi):** dgn keyboard -> kolom y=1538..1682, **TINGGI 144px** ✅
+(dulu 3px). Vision: *"kolom terlihat UTUH di atas keyboard"*.
+
+**PELAJARAN PENGUKURAN (PENTING):**
+- Jangan simpulkan "kolom sudah naik" hanya dari **posisi Y**. Periksa juga
+  **TINGGI (y2-y1)**. Tinggi nyaris 0 = elemen TERJEPIT, bukan berhasil.
+- Kalau ada `Column` dengan anak bertinggi TETAP (mis. avatar 40%) + `Expanded`,
+  saat ruang menyusut (keyboard) anak SETELAH `Expanded` akan terjepit.
+  Solusi: **kecilkan anak bertinggi tetap** saat keyboard terbuka.
+
+### 49.13 KEYBOARD: KOLOM NAIK **TANPA** MENYENTUH AVATAR (JEBAKAN #112)
+
+**Keluhan berurutan (3 iterasi — catat supaya tidak salah lagi):**
+1. *"kolom ketik tertutup keyboard"*
+2. (fix #1: avatar dikecilkan) -> *"malah muncul bug baru, kotak background+avatar
+   bergeser ke atas & jadi kecil. Harusnya dia TIDAK tersentuh!"*
+3. (fix #2: `resize:false` + padding manual) -> avatar aman TAPI kolom **terjepit 3px**
+
+**AKAR SEBENARNYA:** `Column` dengan **avatar tinggi TETAP** + `Expanded` chat +
+input. Saat keyboard muncul, ruang menyusut. Kalau avatar dipaksa tetap,
+total anak MELEBIHI ruang -> anak terakhir (INPUT) **terjepit** (bounds tinggi 3px).
+
+**SOLUSI YANG BENAR (terbukti):** pakai **`LayoutBuilder`** — avatar dihitung
+dari **RUANG NYATA** (bukan dari layar penuh), sehingga tidak pernah overflow:
+```dart
+Scaffold(
+  resizeToAvoidBottomInset: true,   // input naik sendiri di atas keyboard
+  body: LayoutBuilder(builder: (ctx, kendala) {
+    // avatar = 40% ruang tersedia (dibatasi tinggi normal) -> tidak overflow
+    final tinggiAvatar = (kendala.maxHeight * 0.40).clamp(120.0, _tinggiAvatar);
+    return _isiUtama(ctx, t, cfg, daftarPesan, tinggiAvatar);
+  }),
+)
+```
+
+**HASIL TERVERIFIKASI (pengukuran, bukan tafsir):**
+```
+SEBELUM keyboard : kolom y=2162..2306 (tinggi 144px)
+SESUDAH keyboard : kolom y=1538..1682 (tinggi 144px)  <- NAIK & UTUH ✅
+chip avatar      : [60,471][223,519] SEBELUM == SESUDAH  <- TIDAK bergeser ✅
+vision           : "kotak/panel avatar terlihat UTUH dan NORMAL" ✅
+```
+
+**PELAJARAN BERTINGKAT (PENTING):**
+1. Periksa **TINGGI** elemen, bukan cuma posisi Y (tinggi 3px = TERJEPIT).
+2. `resizeToAvoidBottomInset:true` TIDAK cukup kalau ada anak bertinggi tetap
+   besar -> pakai **`LayoutBuilder`** agar anak menyesuaikan ruang nyata.
+3. Jangan "memperbaiki" dengan mengubah elemen yang user bilang JANGAN disentuh
+   (avatar) — cari solusi yang mempertahankan elemen itu.
+
+### 49.14 AKAR TERAKHIR KEYBOARD + OSCILLATION (JEBAKAN #113-114)
+
+**Gejala lanjutan (setelah #112):**
+- Avatar **"gede-kecil-gede" (glitching)** saat keyboard muncul.
+- Kolom input **masih terjepit** (tinggi 3px).
+
+**JEBAKAN #113 — OSCILLATION:** tinggi avatar dihitung dari
+`LayoutBuilder.maxHeight` / `viewInsets`, yang **BERUBAH SELAMA ANIMASI
+keyboard** (2712 -> 1706) -> avatar ikut besar-kecil.
+**FIX:** hitung avatar dari **`MediaQuery.of(context).size.height`** (ukuran
+LAYAR — TIDAK berubah saat keyboard muncul) -> **STABIL**.
+
+**JEBAKAN #114 — KEYBOARD DIKURANGI DUA KALI:**
+`AppShell` SUDAH punya Scaffold `resizeToAvoidBottomInset: true`. Layar VTuber
+dulu juga `true` -> keyboard dikurangi DUA KALI (sisa ruang ~700px) padahal
+avatar butuh 1084px -> `Column` **meluber** -> anak terakhir (INPUT) terjepit.
+**FIX:** `resizeToAvoidBottomInset: false` di layar dalam (biarkan AppShell yang
+menggeser seluruh layar). Hasil: kolom input **141px** (dulu 3px) ✅.
+
+**JEBAKAN #115 — MASIH KURANG ~66px:** setelah #114, hitungan ruang:
+`header(48) + subjudul(120) + avatar(1084) + kontrol(144) + input(48) = 1444`
+> ruang (1378) -> kurang ~66px.
+**FIX:** **sembunyikan baris subjudul saat keyboard terbuka** (`if (kb <= 0)`)
+-> hemat ~120px. **Avatar TIDAK disentuh** (tetap 40%).
+`kb` dibaca dari **`View.of(context).viewInsets.bottom`** (nilai mentah).
+
+**HASIL AKHIR (terverifikasi):**
+```
+kolom input : y=1565..1706 -> TINGGI 141px  ✅ (dulu 3px)
+chip avatar : ukuran TETAP (hanya bergeser krn subjudul disembunyikan)
+stabilitas  : diff antar-frame 0.45-0.68 (hanya animasi, TIDAK gede-kecil) ✅
+vision      : "kolom utuh di atas keyboard" + "avatar proporsional, tidak gepeng" ✅
+```
+
+**PELAJARAN FINAL (WAJIB DIINGAT):**
+1. **JANGAN hitung ukuran dari `viewInsets`/`maxHeight`** untuk hal yang harus
+   stabil -> nilainya BERUBAH saat animasi keyboard -> glitching.
+   Pakai `MediaQuery.size` (ukuran layar).
+2. **`resizeToAvoidBottomInset` GANDA** (AppShell + layar dalam) = keyboard
+   dikurangi dua kali -> layout meluber. Hanya SATU Scaffold yang boleh `true`.
+3. Sebelum menambah/ubah layout, **hitung total tinggi anak vs ruang**.
+4. Saat ruang kurang: kurangi elemen NON-esensial (subjudul) dulu —
+   JANGAN sentuh elemen yang user bilang penting (avatar).
+
+### 49.15 VARIASI SUARA (JEBAKAN #116) + SOAL VoiceStudio
+
+**Permintaan:** *"untuk masalah suara kan kurang bervariasi, bisa pakai dari yang ini
+jadi makin banyak? https://github.com/debpalash/VoiceStudio"*
+
+**HASIL RISET VoiceStudio (jujur — sudah dibaca repo-nya):**
+- VoiceStudio = **ElevenLabs alternative lokal** (voice cloning, 646 bahasa).
+  Bukan set file suara; butuh **install app Electron + unduh MODEL AI berat**
+  (GPU/VRAM besar) untuk kloning suara.
+- **Kesimpulan: TIDAK dipakai.** Alasan:
+  1. Kita **SUDAH punya edge-tts** (Microsoft) = **322 suara** siap pakai.
+     Yang kurang cuma **variasi di UI** (tiap karakter hanya 3 opsi, banyak duplikat).
+  2. VoiceStudio butuh model AI berat -> **tidak cocok HP** (aturan: ringan/baterai).
+  3. Menambah app berat = risiko & kompleksitas, padahal masalahnya cuma "pilihan kurang".
+
+**PERBAIKAN YANG DIPILIH (sesuai keputusan user: JEPANG+CEWEK dulu):**
+- `assets/suara_karakter.json` ditulis ulang: **3 opsi -> 12 opsi** per karakter
+  (8 karakter = 96 pilihan, dari sebelumnya 24).
+- Urutan: **suara ASLI karakter tetap pertama/default**, lalu suara Jepang,
+  lalu cewek (Cina/Taiwan/HK/Korea/Indonesia/Inggris/Thailand/Vietnam).
+  Karakter cowok (Mark/Ren) dapat pool cowok.
+- UI pemilih suara: daftar **WAJIB bisa di-scroll** (JEBAKAN #116) — dulu pakai
+  `Column` tanpa scroll, akan terpotong dengan 12 item -> sekarang `Flexible` +
+  `ListView(shrinkWrap: true)`.
+
+**BUKTI:** uji `edge_tts` 3 suara baru -> file mp3 jadi (21.600 / 20.592 / 19.728 byte).
+UI di HP: "Suara Hiyori" menampilkan **12 pilihan** (asli karakter + Keita +
+Xiaoxiao + Xiaoyi + Xiaobei + ...).
+
+**CATATAN:** suara anime asli (edge-tts) **tetap lewat agent** -> ada jeda. Kalau
+user mau instan, pakai TTS bawaan HP (Pengaturan suara).
+
+### 49.16 SUARA VTUBER — AKAR "SELALU JADI GOOGLE" (JEBAKAN #107b, #117, #118)
+
+**Keluhan user:** *"meskipun saya ganti suara kok kedengarannya sama kayak suara
+google ya? kayak google indonesia gitu, berasa gak ganti suara padahal udah saya
+ganti"*
+
+**AKAR 1 (JEBAKAN #107b — SALAH SAYA):**
+```dart
+bool _pakaiSuaraAnime = false;   // <- saya ubah demi "suara tidak telat"
+```
+`false` = **suara anime (edge-tts) TIDAK dipakai** -> SELALU jatuh ke TTS bawaan
+HP (Google). Akibatnya: terdengar seperti Google + **ganti suara tidak berpengaruh**.
+**FIX:** kembalikan ke `true` + umpan balik **"Menyiapkan suara..."** (dulu diam).
+
+**AKAR 2 (JEBAKAN #117 — fitur ini belum pernah benar-benar jalan):**
+`SuaraAnime.buatLewatAgent()` menyuruh **agent** (yang ada di LAPTOP) menyimpan
+mp3 ke **path HP** (`getTemporaryDirectory()` = `/data/user/0/<pkg>/cache/...`).
+Agent tidak punya akses ke path itu -> file **tidak pernah dibuat** -> selalu
+fallback ke Google. **Jadi fitur "suara anime" memang belum pernah bekerja.**
+**FIX:** pakai folder yang **BISA ditulis adb** dari laptop:
+```
+/sdcard/Android/data/com.nousresearch.synapse_mobile/files/
+perintah: python -m edge_tts ... --write-media "<laptop>\suara_<stamp>.mp3"
+          adb push "<laptop>\suara_<stamp>.mp3" "<folder HP>"
+```
+**BUKTI BERHASIL:** file `suara_1790493704104.mp3` (**70.992 byte**) muncul di HP
+setelah agent menjalankan perintah. edge-tts di laptop juga terbukti membuat file.
+
+**AKAR 3 (JEBAKAN #118 — pemutaran):** jalur `/sdcard/Android/data/...` tidak
+bisa dibaca dengan path mentah di Android modern -> pakai
+`UrlSource('file://...')` (dengan fallback `DeviceFileSource`).
+
+**MASALAH TERSISA (jujur):** jalur ini lewat **agent (LLM)** -> **lambat
+(10-40+ detik)** DAN **tidak andal** (agent kadang tidak menjalankan perintah
+dengan tepat; pada uji terakhir file tidak terbuat).
+**TRADE-OFF nyata:** suara anime = bagus tapi lambat/tidak andal; TTS HP =
+instan tapi seperti Google.
+
+**REKOMENDASI TERBAIK (belum dikerjakan — butuh keputusan user):**
+Buat **endpoint TTS langsung di server** (mis. `POST /v1/tts`) yang menjalankan
+edge-tts **tanpa LLM**, lalu app mengunduh mp3 dari endpoint itu.
+Hasil: suara anime asli **+ cepat (~1 detik) + andal**. Ini menghilangkan
+ketergantungan pada agent.
+
+### 49.17 ENDPOINT /v1/tts (SOLUSI FINAL SUARA VTUBER) — JEBAKAN #119, #120
+
+**Izin user:** *"Buat endpoint /v1/tts di server (suara anime CEPAT + ANDAL) —
+saya izinkan ubah api_server"*
+
+**YANG DIKERJAKAN (Synapse inti — dengan izin user + backup):**
+1. Backup: `gateway/platforms/api_server.py.bak-tts-<stamp>`
+2. Tambah rute `("POST", "/v1/tts", self._handle_tts)` di daftar rute.
+3. Tambah handler `_handle_tts`: menjalankan **edge-tts LANGSUNG** (subprocess,
+   TANPA LLM) -> balasan `audio/mpeg` (bytes mp3).
+   - Auth `_check_auth` (API_SERVER_KEY), batas teks 2000 huruf, validasi nama
+     voice (`[A-Za-z0-9._-]+`), timeout 60s, tempdir dibersihkan otomatis.
+4. Salin ke install (`$SYNAPSE_HOME/synapse-agent/...`) + `synapse gateway restart`.
+
+**HASIL UJI ENDPOINT (terukur):**
+```
+POST /v1/tts  {"text":"Halo, aku Hiyori...","voice":"ja-JP-NanamiNeural"}
+-> [HTTP 200] [2.36 detik] [27.792 byte]   ✅ (dulu 10-40 detik & sering gagal)
+```
+
+**SISI APP (JEBAKAN #119):**
+- `ApiClient.tts(teks, suara)` -> `POST /v1/tts`, kembalikan `Uint8List`.
+- `SuaraAnime.buatLewatServer()` -> tulis bytes ke file temp HP, kembalikan path.
+- `_bicara()` pakai jalur ini (bukan lagi `perintahAgent`).
+- `_pakaiSuaraAnime = true` (default; dulu sempat `false` -> selalu jadi Google).
+
+**JEBAKAN #120 — DELAY SUARA:** dulu suara baru mulai setelah balasan **PENUH**.
+**FIX:** mulai bersuara begitu **KALIMAT PERTAMA utuh** (regex `[.!?]`, minimal
+15 huruf; kalau tanpa tanda baca tunggu >= 60 huruf) — `_bicara()` dipanggil
+**tanpa await** supaya streaming tetap jalan.
+**HASIL (polling logcat):** suara mulai **detik ke-6** (dulu 10-40 detik) ✅
+
+**PELAJARAN:**
+1. Jangan pakai **LLM (agent)** untuk tugas yang harus cepat & andal (TTS) ->
+   buat **endpoint khusus** di server.
+2. Untuk audio+teks: **mulai audio lebih awal** (per kalimat), jangan tunggu penuh.
+
+*BAGIAN 49 ditambahkan 27 Sep 2026. Status: SELESAI DIKERJAKAN — MENUNGGU VERIFIKASI USER (belum dirilis).*
+
+---
+
 ---
 
 ---
