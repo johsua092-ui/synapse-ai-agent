@@ -3763,17 +3763,51 @@ fi
 ```
 Hasil uji: `exit 1` -> `["v1.2.3"] exit 0` ✅
 
-### 46.4 CI MERAH LAINNYA (pre-existing, DI LUAR lingkup mobile)
+### 46.4 CI MERAH LAINNYA — DIPERBAIKI (pre-existing, 2 akar untuk 5 job)
 
-Dari 30 check, beberapa merah sejak lama dan **tidak menyentuh folder mobile**:
-`uv.lock check` · `Docs Site` · `macOS-only tests` · `ruff enforcement` ·
-`Python tests / e2e`.
+Dari 30 check, 5 merah sejak lama dan **tidak menyentuh folder mobile**.
+Ternyata **cuma 2 akar**:
+
+**AKAR A — `uv.lock` tidak sinkron** (menyebabkan 3 job gagal):
+```
+uv lock --check : error "Run `uv lock` locally and commit the result"
+macOS tests     : "The lockfile at uv.lock needs to be updated, but --locked was provided"
+Python e2e      : gagal di step "Install dependencies" (uv sync --locked)
+```
+Pesan kuncinya: **"addition of global exclude newer <tanggal>"** -> `uv.lock`
+tertinggal perubahan aturan exclude di `pyproject.toml`.
+**FIX:** `uv lock` (253 paket, hanya **+18 baris**). Verifikasi: `uv lock --check` -> exit 0 ✅
+
+**AKAR B — 4 error ruff di `admin/server.py`** (rule `unspecified-encoding`):
+```
+424  path.read_text()                        -> read_text(encoding="utf-8")
+734  path.write_text("\n".join(lines))       -> + encoding="utf-8"
+1756 path.read_text()                        -> + encoding="utf-8"
+1763 path.write_text(json.dumps(...))        -> + encoding="utf-8"
+```
+**FIX:** tambah `encoding="utf-8"`. Verifikasi: `uvx ruff check admin/server.py`
+-> **"All checks passed!"** ✅
+
+**BELUM DIPERBAIKI — `Docs Site / Build Docusaurus`:**
+```
+[ERROR] Error: "https://" does not look like a valid URL
+```
+Akar: `website/docusaurus.config.ts` baris 10 -> `url: 'https://',` (placeholder
+**invalid**, ada sejak commit awal). Docusaurus 3.10 memvalidasi & menolak.
+**Kenapa belum saya perbaiki:** butuh **URL produksi yang benar** (workflow deploy
+ke **GitHub Pages** + Vercel, tapi repo ini punya konfigurasi fork). **JANGAN
+mengarang domain** — minta user memastikan URL-nya.
 
 **ATURAN:** CI merah hanya **WAJIB** dibereskan kalau **kita yang menyebabkan**.
-Kalau pre-existing & tidak berhubungan dengan aplikasi -> **laporkan jujur**
-mana yang kita perbaiki dan mana yang tidak, JANGAN diamkan atau klaim hijau.
+Kalau pre-existing -> **laporkan jujur** mana yang diperbaiki & mana yang tidak,
+JANGAN diamkan atau klaim hijau.
 **Kesimpulan yang benar untuk user: "AMAN, aplikasi & fitur Update tidak
 terpengaruh."**
+
+**CATATAN ANTREAN:** CI repo ini besar (30+ job) & sering `cancelled` karena push
+beruntun menimpa run sebelumnya (concurrency `cancel-in-progress`). Setelah fix,
+run bisa **`pending` lama (0 job)** — verifikasi hasilnya menyusul, jangan
+mengklaim hijau sebelum benar-benar `completed`.
 
 ### 46.5 CATATAN TEKNIS: tag & Release
 
