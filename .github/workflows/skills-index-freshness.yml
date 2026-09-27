@@ -35,7 +35,9 @@ jobs:
         id: probe
         run: |
           set -e
-          URL="https:///docs/api/skills-index.json"
+          # JEBAKAN #98: dulu placeholder 'https:///docs/api/skills-index.json'
+          # (host KOSONG) -> probe SELALU 'fetch-failed' (alarm palsu).
+          URL="https://johsua092-ui.github.io/synapse-ai-agent/docs/api/skills-index.json"
           echo "Probing $URL"
           # -L follows redirects; -f fails on HTTP errors; -s suppresses progress
           if ! curl -fsSL --retry 3 --retry-delay 10 -o /tmp/skills-index.json "$URL"; then

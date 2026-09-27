@@ -147,8 +147,11 @@ jobs:
           fi
 
           echo "Downloading currently live skills index"
+          # JEBAKAN #98: dulu URL-nya placeholder 'https:///docs/api/skills-index.json'
+          # (host KOSONG) -> curl SELALU gagal -> selalu jatuh ke crawl penuh
+          # (lambat, 10+ menit) dan membuat job ini tampak "macet".
           if curl -fsSL --retry 3 --retry-delay 5 \
-            "https:///docs/api/skills-index.json" \
+            "https://johsua092-ui.github.io/synapse-ai-agent/docs/api/skills-index.json" \
             -o "$INDEX_PATH" && validate_index; then
             exit 0
           fi
@@ -179,7 +182,7 @@ jobs:
           mkdir -p _site/docs
           cp -r website/build/* _site/docs/
           # llms.txt / llms-full.txt are also published at the site root
-          # (https:///llms.txt) because some
+          # (https://johsua092-ui.github.io/synapse-ai-agent/llms.txt) because some
           # agents and IDE plugins probe the classic root-level path rather
           # than /docs/llms.txt. Same file, two URLs, one source of truth.
           if [ -f website/build/llms.txt ]; then
