@@ -3859,19 +3859,41 @@ E: paths
   E: files-path          name="internal_files"   <- BARU
 ```
 
-### 47.4 JEBAKAN #97 — FileProvider vs lokasi file
+### 47.4 JEBAKAN #97 — FileProvider vs lokasi file (MEKANISME LENGKAP)
 
+**Temuan penting (hasil baca kode plugin, bukan tebakan):** plugin `open_file`
+(`open_file_android-1.1.0`) memakai FileProvider **MILIKNYA SENDIRI**:
 ```
-GEJALA : update terunduh 100% tapi installer tidak terbuka / mengulang
-AKAR   : folder penyimpanan TIDAK tercakup file_paths.xml -> FileProvider
-         gagal membuat content:// URI
-ATURAN : lokasi file yang mau dibuka lewat FileProvider HARUS tercakup di
-         file_paths.xml. Pasangan yang benar:
-           getExternalStorageDirectory()  <->  <external-files-path>
-           getApplicationDocumentsDirectory() <-> <files-path>
-         JANGAN campur (internal vs external).
-CARA CEK: aapt2 dump xmltree <apk> --file res/xml/file_paths.xml
+authority : ${applicationId}.fileProvider.com.crazecoder.openfile
+paths     : @xml/filepaths  (milik plugin)
 ```
+Isi `filepaths.xml` plugin: `root-path("")`, `external-path`, `external-cache-path`,
+**`external-files-path(".")`**, **`files-path(".")`** (harfiah `files/`), `cache-path`.
+
+| Lokasi file | Cakupan paths plugin | Hasil |
+|---|---|---|
+| `/data/data/<pkg>/app_flutter` (LAMA) | `<files-path>` = `.../files/` → **app_flutter TIDAK tercakup** | `FileProvider.getUriForFile` **throw** → `result(-4, "File opened incorrectly")` → **installer tidak terbuka** ❌ |
+| `/storage/emulated/0/Android/data/<pkg>/files` (BARU) | `<external-files-path(".")>` → **tercakup** | FileProvider berhasil → installer terbuka ✅ |
+
+**Catatan:** `MANAGE_EXTERNAL_STORAGE` **TIDAK diperlukan** — plugin hanya minta
+itu kalau path ada di `/Android/data/` milik **paket LAIN**
+(`isOtherAndroidDataDir`: `contains("/Android/data/") && !contains(packageName)`).
+Path kita mengandung nama paket sendiri → aman, cukup FileProvider.
+
+**ATURAN (final):**
+```
+Simpan file yang akan dibuka via open_file di:
+  getExternalStorageDirectory()  -> /Android/data/<pkg>/files
+yang tercakup <external-files-path path="."/> milik plugin open_file.
+JANGAN pakai getApplicationDocumentsDirectory() (app_flutter tidak tercakup).
+```
+**Bukti di APK rilis:** `aapt2 dump xmltree <apk> --file res/xml/file_paths.xml`
+menunjukkan `external-files-path` + `files-path` (jaring pengaman app sendiri).
+
+**CARA DEBUG YANG BENAR:** saat plugin Android gagal senyap, **BACA KODE PLUGIN**
+(`OpenFilePlugin.java` / `FileUtil.java` di pub cache) — jangan menebak dari gejala.
+Plugin `open_file` hanya membalas `result(-4, "File opened incorrectly")` tanpa
+alasan, jadi akarnya harus dicari di kode.
 
 ### 47.5 CATATAN PENTING UNTUK USER DI VERSI LAMA
 
