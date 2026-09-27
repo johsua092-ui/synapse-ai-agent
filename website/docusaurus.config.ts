@@ -7,7 +7,7 @@ const config: Config = {
   tagline: 'The self-improving AI agent',
   favicon: 'img/favicon.ico',
 
-  url: 'https://',
+  url: 'https://johsua092-ui.github.io/synapse-ai-agent',
   baseUrl: '/docs/',
 
   organizationName: 'Josh Research',
