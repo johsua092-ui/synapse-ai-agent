@@ -4794,3 +4794,115 @@ open_file gagal membuka installer.
 CATATAN: agar "Cek Update" menemukan versi, rilis GitHub HARUS punya
 tag versi (mis. v1.2.4) + aset .apk.
 ```
+
+
+---
+
+## BAGIAN 50 — v1.2.8: BACKUP & RESTORE NYATA + TOOLS BERFUNGSI (30 Sep 2026)
+
+### 50.1 AKAR MASALAH (ditemukan 30 Sep 2026)
+
+Bug yang dilaporkan tester di v1.2.6 dan MASIH ADA di v1.2.7:
+1. **Backup / Restore gagal**
+2. **Tools: "Gagal: Exception: HTTP 404"**
+
+**AKARNYA SATU:** Base URL app menunjuk ke **ROUTER MODEL (9router)**,
+bukan ke **Synapse agent**.
+
+| Endpoint | 9router (router) | Synapse agent 8642 |
+|---|---|---|
+| /v1/models | 200 | 200 |
+| /v1/toolsets | **404** | 200 |
+| /v1/skills | **404** | 200 |
+| /health | **404** | 200 |
+
+9router hanya melayani CHAT. Tidak punya toolset/skills dan TIDAK BISA
+menjalankan perintah di laptop (sandbox).
+
+v1.2.7 hanya memperbaiki **PESAN ERROR-nya** (jadi penjelasan yang jelas),
+TAPI 404-nya belum hilang — karena ini masalah KONFIGURASI, bukan kode app.
+
+### 50.2 YANG DIKERJAKAN DI v1.2.8 (Opsi C user: endpoint khusus di server)
+
+**A. Server Synapse — 4 endpoint BARU** (`gateway/platforms/api_server.py`):
+```
+GET  /v1/backup          daftar file backup (~/backup/*.zip)
+POST /v1/backup          buat backup PENUH (perintah native, TANPA LLM)
+POST /v1/restore         mulai restore (dijalankan TERPISAH / detached)
+GET  /v1/restore/status  status restore terakhir
+```
+Kenapa tanpa LLM: jalur lama menyuruh agent (LLM) lewat chat -> lambat,
+timeout 180s (jebakan #78), agent bisa mengarang skrip salah (jebakan #79).
+
+**B. Worker restore terpisah** (`synapse_cli/restore_worker.py`):
+```
+1. backup pengaman  -> ~/backup/sebelum-restore-<stamp>.zip
+2. synapse gateway stop
+3. synapse import <zip>
+4. synapse gateway start
+```
+**WAJIB proses terpisah** karena restore harus menghentikan gateway — kalau
+dijalankan di dalam proses api_server, respons HTTP tidak akan pernah sampai.
+
+**C. App mobile** (`core/api/api_client.dart` + `features/backup/backup_screen.dart`):
+- pakai endpoint baru (BUKAN perintah chat lagi)
+- layar Backup menampilkan DAFTAR file; ketuk untuk restore
+- PANTAU status restore (tidak gagal senyap lagi)
+
+**D. Tombol "Isi otomatis Synapse laptop"** di Koneksi AI — sekali ketuk,
+kolom Base URL Agent terisi `http://127.0.0.1:8642/v1`.
+
+### 50.3 HASIL UJI (terukur, 30 Sep 2026)
+```
+GET  /v1/backup        -> HTTP 200 (daftar 3 file)
+POST /v1/backup        -> HTTP 200 | 454,8 MB | 3874 file | 153,3 detik
+GET  /v1/restore/status-> HTTP 200 {"status":"none"}
+POST /v1/restore (file tidak ada) -> HTTP 404 (pesan jelas)
+Worker dgn zip tidak ada -> berhenti AMAN di tahap validasi (gateway tidak disentuh)
+flutter analyze lib    -> 0 ERROR
+APK v1.2.8             -> 59,0 MB, versionCode 2208
+```
+
+### 50.4 JEBAKAN BARU (#99-#104) — WAJIB DIINGAT
+
+**#99 — ADA DUA SALINAN REPO (sangat penting!)**
+```
+C:\Users\user\synapse-ai-agent                     <- repo untuk push GitHub
+C:\Users\user\AppData\Local\synapse\synapse-agent <- YANG BENAR-BENAR DIJALANKAN
+```
+Gateway menjalankan yang di **AppData**. Edit file server WAJIB masuk ke
+**KEDUANYA**, kalau tidak: endpoint baru tidak aktif (tetap 404).
+Cara cek: `Get-CimInstance Win32_Process | Where-Object CommandLine -match synapse_cli.main`.
+
+**#100 — RESTORE HARUS PROSES TERPISAH**
+Restore wajib `gateway stop` dulu. Kalau dijalankan di dalam handler HTTP,
+gateway mati sebelum respons terkirim -> klien tidak pernah tahu hasilnya.
+Solusi: `subprocess.Popen(..., creationflags=DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP)`
++ tulis hasil ke file status JSON yang dibaca klien belakangan.
+
+**#101 — BASE URL ROUTER vs AGENT (akar Tools 404 + Backup gagal)**
+Router model (9router dll) HANYA melayani chat. Tools/Skills/Backup/MCP/
+Perangkat HANYA ada di Synapse agent. Jangan arahkan app ke router kalau
+mau fitur agent jalan.
+
+**#102 — SUBPROCESS WORKER: `sys.executable` + DETACHED**
+Pakai `sys.executable` (bukan "python"), dan di Windows
+`creationflags = 0x00000008 | 0x00000200` supaya worker tidak ikut mati
+saat gateway berhenti.
+
+**#103 — RESTORE = BACKUP PENGAMAN DULU (ulangan jebakan #81)**
+Restore saat Synapse hidup MERUSAK state.db. Urutan wajib:
+backup pengaman -> gateway stop -> import -> gateway start.
+
+**#104 — `flutter analyze` PUNYA 43 WARNING LAMA (bukan error)**
+Jangan panik: semua warning itu pra-ada (unused import, deprecated, dll).
+Yang penting: **0 error**. Cek: `flutter analyze lib | grep -E "^\s*error"`.
+
+### 50.5 RILIS v1.2.8
+```
+Versi     : 1.2.8 (versionCode 2208)
+APK       : SynapseMobile_v1.2.8.apk (59,0 MB)
+md5       : e6659d94407ccd1b7b599b664b5d30b9
+Patchnote : ADA DI DALAM APK (assets/patchnote.json)
+Status    : di-push ke GitHub (rilis normal, tanpa force)
+```

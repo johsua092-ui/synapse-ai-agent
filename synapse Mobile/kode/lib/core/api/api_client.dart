@@ -10,6 +10,10 @@ class ApiClient {
   final ApiConfig cfg;
   ApiClient(this.cfg);
 
+  /// FIX v1.2.7 — penanda: permintaan ini harus lewat AGENT (base URL agent).
+  /// Dipakai `perintahAgent()` supaya Tools/Skills/Backup berjalan di PC.
+  bool pakaiAgent = false;
+
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         if (cfg.apiKey.isNotEmpty) 'Authorization': 'Bearer ${cfg.apiKey}',
@@ -28,6 +32,33 @@ class ApiClient {
     }
     return Uri.parse('$base$p');
   }
+
+  // ============ FIX v1.2.7 — DUKUNGAN 2 BASE URL (chat vs agent) ============
+
+  /// Susun URL untuk fitur AGENT (Tools/Skills/Backup/MCP/Perangkat).
+  /// Pakai `baseUrlAgent` (kalau diisi) — jadi CHAT boleh lewat router
+  /// (mis. 9router) sementara AGENT lewat Synapse PC.
+  Uri _ua(String path) {
+    final base = cfg.baseUrlAgent.replaceAll(RegExp(r"/+$"), "");
+    var p = path;
+    if (base.endsWith('/v1') && p.startsWith('/v1/')) {
+      p = p.substring(3);
+    }
+    return Uri.parse('$base$p');
+  }
+
+  /// Header untuk fitur AGENT (API key agent kalau beda).
+  Map<String, String> get _headersAgent => {
+        'Content-Type': 'application/json',
+        if (cfg.apiKeyAgent.trim().isNotEmpty)
+          'Authorization': 'Bearer ${cfg.apiKeyAgent}',
+      };
+
+  /// Client KHUSUS AGENT — semua endpoint agent memakai base URL agent.
+  ApiClient get agent => ApiClient(cfg.copyWith(
+        baseUrl: cfg.baseUrlAgent,
+        apiKey: cfg.apiKeyAgent,
+      ));
 
   /// Cek koneksi — TOLERAN.
   ///
@@ -100,7 +131,7 @@ class ApiClient {
 
   Future<List<Map<String, dynamic>>> daftarSkill() async {
     final r = await http
-        .get(_u('/v1/skills'), headers: _headers)
+        .get(_ua('/v1/skills'), headers: _headersAgent)
         .timeout(const Duration(seconds: 20));
     if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
     final d = jsonDecode(r.body) as Map<String, dynamic>;
@@ -222,13 +253,75 @@ class ApiClient {
   /// Server Synapse punya ~28 toolset (web, browser, terminal, file, dll).
   Future<List<Map<String, dynamic>>> toolsets() async {
     final r = await http
-        .get(_u('/v1/toolsets'), headers: _headers)
+        .get(_ua('/v1/toolsets'), headers: _headersAgent)
         .timeout(const Duration(seconds: 20));
     if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
     final d = jsonDecode(r.body) as Map<String, dynamic>;
     return ((d['data'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
+  }
+
+  // ============ BACKUP & RESTORE (endpoint native di api_server) ============
+  //
+  // FIX v1.2.7 — dulu Backup/Restore dikirim sebagai PERINTAH TEKS ke agent
+  // (LLM) lewat chat. Akibatnya: lambat, kena timeout 180s (jebakan #78), dan
+  // agent bisa mengarang skrip salah (#79). Sekarang memakai ENDPOINT KHUSUS
+  // di api_server yang menjalankan perintah NATIVE `synapse backup` /
+  // `synapse import` LANGSUNG (tanpa LLM) -> cepat & andal.
+  //
+  // PENTING: endpoint ini HANYA ada di Synapse agent (laptop), BUKAN di
+  // router model (mis. 9router). Jadi `baseUrlAgent` harus diisi.
+
+  /// Daftar file backup (~/backup/*.zip) dari agent.
+  Future<List<Map<String, dynamic>>> daftarBackup() async {
+    final r = await http
+        .get(_ua('/v1/backup'), headers: _headersAgent)
+        .timeout(const Duration(seconds: 30));
+    if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
+    final d = jsonDecode(r.body) as Map<String, dynamic>;
+    return ((d['data'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  /// Buat backup PENUH lewat endpoint native (tanpa LLM).
+  /// Mengembalikan peta hasil: status, file, path, size_text, duration.
+  Future<Map<String, dynamic>> buatBackup({String? label}) async {
+    final r = await http
+        .post(_ua('/v1/backup'),
+            headers: _headersAgent,
+            body: jsonEncode({if (label != null && label.isNotEmpty) 'label': label}))
+        .timeout(const Duration(seconds: 1800)); // backup penuh bisa ~3 menit
+    final d = jsonDecode(r.body) as Map<String, dynamic>;
+    if (r.statusCode != 200) {
+      throw Exception(d['output'] ?? 'HTTP ${r.statusCode}');
+    }
+    return d;
+  }
+
+  /// Mulai RESTORE dari file backup (nama di ~/backup) — dijalankan TERPISAH
+  /// di laptop karena wajib menghentikan gateway dulu (cegah state.db rusak).
+  Future<Map<String, dynamic>> mulaiRestore(String namaFile) async {
+    final r = await http
+        .post(_ua('/v1/restore'),
+            headers: _headersAgent,
+            body: jsonEncode({'file': namaFile}))
+        .timeout(const Duration(seconds: 120));
+    final d = jsonDecode(r.body) as Map<String, dynamic>;
+    if (r.statusCode != 200 && r.statusCode != 202) {
+      throw Exception(d['error']?['message'] ?? 'HTTP ${r.statusCode}');
+    }
+    return d;
+  }
+
+  /// Status restore terakhir (dibaca setelah gateway hidup kembali).
+  Future<Map<String, dynamic>> statusRestore() async {
+    final r = await http
+        .get(_ua('/v1/restore/status'), headers: _headersAgent)
+        .timeout(const Duration(seconds: 30));
+    if (r.statusCode != 200) throw Exception('HTTP ${r.statusCode}');
+    return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
   // ================= CHAT (teks) =================
@@ -326,8 +419,10 @@ class ApiClient {
   /// model yang memang bisa membaca gambar, mis. ag/gemini-3.8-flash-high).
   Stream<String> _streamDari(List<Map<String, dynamic>> messages,
       {String? model}) async* {
-    final req = http.Request('POST', _u('/v1/chat/completions'));
-    req.headers.addAll(_headers);
+    // FIX v1.2.7: `pakaiAgent` -> pakai base URL AGENT (untuk perintahAgent
+    // yang butuh terminal di PC). Default: base URL chat.
+    final req = http.Request('POST', pakaiAgent ? _ua('/v1/chat/completions') : _u('/v1/chat/completions'));
+    req.headers.addAll(pakaiAgent ? _headersAgent : _headers);
     req.body = jsonEncode({
       'model': (model != null && model.isNotEmpty)
           ? model
@@ -336,7 +431,7 @@ class ApiClient {
       'messages': messages,
     });
 
-    final resp = await req.send().timeout(const Duration(seconds: 120));
+    final resp = await req.send().timeout(const Duration(seconds: 600));
     if (resp.statusCode != 200) {
       final body = await resp.stream.bytesToString();
       throw Exception('HTTP ${resp.statusCode}: $body');
@@ -369,9 +464,11 @@ class ApiClient {
         'Balas singkat: berhasil/gagal + output penting.';
     // Operasi panjang: pakai jalur STREAMING (tanpa batas 180 detik) supaya
     // tidak kena timeout; hasil akhir = gabungan seluruh potongan teks.
+    // FIX v1.2.7 — perintah agent WAJIB lewat BASE URL AGENT (butuh terminal PC).
+    final klien = pakaiAgent ? this : (agent..pakaiAgent = true);
     if (panjang) {
-      return chatStream(pesan).join();
+      return klien.chatStream(pesan).join();
     }
-    return chat(pesan);
+    return klien.chat(pesan);
   }
 }

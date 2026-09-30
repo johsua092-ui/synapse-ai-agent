@@ -99,6 +99,34 @@ class NotifNotifier extends StateNotifier<List<NotifItem>> {
       ...state,
     ];
   }
+
+  /// FIX v1.2.7 — tandai notifikasi UPDATE (untuk lonceng di dalam app).
+  ///
+  /// Dipanggil saat ada versi baru. Menghapus entri update lama dulu supaya
+  /// TIDAK menumpuk, lalu menambah 1 entri baru di paling atas.
+  /// [versi] = versi terbaru (mis. "1.2.8"), [versiSekarang] = versi terpasang.
+  void setUpdateTersedia(String versi, String versiSekarang) {
+    state = [
+      NotifItem(
+        judul: 'Update Synapse Mobile tersedia — v$versi',
+        isi: 'Versi terbaru v$versi sudah dirilis (Anda memakai v$versiSekarang). '
+            'Buka Setelan > Update untuk memperbarui.',
+        waktu: 'baru saja',
+        ikon: Icons.system_update,
+        warna: const Color(0xFFDCB363),
+      ),
+      // buang entri update lama supaya tidak menumpuk
+      ...state.where((n) => !n.judul.startsWith('Update Synapse Mobile tersedia')),
+    ];
+  }
+
+  /// FIX v1.2.7 — hapus notifikasi update (dipakai kalau sudah versi terbaru).
+  void hapusUpdate() {
+    state = [
+      for (final n in state)
+        if (!n.judul.startsWith('Update Synapse Mobile tersedia')) n,
+    ];
+  }
 }
 
 final notifProvider =

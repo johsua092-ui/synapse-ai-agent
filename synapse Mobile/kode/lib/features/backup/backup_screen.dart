@@ -3,15 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/theme/spacing.dart';
 
-/// Backup & Restore LENGKAP (perbaikan v1.2.1).
+/// Backup & Restore — memakai ENDPOINT NATIVE di Synapse agent (v1.2.7).
 ///
-/// SEBELUM: hanya kirim perintah "buat backup" ke agent, TIDAK ADA restore.
-/// SESUDAH: backup PENUH (semua data Synapse) + RESTORE + lihat/kelola
-/// daftar backup dari HP.
+/// SEBELUM: mengirim perintah TEKS ke agent (LLM) lewat chat ->
+///   lambat, kena timeout 180s (jebakan #78), agent bisa mengarang skrip
+///   salah (#79), dan restore saat Synapse hidup MERUSAK state.db (#81).
 ///
-/// Isi backup (LENGKAP = seluruh "diri" Synapse):
-///   config.yaml, .env, memories/, skills/, SOUL.md, sessions.db,
-///   plus folder lain di ~/.synapse (seluruh folder konfigurasi).
+/// SESUDAH: memanggil endpoint khusus di api_server:
+///   GET  /v1/backup          daftar file backup
+///   POST /v1/backup          buat backup PENUH (perintah native, tanpa LLM)
+///   POST /v1/restore         mulai restore (dijalankan TERPISAH di laptop,
+///                            otomatis: backup pengaman -> gateway stop ->
+///                            import -> gateway start)
+///   GET  /v1/restore/status  status restore terakhir
+///
+/// Isi backup (LENGKAP = seluruh "diri" Synapse): config.yaml, .env,
+/// memories/, skills/, SOUL.md, state.db, cron/, dll.
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
   @override
@@ -21,6 +28,9 @@ class BackupScreen extends ConsumerStatefulWidget {
 class _BackupScreenState extends ConsumerState<BackupScreen> {
   bool _sibuk = false;
   String? _hasil;
+  String _tahap = '';
+  List<Map<String, dynamic>> _daftar = [];
+  bool _memuatDaftar = false;
 
   static const _item = <Map<String, String>>[
     {'nama': 'config.yaml', 'desk': 'Pengaturan Synapse (model, gateway, platform)'},
@@ -33,7 +43,59 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     {'nama': 'folder lain', 'desk': 'Seluruh isi ~/.synapse (backup PENUH)'},
   ];
 
-  Future<void> _jalankan(String cmd, {bool panjang = false}) async {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _muatDaftar());
+  }
+
+  void _pesan(String s) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s)));
+  }
+
+  /// Pesan ramah kalau endpoint tidak ada (mis. Base URL masih ke router).
+  String _pesanGagal(Object e) {
+    final s = e.toString();
+    if (s.contains('404')) {
+      return 'Fitur Backup/Restore hanya ada di Synapse AGENT (laptop), '
+          'bukan di router model.\n\n'
+          'Perbaiki: Setelan -> Koneksi AI -> isi "Base URL Agent (opsional)" '
+          'dengan http://127.0.0.1:8642 lalu di laptop jalankan '
+          'adb reverse tcp:8642 tcp:8642.';
+    }
+    if (s.contains('TimeoutException') || s.contains('timeout')) {
+      return 'Koneksi ke agent terputus (timeout). Pastikan laptop menyala + '
+          'adb reverse aktif, lalu coba lagi.';
+    }
+    return 'Gagal: $s';
+  }
+
+  Future<void> _muatDaftar() async {
+    final klien = ref.read(apiClientProvider);
+    if (klien == null) {
+      _pesan('Belum tersambung. Isi Base URL + API Key di Setelan.');
+      return;
+    }
+    setState(() => _memuatDaftar = true);
+    try {
+      final d = await klien.daftarBackup();
+      if (!mounted) return;
+      setState(() {
+        _daftar = d;
+        _memuatDaftar = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _memuatDaftar = false;
+        _hasil = _pesanGagal(e);
+      });
+    }
+  }
+
+  /// Buat backup PENUH lewat endpoint native (tanpa LLM).
+  Future<void> _buatBackup() async {
     final klien = ref.read(apiClientProvider);
     if (klien == null) {
       _pesan('Belum tersambung. Isi Base URL + API Key di Setelan.');
@@ -42,30 +104,33 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     setState(() {
       _sibuk = true;
       _hasil = null;
+      _tahap = 'Membuat backup PENUH di laptop... (bisa 1-3 menit)';
     });
     try {
-      final hasil = await klien.perintahAgent(cmd, panjang: panjang);
+      final d = await klien.buatBackup(label: 'mobile');
       if (!mounted) return;
       setState(() {
-        _hasil = hasil.trim().isEmpty ? '(selesai, tanpa output)' : hasil.trim();
         _sibuk = false;
+        _tahap = '';
+        _hasil = 'Backup BERHASIL.\n'
+            'File   : ${d['file']}\n'
+            'Lokasi : ${d['path']}\n'
+            'Ukuran : ${d['size_text']}\n'
+            'Waktu  : ${d['duration']} detik';
       });
+      await _muatDaftar();
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _hasil = 'Gagal: $e';
         _sibuk = false;
+        _tahap = '';
+        _hasil = _pesanGagal(e);
       });
     }
   }
 
-  void _pesan(String s) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s)));
-  }
-
-  /// Konfirmasi sebelum restore (berbahaya: menimpa data sekarang).
-  Future<void> _konfirmasiRestore(String namaFile) async {
+  /// Restore: konfirmasi -> mulai di laptop -> pantau status.
+  Future<void> _restore(String namaFile) async {
     final ya = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -73,8 +138,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         content: Text(
           'Data Synapse SEKARANG akan DIGANTI dengan isi backup:\n\n'
           '"$namaFile"\n\n'
-          'Ini mengembalikan SELURUH "diri" Synapse (config, .env, memori, '
-          'skill, SOUL, riwayat). Lanjutkan?',
+          'Laptop akan: (1) membuat backup pengaman, (2) menghentikan Synapse, '
+          '(3) memulihkan data, (4) menyalakan Synapse lagi. '
+          'Proses ini ~1-3 menit dan koneksi app akan terputus sebentar.\n\n'
+          'Lanjutkan?',
         ),
         actions: [
           TextButton(
@@ -90,61 +157,89 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     );
     if (ya != true) return;
 
-    _jalankan(
-      'WAJIB pakai perintah NATIVE Synapse (JANGAN mengarang skrip sendiri).\n'
-      'Langkah 1 — AMANKAN dulu data sekarang (wajib):\n'
-      '  "C:\\Users\\user\\AppData\\Local\\synapse\\bin\\synapse.exe" backup '
-      '-o "C:\\Users\\user\\backup\\sebelum-restore-<stamp>.zip"\n'
-      'Langkah 2 — RESTORE penuh dari file backup "$namaFile" '
-      '(cari di C:\\Users\\user\\backup\\ kalau perlu):\n'
-      '  "C:\\Users\\user\\AppData\\Local\\synapse\\bin\\synapse.exe" import '
-      '"C:\\Users\\user\\backup\\$namaFile"\n'
-      'Ini mengembalikan SELURUH "diri" Synapse (config.yaml, .env, memories/, '
-      'skills/, SOUL.md, state.db, cron/, dll) dengan menimpa data sekarang. '
-      'Tunggu sampai selesai (bisa beberapa menit), lalu laporkan: '
-      'berhasil/gagal + apa saja yang dipulihkan.',
-      panjang: true,
-    );
+    final klien = ref.read(apiClientProvider);
+    if (klien == null) {
+      _pesan('Belum tersambung.');
+      return;
+    }
+    setState(() {
+      _sibuk = true;
+      _hasil = null;
+      _tahap = 'Memulai restore di laptop...';
+    });
+    try {
+      final d = await klien.mulaiRestore(namaFile);
+      if (!mounted) return;
+      setState(() {
+        _tahap = 'Restore BERJALAN di laptop. Synapse berhenti sebentar...';
+        _hasil = (d['catatan'] ?? 'Restore dimulai.').toString();
+      });
+      await _pantauRestore(klien);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sibuk = false;
+        _tahap = '';
+        _hasil = _pesanGagal(e);
+      });
+    }
   }
 
-  /// Dialog pilih file backup untuk restore.
-  Future<void> _dialogRestore() async {
-    final ctl = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Restore dari Backup'),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text(
-              'Masukkan nama file backup (lihat "Daftar Backup" dulu), '
-              'lalu ketuk Restore. Seluruh data Synapse akan dikembalikan.',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctl,
-              decoration: const InputDecoration(
-                labelText: 'Nama file backup',
-                hintText: 'mis. synapse-backup-2026-09-25.zip',
-              ),
-            ),
-          ]),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c), child: const Text('Batal')),
-          FilledButton(
-            onPressed: () {
-              final n = ctl.text.trim();
-              Navigator.pop(c);
-              if (n.isNotEmpty) _konfirmasiRestore(n);
-            },
-            child: const Text('Lanjut'),
-          ),
-        ],
-      ),
-    );
+  /// Pantau status restore sampai selesai (gateway hidup lagi).
+  Future<void> _pantauRestore(dynamic klien) async {
+    for (var i = 0; i < 60; i++) {
+      await Future.delayed(const Duration(seconds: 5));
+      if (!mounted) return;
+      try {
+        final st = await klien.statusRestore();
+        final status = (st['status'] ?? '').toString();
+        final step = (st['step'] ?? '').toString();
+        if (!mounted) return;
+        setState(() {
+          _tahap = 'Restore: $status ($step) — ${i * 5 + 5}s';
+        });
+        if (status == 'ok' || status == 'failed') {
+          setState(() {
+            _sibuk = false;
+            _tahap = '';
+            _hasil = status == 'ok'
+                ? 'RESTORE BERHASIL.\n\n${st['output'] ?? ''}'
+                : 'RESTORE GAGAL.\n\n${st['output'] ?? ''}';
+          });
+          return;
+        }
+      } catch (_) {
+        // gateway sedang mati/nyala — wajar, coba lagi
+        if (!mounted) return;
+        setState(() => _tahap = 'Menunggu Synapse menyala kembali... ${i * 5 + 5}s');
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _sibuk = false;
+      _tahap = '';
+      _hasil = 'Status restore tidak terpantau selesai. Cek "Cek Status Restore".';
+    });
+  }
+
+  Future<void> _cekStatus() async {
+    final klien = ref.read(apiClientProvider);
+    if (klien == null) return;
+    try {
+      final st = await klien.statusRestore();
+      if (!mounted) return;
+      setState(() {
+        _hasil = 'Status restore terakhir:\n'
+            'status : ${st['status']}\n'
+            'tahap  : ${st['step']}\n'
+            'arsip  : ${st['arsip']}\n'
+            'durasi : ${st['duration'] ?? '-'} detik\n\n'
+            '${st['output'] ?? ''}';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _hasil = _pesanGagal(e));
+    }
   }
 
   @override
@@ -184,23 +279,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           const SizedBox(height: AppSpacing.lg),
           Text('Backup', style: t.textTheme.titleSmall),
           const SizedBox(height: 6),
-
           FilledButton.icon(
-            onPressed: _sibuk
-                ? null
-                : () => _jalankan(
-                    'WAJIB pakai perintah NATIVE Synapse (JANGAN mengarang '
-                    'skrip sendiri, jangan pakai os.walk manual): jalankan\n'
-                    '  "C:\\Users\\user\\AppData\\Local\\synapse\\bin\\synapse.exe" '
-                    'backup -o "C:\\Users\\user\\backup\\synapse-backup-<stamp>.zip"\n'
-                    'Perintah ini mem-backup SELURUH isi ~/.synapse (config.yaml, '
-                    '.env, memories/, skills/, SOUL.md, state.db, cron/, dll) '
-                    'dengan pengecualian resmi (synapse-agent/, node_modules/, '
-                    'cache/, __pycache__/). Tunggu sampai benar-benar selesai '
-                    '(butuh ~2-3 menit), lalu laporkan: path file .zip + ukuran '
-                    '+ jumlah file.',
-                    panjang: true,
-                  ),
+            onPressed: _sibuk ? null : _buatBackup,
             icon: _sibuk
                 ? const SizedBox(
                     width: 16,
@@ -211,44 +291,67 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           OutlinedButton.icon(
-            onPressed: _sibuk
-                ? null
-                : () => _jalankan(
-                    'Tampilkan daftar backup Synapse di folder '
-                    'C:\\Users\\user\\backup\\ (nama file + tanggal + ukuran, '
-                    'urut terbaru dulu). Kalau folder itu kosong, cek juga '
-                    'folder home C:\\Users\\user\\.',
-                  ),
-            icon: const Icon(Icons.list),
-            label: const Text('Lihat Daftar Backup'),
+            onPressed: _sibuk || _memuatDaftar ? null : _muatDaftar,
+            icon: const Icon(Icons.refresh),
+            label: Text(_memuatDaftar ? 'Memuat...' : 'Muat Ulang Daftar Backup'),
           ),
 
           const SizedBox(height: AppSpacing.lg),
-          Text('Restore', style: t.textTheme.titleSmall),
+          Row(children: [
+            Text('Daftar Backup (${_daftar.length})',
+                style: t.textTheme.titleSmall),
+            const Spacer(),
+            Text('ketuk untuk restore', style: t.textTheme.bodySmall),
+          ]),
           const SizedBox(height: 6),
-          FilledButton.icon(
-            onPressed: _sibuk ? null : _dialogRestore,
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            icon: const Icon(Icons.restore),
-            label: const Text('Restore dari Backup'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          OutlinedButton.icon(
-            onPressed: _sibuk
-                ? null
-                : () => _jalankan(
-                    'Tampilkan isi folder konfigurasi Synapse (config.yaml, .env, '
-                    'memories, skills, SOUL.md, sessions.db) beserta ukurannya.',
+          if (_daftar.isEmpty)
+            Card(
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.inbox),
+                title: Text(
+                  _memuatDaftar ? 'Memuat daftar...' : 'Belum ada file backup.',
+                  style: t.textTheme.bodySmall,
+                ),
+              ),
+            )
+          else
+            Card(
+              child: Column(children: [
+                for (var i = 0; i < _daftar.length; i++) ...[
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.archive_outlined),
+                    title: Text((_daftar[i]['name'] ?? '').toString(),
+                        style: t.textTheme.bodyMedium),
+                    subtitle: Text(
+                        '${_daftar[i]['size_text'] ?? ''} · ketuk untuk restore',
+                        style: t.textTheme.bodySmall),
+                    trailing: const Icon(Icons.restore, size: 18),
+                    onTap: _sibuk
+                        ? null
+                        : () => _restore((_daftar[i]['name'] ?? '').toString()),
                   ),
-            icon: const Icon(Icons.folder_open),
-            label: const Text('Periksa File Konfigurasi'),
+                  if (i < _daftar.length - 1) const Divider(height: 1),
+                ],
+              ]),
+            ),
+
+          const SizedBox(height: AppSpacing.lg),
+          OutlinedButton.icon(
+            onPressed: _sibuk ? null : _cekStatus,
+            icon: const Icon(Icons.info_outline),
+            label: const Text('Cek Status Restore'),
           ),
 
-          if (_sibuk)
-            const Padding(
-              padding: EdgeInsets.only(top: AppSpacing.md),
-              child: LinearProgressIndicator(),
-            ),
+          if (_sibuk) ...[
+            const SizedBox(height: AppSpacing.md),
+            const LinearProgressIndicator(),
+            if (_tahap.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(_tahap, style: t.textTheme.bodySmall),
+            ],
+          ],
 
           if (_hasil != null) ...[
             const SizedBox(height: AppSpacing.lg),

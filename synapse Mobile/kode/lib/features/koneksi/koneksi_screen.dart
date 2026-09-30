@@ -20,6 +20,9 @@ class KoneksiScreen extends ConsumerStatefulWidget {
 class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
   late TextEditingController _url;
   late TextEditingController _key;
+  // FIX v1.2.7 — kolom agent (fitur 2 Base URL).
+  late TextEditingController _agentUrl;
+  late TextEditingController _agentKey;
   late TextEditingController _name;
   late TextEditingController _ctx;
   late TextEditingController _manual;
@@ -40,8 +43,12 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
     // Sekarang kolom BENAR-BENAR kosong; contoh hanya HINT (visual).
     _url = TextEditingController(text: c.baseUrl);
     _key = TextEditingController(text: c.apiKey);
+    // FIX v1.2.7 — kolom agent (2 Base URL).
+    _agentUrl = TextEditingController(text: c.agentBaseUrl);
+    _agentKey = TextEditingController(text: c.agentApiKey);
     _name = TextEditingController(text: c.displayName ?? '');
-    _ctx = TextEditingController(text: (c.contextWindow ?? 128000).toString());
+    // FIX v1.2.7 — default context window = 1.000.000 (perintah user).
+    _ctx = TextEditingController(text: (c.contextWindow ?? 1000000).toString());
     _manual = TextEditingController();
     _dipilih = c.model;
     _vision = c.visionProvider;
@@ -50,6 +57,7 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
   @override
   void dispose() {
     _url.dispose(); _key.dispose(); _name.dispose(); _ctx.dispose(); _manual.dispose();
+    _agentUrl.dispose(); _agentKey.dispose();
     super.dispose();
   }
 
@@ -168,6 +176,9 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
     final c = ApiConfig(
       baseUrl: _url.text.trim(),
       apiKey: _key.text.trim(),
+      // FIX v1.2.7 — Base URL + Key AGENT (opsional).
+      agentBaseUrl: _agentUrl.text.trim(),
+      agentApiKey: _agentKey.text.trim(),
       model: _dipilih ?? (_manual.text.trim().isEmpty ? null : _manual.text.trim()),
       displayName: _name.text.trim().isEmpty ? null : _name.text.trim(),
       contextWindow: int.tryParse(_ctx.text.trim()),
@@ -511,6 +522,119 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
           ),
         ),
 
+        // ==============================================================
+        // FIX v1.2.7 — BASE URL AGENT (opsional, untuk fitur Tools/Skills/
+        // Backup/MCP/Perangkat). Isi kalau CHAT mau lewat router (mis. 9router)
+        // TAPI fitur agent butuh Synapse di PC.
+        // ==============================================================
+        const SizedBox(height: AppSpacing.md),
+        TextField(
+          controller: _agentUrl,
+          decoration: InputDecoration(
+            labelText: 'Base URL Agent (opsional)',
+            hintText: 'contoh: http://127.0.0.1:8642/v1',
+            hintStyle: TextStyle(
+              color: t.colorScheme.onSurface.withValues(alpha: 0.18),
+            ),
+            border: const OutlineInputBorder(),
+            helperText: 'Kosongkan kalau chat & agent pakai server yang sama.',
+            helperMaxLines: 2,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _agentKey,
+          obscureText: true,
+          decoration: InputDecoration(
+            labelText: 'API Key Agent (opsional)',
+            hintText: 'kosongkan = sama dengan API Key di atas',
+            hintStyle: TextStyle(
+              color: t.colorScheme.onSurface.withValues(alpha: 0.18),
+            ),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+
+        // FIX v1.2.7 — TOMBOL ISI-CEPAT base URL agent.
+        // Supaya user tidak perlu menebak/mengetik URL: sekali ketuk, kolom
+        // Base URL Agent terisi Synapse laptop standar (127.0.0.1:8642).
+        const SizedBox(height: AppSpacing.sm),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _agentUrl.text = 'http://127.0.0.1:8642/v1';
+                  if (_agentKey.text.trim().isEmpty) {
+                    _agentKey.text = _key.text;
+                  }
+                });
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text(
+                      'Base URL Agent diisi Synapse laptop. Ingat jalankan '
+                      'adb reverse tcp:8642 tcp:8642 di PC.'),
+                ));
+              },
+              icon: const Icon(Icons.auto_fix_high, size: 18),
+              label: const Text('Isi otomatis Synapse laptop'),
+            ),
+          ),
+        ]),
+
+        // ==============================================================
+        // FIX v1.2.7 — KOTAK PENJELASAN (untuk tim/user baru).
+        // Menjelaskan beda "Base URL biasa" vs "Base URL Agent" + kapan
+        // masing-masing diperlukan, supaya tidak bingung.
+        // ==============================================================
+        const SizedBox(height: AppSpacing.sm),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: t.colorScheme.primaryContainer.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: t.colorScheme.primary.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(Icons.info_outline, size: 16, color: t.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text('Penjelasan — harus diisi dua-duanya atau tidak?',
+                    style: t.textTheme.labelLarge
+                        ?.copyWith(color: t.colorScheme.primary)),
+              ]),
+              const SizedBox(height: 8),
+              Text(
+                '• Base URL biasa (di atas) = server yang di-hosting di '
+                'INTERNET (mis. 9router). Bisa diakses dari mana saja — '
+                'paket data pun bisa. Tapi server ini hanya melayani CHAT; '
+                'tidak bisa menjalankan perintah di laptop Anda.\n\n'
+                '• Base URL Agent (di bawah) = Synapse yang berjalan di '
+                'LAPTOP Anda. Hanya bisa diakses kalau HP & laptop dalam '
+                'satu jaringan: lewat KABEL USB (adb reverse) atau WiFi '
+                'yang sama. Inilah yang bisa menjalankan Tools, Skills, '
+                'Backup, MCP, dan Akses Perangkat.\n\n'
+                '✅ WAJIB DIISI DUA-DUANYA kalau ingin fitur lengkap:\n'
+                '   • Chat + model bagus  -> Base URL biasa (9router)\n'
+                '   • Tools/Skills/Backup -> Base URL Agent (laptop)\n\n'
+                '⚠️ Kalau Base URL Agent DIKOSONGKAN, app memakai Base URL '
+                'biasa untuk semuanya — dan fitur Agent (Tools/Skills/'
+                'Backup/MCP/Perangkat) hanya jalan kalau server biasa itu '
+                'memang Synapse agent (mis. http://127.0.0.1:8642/v1).\n\n'
+                '💡 Kalau semua fitur mau jalan dan tidak mau ribet: isi '
+                'KEDUANYA dengan server Synapse laptop yang sama '
+                '(http://127.0.0.1:8642/v1) — Synapse bisa chat sekaligus '
+                'menjalankan tools.',
+                style: t.textTheme.bodySmall?.copyWith(height: 1.35),
+              ),
+            ],
+          ),
+        ),
+
         // ================================================================
         // BAGIAN 2 — MODEL
         // ================================================================
@@ -634,7 +758,7 @@ class _KoneksiScreenState extends ConsumerState<KoneksiScreen> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               labelText: 'Context window (token)',
-              hintText: '128000',
+              hintText: '1000000',
               border: OutlineInputBorder(),
             ),
           ),

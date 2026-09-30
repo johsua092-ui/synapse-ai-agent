@@ -18,7 +18,11 @@ class _SesiDrawerState extends ConsumerState<SesiDrawer> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final n = ref.watch(sesiProvider.notifier);
+    // FIX v1.2.7 — BUG pin/rename/hapus tidak berfungsi:
+    // `watch(provider.notifier)` TIDAK me-rebuild saat STATE berubah.
+    // WAJIB `watch(sesiProvider)` (state) supaya daftar ikut diperbarui.
+    ref.watch(sesiProvider);
+    final n = ref.read(sesiProvider.notifier);
     final daftar = n.cari(_cari);
     // lebar ~60% layar: setengah untuk daftar, sisanya chat tetap terlihat
     final lebar = MediaQuery.sizeOf(context).width * 0.60;

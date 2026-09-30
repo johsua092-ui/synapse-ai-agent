@@ -37,6 +37,40 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
     super.dispose();
   }
 
+  /// FIX v1.2.7 — pesan error yang JELAS (dulu cuma "Gagal: Exception: HTTP 404").
+  /// Membedakan: server tidak terjangkau / endpoint tidak ada / API key ditolak.
+  String _pesanRamah(Object e) {
+    final s = e.toString();
+    if (s.contains('SocketException') ||
+        s.contains('Connection refused') ||
+        s.contains('Failed host lookup') ||
+        s.contains('Connection closed')) {
+      return 'Server Synapse TIDAK TERJANGKAU.\n'
+          'Cek: kabel/WiFi tersambung, lalu jalankan di PC:\n'
+          '  adb reverse tcp:8642 tcp:8642\n'
+          'dan pastikan Synapse (gateway) sedang berjalan.';
+    }
+    if (s.contains('404')) {
+      return 'Server ini TIDAK punya fitur agent (HTTP 404).\n\n'
+          'Penyebab paling umum: Base URL menunjuk ke ROUTER model\n'
+          '(mis. 9router) — bukan ke Synapse agent.\n'
+          'Router hanya melayani CHAT. Fitur Tools/Skills/Backup/MCP/\n'
+          'Perangkat HANYA ada di Synapse agent (di PC).\n\n'
+          'SOLUSI: Setelan -> Koneksi AI -> Base URL:\n'
+          '  http://127.0.0.1:8642/v1\n'
+          'lalu di PC jalankan: adb reverse tcp:8642 tcp:8642';
+    }
+    if (s.contains('401') || s.contains('403')) {
+      return 'API Key DITOLAK (HTTP 401/403).\n'
+          'Periksa kembali API Key di Setelan -> Koneksi AI.';
+    }
+    if (s.contains('TimeoutException') || s.contains('timed out')) {
+      return 'Server TIDAK MERESPONS (timeout).\n'
+          'Coba lagi — operasi berat (backup) bisa butuh beberapa menit.';
+    }
+    return 'Gagal: $s';
+  }
+
   Future<void> _muat() async {
     setState(() {
       _sibuk = true;
@@ -57,7 +91,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
     } catch (e) {
       setState(() {
         _ok = false;
-        _pesan = 'Gagal: $e';
+        _pesan = _pesanRamah(e);
       });
     } finally {
       setState(() => _sibuk = false);

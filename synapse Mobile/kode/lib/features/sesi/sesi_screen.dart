@@ -21,7 +21,10 @@ class _SesiScreenState extends ConsumerState<SesiScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final n = ref.watch(sesiProvider.notifier);
+    // FIX v1.2.7 — sama seperti sesi_drawer: WAJIB watch STATE (bukan notifier)
+    // supaya daftar sesi ikut ter-update setelah pin/rename/hapus.
+    ref.watch(sesiProvider);
+    final n = ref.read(sesiProvider.notifier);
     final daftar = n.cari(_cari);
 
     return Scaffold(

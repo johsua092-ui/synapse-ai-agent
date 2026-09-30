@@ -417,8 +417,10 @@ class _SpecialChatScreenState extends ConsumerState<SpecialChatScreen>
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final cfg = ref.watch(apiConfigProvider);
-    // Sesi aktif -> pesan diambil dari sesiProvider (tersimpan, tidak hilang).
-    final sesiAktif = ref.watch(sesiProvider.notifier).aktif;
+    // FIX v1.2.7 — WAJIB watch STATE (bukan notifier) supaya pesan baru
+    // & perubahan sesi ikut ter-render di Special Chat.
+    ref.watch(sesiProvider);
+    final sesiAktif = ref.read(sesiProvider.notifier).aktif;
     final daftarPesan = sesiAktif?.pesan ?? const <Pesan>[];
 
     // Tinggi avatar: 40% tinggi layar (tanpa keyboard).

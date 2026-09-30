@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiConfig {
   final String baseUrl;
   final String apiKey;
+  /// FIX v1.2.7 — BASE URL TERPISAH UNTUK AGENT (fitur "2 Base URL").
   final String? model;
   final String? displayName;
   final int? contextWindow;
@@ -23,6 +24,14 @@ class ApiConfig {
   /// "belum selesai" padahal sudah valid.
   final bool tervalidasi;
 
+  /// FIX v1.2.7 — BASE URL AGENT (untuk Tools/Skills/Backup/MCP/Perangkat).
+  /// Kalau KOSONG -> pakai `baseUrl` (perilaku lama, tetap kompatibel).
+  /// Diisi kalau user mau: CHAT via router (9router) + AGENT via Synapse PC.
+  final String agentBaseUrl;
+
+  /// FIX v1.2.7 — API KEY AGENT (kalau beda dari API key chat).
+  final String agentApiKey;
+
   const ApiConfig({
     this.baseUrl = '',
     this.apiKey = '',
@@ -32,9 +41,23 @@ class ApiConfig {
     this.visionModel,
     this.visionProvider = 'auto',
     this.tervalidasi = false,
+    this.agentBaseUrl = '',
+    this.agentApiKey = '',
   });
 
   bool get terisi => baseUrl.trim().isNotEmpty && apiKey.trim().isNotEmpty;
+
+  /// FIX v1.2.7 — Base URL yang dipakai untuk fitur AGENT.
+  /// Kalau `agentBaseUrl` kosong -> jatuh ke `baseUrl` (kompatibel).
+  String get baseUrlAgent =>
+      agentBaseUrl.trim().isNotEmpty ? agentBaseUrl.trim() : baseUrl.trim();
+
+  /// FIX v1.2.7 — API Key untuk fitur AGENT.
+  String get apiKeyAgent =>
+      agentApiKey.trim().isNotEmpty ? agentApiKey.trim() : apiKey.trim();
+
+  /// Apakah agent dikonfigurasi terpisah (2 Base URL aktif).
+  bool get pakaiAgentTerpisah => agentBaseUrl.trim().isNotEmpty;
 
   ApiConfig copyWith({
     String? baseUrl,
@@ -45,6 +68,8 @@ class ApiConfig {
     String? visionModel,
     String? visionProvider,
     bool? tervalidasi,
+    String? agentBaseUrl,
+    String? agentApiKey,
   }) =>
       ApiConfig(
         baseUrl: baseUrl ?? this.baseUrl,
@@ -55,6 +80,8 @@ class ApiConfig {
         visionModel: visionModel ?? this.visionModel,
         visionProvider: visionProvider ?? this.visionProvider,
         tervalidasi: tervalidasi ?? this.tervalidasi,
+        agentBaseUrl: agentBaseUrl ?? this.agentBaseUrl,
+        agentApiKey: agentApiKey ?? this.agentApiKey,
       );
 }
 
@@ -109,6 +136,8 @@ class ApiConfigNotifier extends StateNotifier<ApiConfig> {
   static const _kVision = 'api_vision_model';
   static const _kVisionProv = 'api_vision_provider';
   static const _kValid = 'api_tervalidasi';
+  static const _kAgentBase = 'api_agent_base_url';   // FIX v1.2.7
+  static const _kAgentKey = 'api_agent_key';         // FIX v1.2.7
 
   Future<void> _muat() async {
     final p = await SharedPreferences.getInstance();
@@ -121,6 +150,8 @@ class ApiConfigNotifier extends StateNotifier<ApiConfig> {
       visionModel: p.getString(_kVision),
       visionProvider: p.getString(_kVisionProv) ?? 'auto',
       tervalidasi: p.getBool(_kValid) ?? false,
+      agentBaseUrl: p.getString(_kAgentBase) ?? '',
+      agentApiKey: p.getString(_kAgentKey) ?? '',
     );
   }
 
@@ -136,6 +167,8 @@ class ApiConfigNotifier extends StateNotifier<ApiConfig> {
     if (c.visionModel != null) await p.setString(_kVision, c.visionModel!);
     await p.setString(_kVisionProv, c.visionProvider);
     await p.setBool(_kValid, c.tervalidasi);
+    await p.setString(_kAgentBase, c.agentBaseUrl);
+    await p.setString(_kAgentKey, c.agentApiKey);
   }
 
   /// Simpan DRAFT cepat (mis. saat user keluar) — progress tidak hilang.

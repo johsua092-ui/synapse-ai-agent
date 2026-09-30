@@ -80,9 +80,18 @@ class _Live2DViewState extends State<Live2DView> {
           onPageFinished: (_) {
             if (!mounted) return;
             setState(() => _siap = true);
+            // FIX v1.2.7 — BUG "VTuber jadi 2": dulu di sini kita memanggil
+            // gantiModel, PADAHAL viewer.html juga memuat model sendiri saat
+            // 'load' -> dua pemuatan bertabrakan (race) -> 2 karakter menumpuk.
+            // Sekarang: cukup kirim BACKGROUND + MODEL SEKALI, dengan jeda
+            // singkat supaya pemuatan bawaan viewer selesai dulu. Token urutan
+            // di viewer.html memastikan hanya model terakhir yang tampil.
+            Future.delayed(const Duration(milliseconds: 400), () {
+              if (!mounted) return;
+              _panggil('gantiBackground', widget.background ?? 'none');
+              _panggil('gantiModel', widget.modelId);
+            });
             widget.onSiap?.call();
-            _panggil('gantiBackground', widget.background ?? 'none');
-            _panggil('gantiModel', widget.modelId);
           },
           onWebResourceError: (_) {},
         ));

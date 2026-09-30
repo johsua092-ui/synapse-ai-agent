@@ -39,6 +39,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
   void initState() {
     super.initState();
     _muat();
+    // FIX v1.2.7 — CEK UPDATE OTOMATIS saat layar dibuka.
+    // User TIDAK perlu menekan "Cek Update" manual lagi. Layar langsung
+    // menunjukkan: "Update Tersedia" (kalau ada) atau "Sudah versi terbaru".
+    _muat().then((_) => _cekUpdate());
   }
 
   Future<void> _muat() async {
@@ -207,39 +211,56 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          FilledButton.icon(
-            onPressed: _cek ? null : _cekUpdate,
-            icon: _cek
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.refresh),
-            label: Text(_cek ? 'Memeriksa...' : 'Cek Update'),
-          ),
-
-          if (_ada == false) ...[
-            const SizedBox(height: AppSpacing.md),
+          // FIX v1.2.7 — STATUS OTOMATIS (bukan tombol "Cek Update" manual).
+          //   ada update      -> "Update Tersedia (vX)" + tombol unduh
+          //   tidak ada update-> "Sudah versi terbaru"
+          //   sedang memeriksa-> "Memeriksa update..."
+          //   gagal           -> pesan + tombol coba lagi
+          if (_cek)
             Card(
-              color: Colors.green.withValues(alpha: 0.12),
-              child: const ListTile(
-                leading: Icon(Icons.check_circle, color: Colors.green),
-                title: Text('Sudah versi terbaru'),
-                subtitle: Text('Tidak ada update tersedia.'),
+              child: ListTile(
+                leading: const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.5)),
+                title: const Text('Memeriksa update...'),
+                subtitle: const Text('Mohon tunggu sebentar.'),
               ),
-            ),
-          ],
-
-          if (_ada == true) ...[
-            const SizedBox(height: AppSpacing.md),
+            )
+          else if (_ada == true)
             Card(
               color: Colors.orange.withValues(alpha: 0.12),
               child: ListTile(
                 leading: const Icon(Icons.new_releases, color: Colors.orange),
-                title: Text('Update tersedia: $_versiBaru'),
-                subtitle: Text('Update dari $_versiSekarang ke $_versiBaru'),
+                title: Text('Update Tersedia — v$_versiBaru'),
+                subtitle: Text('Anda memakai v$_versiSekarang. '
+                    'Ketuk "Unduh & Pasang Update" di bawah.'),
+              ),
+            )
+          else if (_ada == false)
+            Card(
+              color: Colors.green.withValues(alpha: 0.12),
+              child: const ListTile(
+                leading: Icon(Icons.verified, color: Colors.green),
+                title: Text('Sudah versi terbaru'),
+                subtitle: Text('Aplikasi Anda sudah terupdate.'),
+              ),
+            )
+          else
+            Card(
+              color: Colors.blueGrey.withValues(alpha: 0.10),
+              child: ListTile(
+                leading: const Icon(Icons.cloud_off),
+                title: const Text('Tidak bisa memeriksa update'),
+                subtitle: Text(_infoUnduh ?? 'Periksa koneksi internet Anda.'),
+                trailing: IconButton(
+                  tooltip: 'Coba lagi',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _cekUpdate,
+                ),
               ),
             ),
+
+          if (_ada == true) ...[
             if ((_catatanRilis ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
               Card(

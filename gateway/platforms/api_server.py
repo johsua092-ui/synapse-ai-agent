@@ -8,6 +8,13 @@ Exposes an HTTP server with endpoints:
 - DELETE /v1/responses/{response_id} — Delete a stored response
 - GET  /v1/models                  — lists synapse-agent and any configured model_routes aliases
 - GET  /v1/capabilities            — machine-readable API capabilities for external UIs
+- GET  /v1/toolsets                — list toolsets and their resolved tools
+- GET  /v1/skills                  — list installed skills
+- POST /v1/tts                     — text-to-speech (mp3) untuk klien mobile
+- GET  /v1/backup                  — daftar file backup (~/backup/*.zip)
+- POST /v1/backup                  — buat backup PENUH (native, tanpa LLM)
+- POST /v1/restore                 — mulai restore dari .zip (native, detached)
+- GET  /v1/restore/status          — status restore terakhir
 - GET  /api/sessions               — list client-visible Synapse sessions
 - POST /api/sessions               — create an empty Synapse session
 - GET/PATCH/DELETE /api/sessions/{session_id} — read/update/delete a session
@@ -2241,6 +2248,14 @@ class APIServerAdapter(BasePlatformAdapter):
             # TTS lokal (edge-tts) untuk klien mobile (fitur VTuber).
             # Menjalankan edge-tts LANGSUNG (tanpa LLM) -> cepat & andal.
             ("POST", "/v1/tts", self._handle_tts),
+            # Backup & Restore untuk klien MOBILE (Synapse Mobile).
+            # Menjalankan perintah NATIVE `synapse backup` / `synapse import`
+            # LANGSUNG (tanpa LLM) -> cepat & andal (perbaikan bug v1.2.6:
+            # backup timeout + restore merusak state.db).
+            ("GET", "/v1/backup", self._handle_backup_list),
+            ("POST", "/v1/backup", self._handle_backup_create),
+            ("POST", "/v1/restore", self._handle_restore_start),
+            ("GET", "/v1/restore/status", self._handle_restore_status),
             ("GET", "/api/sessions", self._handle_list_sessions),
             ("POST", "/api/sessions", self._handle_create_session),
             ("GET", "/api/sessions/{session_id}", self._handle_get_session),
@@ -4253,6 +4268,291 @@ class APIServerAdapter(BasePlatformAdapter):
                 "Cache-Control": "no-store",
             },
         )
+
+    # ------------------------------------------------------------------
+    # /v1/backup + /v1/restore — untuk klien MOBILE (Synapse Mobile)
+    # ------------------------------------------------------------------
+    # Alasan: fitur Backup/Restore di app dulu menyuruh AGENT (LLM) lewat chat
+    # -> lambat, sering timeout (jebakan #78), dan agent bisa mengarang skrip
+    # salah (#79). Endpoint ini menjalankan perintah NATIVE
+    # `synapse backup` / `synapse import` LANGSUNG (tanpa LLM) sehingga cepat
+    # & andal. Hanya bisa diakses dengan API key.
+
+    #: Folder tempat file backup disimpan & dicari (sama seperti app).
+    _BACKUP_DIR = Path.home() / "backup"
+    #: Batas ukuran file yang boleh di-upload lewat /v1/restore (400 MB).
+    _RESTORE_MAX_BYTES = 400 * 1024 * 1024
+    #: Batas jumlah entri pada daftar backup.
+    _BACKUP_LIST_LIMIT = 100
+
+    @staticmethod
+    def _backup_slug(name: str) -> str:
+        """Nama file backup yang aman (cegah path traversal)."""
+        base = os.path.basename((name or "").strip().replace("\\", "/"))
+        base = re.sub(r"[^A-Za-z0-9._-]", "_", base)
+        if not base:
+            return ""
+        if not base.lower().endswith(".zip"):
+            base += ".zip"
+        return base
+
+    @staticmethod
+    def _ukuran_enak(n: Any) -> str:
+        """Format ukuran byte jadi teks enak dibaca (mis. '231,5 MB')."""
+        try:
+            v = float(n)
+        except (TypeError, ValueError):
+            return "0 B"
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if v < 1024 or unit == "TB":
+                return f"{v:.0f} B" if unit == "B" else f"{v:.1f} {unit}"
+            v /= 1024
+        return f"{v:.1f} TB"
+
+    async def _handle_backup_list(self, request: "web.Request") -> "web.Response":
+        """GET /v1/backup — daftar file backup .zip di ~/backup (untuk app mobile)."""
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+        items: List[Dict[str, Any]] = []
+        try:
+            d = self._BACKUP_DIR
+            if d.is_dir():
+                for p in sorted(d.glob("*.zip")):
+                    try:
+                        stt = p.stat()
+                    except OSError:
+                        continue
+                    items.append({
+                        "name": p.name,
+                        "size": stt.st_size,
+                        "size_text": self._ukuran_enak(stt.st_size),
+                        "mtime": stt.st_mtime,
+                        "path": str(p),
+                    })
+        except Exception:
+            logger.exception("GET /v1/backup failed")
+            return web.json_response(
+                _openai_error("Gagal membaca daftar backup", err_type="server_error"),
+                status=500,
+            )
+        items.sort(key=lambda x: x.get("mtime") or 0, reverse=True)
+        return web.json_response({
+            "object": "list",
+            "dir": str(self._BACKUP_DIR),
+            "data": items[: self._BACKUP_LIST_LIMIT],
+        })
+
+    async def _handle_backup_create(self, request: "web.Request") -> "web.Response":
+        """POST /v1/backup — buat backup PENUH via perintah native, tanpa LLM.
+
+        Body JSON opsional: ``{ "label": "..." }``
+        Balasan: ``{ status, file, path, size, size_text, duration, output }``
+        """
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        label = ""
+        if isinstance(body, dict):
+            label = self._backup_slug(str(body.get("label") or ""))
+        if label.lower().endswith(".zip"):
+            label = label[:-4]
+
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        nama = f"synapse-backup-{stamp}{('-' + label) if label else ''}.zip"
+        out = self._BACKUP_DIR / nama
+        try:
+            self._BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            return web.json_response(
+                _openai_error(f"Tidak bisa menulis folder backup: {exc}",
+                              err_type="server_error"),
+                status=500,
+            )
+
+        import asyncio as _aio
+        mulai = time.monotonic()
+        try:
+            proc = await _aio.create_subprocess_exec(
+                sys.executable, "-m", "synapse_cli.main", "backup", "-o", str(out),
+                stdout=_aio.subprocess.PIPE, stderr=_aio.subprocess.STDOUT,
+            )
+            try:
+                keluaran, _ = await _aio.wait_for(proc.communicate(), timeout=1800)
+            except _aio.TimeoutError:
+                proc.kill()
+                return web.json_response(
+                    _openai_error("Backup melewati batas waktu (30 menit)",
+                                  err_type="server_error"),
+                    status=504,
+                )
+        except Exception:
+            logger.exception("POST /v1/backup failed")
+            return web.json_response(
+                _openai_error("Backup gagal dijalankan", err_type="server_error"),
+                status=500,
+            )
+
+        teks = (keluaran or b"").decode("utf-8", "replace")
+        durasi = round(time.monotonic() - mulai, 1)
+        ada = out.exists()
+        if proc.returncode != 0 or not ada:
+            logger.warning("POST /v1/backup gagal (exit %s): %s",
+                           proc.returncode, teks[-500:])
+            return web.json_response(
+                {"status": "failed", "output": teks[-4000:], "duration": durasi},
+                status=500,
+            )
+        ukuran = out.stat().st_size
+        return web.json_response({
+            "status": "ok",
+            "file": out.name,
+            "path": str(out),
+            "size": ukuran,
+            "size_text": self._ukuran_enak(ukuran),
+            "duration": durasi,
+            "output": teks[-4000:],
+        })
+
+    #: File status restore terakhir (ditulis oleh proses worker terpisah).
+    _RESTORE_STATUS_FILE = Path.home() / "backup" / "restore-last.json"
+
+    async def _handle_restore_start(self, request: "web.Request") -> "web.Response":
+        """POST /v1/restore — mulai restore dari file .zip (native `synapse import`).
+
+        Body: file .zip mentah (application/zip / octet-stream),
+        ATAU JSON ``{ "file": "<nama di ~/backup>" }``.
+
+        Restore dijalankan oleh PROSES TERPISAH (detached) karena WAJIB
+        menghentikan gateway dulu (jebakan #81) — kalau dijalankan di dalam
+        proses ini, respons HTTP tidak akan pernah terkirim.
+
+        Balasan langsung: 202 ``{ status: "started", ... }``.
+        Cek hasilnya dengan ``GET /v1/restore/status`` setelah gateway hidup.
+        """
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+
+        ctype = (request.headers.get("Content-Type") or "").lower()
+        tmp_path: Optional[Path] = None
+        arsip: Optional[Path] = None
+        try:
+            if "application/json" in ctype:
+                try:
+                    body = await request.json()
+                except Exception:
+                    body = {}
+                nama = self._backup_slug(str((body or {}).get("file") or ""))
+                if not nama:
+                    return web.json_response(
+                        _openai_error("Field 'file' wajib diisi",
+                                      err_type="invalid_request_error"),
+                        status=400,
+                    )
+                sumber = self._BACKUP_DIR / nama
+                if not sumber.exists():
+                    return web.json_response(
+                        _openai_error(f"File backup tidak ditemukan: {nama}",
+                                      err_type="invalid_request_error"),
+                        status=404,
+                    )
+                arsip = sumber
+            else:
+                data = await request.read()
+                if not data:
+                    return web.json_response(
+                        _openai_error("Body kosong — kirim file .zip",
+                                      err_type="invalid_request_error"),
+                        status=400,
+                    )
+                if len(data) > self._RESTORE_MAX_BYTES:
+                    return web.json_response(
+                        _openai_error("File backup terlalu besar",
+                                      err_type="invalid_request_error"),
+                        status=413,
+                    )
+                import tempfile
+                fd, nama_tmp = tempfile.mkstemp(prefix="synapse-restore-", suffix=".zip")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(data)
+                tmp_path = Path(nama_tmp)
+                arsip = tmp_path
+
+            # Jalankan worker TERPISAH supaya tetap hidup saat gateway berhenti.
+            import subprocess
+            status_file = self._RESTORE_STATUS_FILE
+            try:
+                status_file.parent.mkdir(parents=True, exist_ok=True)
+                if status_file.exists():
+                    status_file.unlink()
+            except OSError:
+                pass
+            # tandai "queued" dulu supaya klien tidak membaca status lama
+            try:
+                with open(status_file, "w", encoding="utf-8") as f:
+                    json.dump({"status": "queued", "step": "menunggu",
+                               "arsip": arsip.name}, f)
+            except OSError:
+                pass
+
+            cmd = [sys.executable, "-m", "synapse_cli.restore_worker",
+                   str(arsip), str(status_file)]
+            kwargs: Dict[str, Any] = {
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "close_fds": True,
+            }
+            if os.name == "nt":
+                # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: lepas dari
+                # induk supaya tidak ikut mati saat gateway berhenti.
+                kwargs["creationflags"] = 0x00000008 | 0x00000200
+            else:
+                kwargs["start_new_session"] = True
+            subprocess.Popen(cmd, **kwargs)
+        except Exception:
+            logger.exception("POST /v1/restore failed")
+            return web.json_response(
+                _openai_error("Restore gagal dijalankan", err_type="server_error"),
+                status=500,
+            )
+
+        return web.json_response({
+            "status": "started",
+            "arsip": arsip.name if arsip else "",
+            "catatan": (
+                "Restore berjalan di latar belakang. Synapse akan BERHENTI "
+                "sebentar lalu menyala kembali. Cek GET /v1/restore/status "
+                "setelah ~1-2 menit."
+            ),
+        }, status=202)
+
+    async def _handle_restore_status(self, request: "web.Request") -> "web.Response":
+        """GET /v1/restore/status — status restore terakhir (dibaca dari file)."""
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+        p = self._RESTORE_STATUS_FILE
+        if not p.exists():
+            return web.json_response(
+                {"status": "none", "catatan": "Belum ada restore dijalankan."},
+                status=200,
+            )
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            logger.exception("GET /v1/restore/status failed")
+            return web.json_response(
+                _openai_error("Status restore tidak terbaca", err_type="server_error"),
+                status=500,
+            )
+        return web.json_response(data)
 
     # ------------------------------------------------------------------
     # /api/sessions — thin client/session resource API
