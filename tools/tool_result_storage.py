@@ -228,6 +228,59 @@ def _safe_result_filename(tool_use_id: str) -> str:
     return f"{safe_stem}.txt"
 
 
+
+_TOOL_METADATA_TAG = "<tool-result-metadata>"
+_TOOL_METADATA_CLOSING_TAG = "</tool-result-metadata>"
+_ENVELOPE_METADATA_TAG = "<mcp-result-metadata>"
+_ENVELOPE_METADATA_CLOSING_TAG = "</mcp-result-metadata>"
+_MCP_ENVELOPE_KEYS = frozenset({"result", "structuredContent", "_meta"})
+
+
+def _tool_metadata_block(fields: dict) -> str:
+    metadata = json.dumps(fields, ensure_ascii=False, indent=1, sort_keys=True, default=str)
+    return f"{_TOOL_METADATA_TAG}\n{metadata}\n{_TOOL_METADATA_CLOSING_TAG}"
+
+
+def _pageable_tool_json(content: str, payload: dict) -> str:
+    strings = [(key, value) for key, value in payload.items() if isinstance(value, str)]
+    if not strings:
+        return content
+    key, text = strings[0]
+    for name, value in strings[1:]:
+        if len(value) > len(text):
+            key, text = name, value
+    if "\n" not in text or "\x00" in text or len(text) < len(content) / 2:
+        return content
+    header, trailer = {"text_field": key}, {}
+    for name, value in payload.items():
+        if name != key:
+            (trailer if isinstance(value, (dict, list)) else header)[name] = value
+    pageable = f"{_tool_metadata_block(header)}\n\n{text}"
+    return f"{pageable}\n\n{_tool_metadata_block(trailer)}\n" if trailer else pageable
+
+
+def _pageable_text(content: str) -> str:
+    try:
+        payload = json.loads(content)
+    except (TypeError, ValueError):
+        return content
+    if not isinstance(payload, dict) or not payload:
+        return content
+    if "result" not in payload or not set(payload) <= _MCP_ENVELOPE_KEYS:
+        return _pageable_tool_json(content, payload)
+    text = payload.get("result")
+    if not isinstance(text, str) or not text:
+        return content
+    extras = {key: value for key, value in payload.items() if key != "result"}
+    if not extras:
+        return text
+    try:
+        metadata = json.dumps(extras, ensure_ascii=False, indent=1, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        return text
+    return f"{text}\n\n{_ENVELOPE_METADATA_TAG}\n{metadata}\n{_ENVELOPE_METADATA_CLOSING_TAG}\n"
+
+
 def generate_preview(content: str, max_chars: int = DEFAULT_PREVIEW_SIZE_CHARS) -> tuple[str, bool]:
     """Truncate at last newline within max_chars. Returns (preview, has_more)."""
     if len(content) <= max_chars:
@@ -344,21 +397,22 @@ def maybe_persist_tool_result(
     if len(content) <= effective_threshold:
         return content
 
+    persisted_content = _pageable_text(content)
     filename = _safe_result_filename(tool_use_id)
-    preview, has_more = generate_preview(content, max_chars=config.preview_size)
+    preview, has_more = generate_preview(persisted_content, max_chars=config.preview_size)
 
     # Always persist host-side first: $SYNAPSE_HOME/cache/spillover is the
     # single canonical home for spilled results (with the other Synapse-owned
     # caches, pruned by gateway housekeeping) regardless of backend.
-    host_path = _write_to_spillover(content, filename)
+    host_path = _write_to_spillover(persisted_content, filename)
 
     if _is_host_side_env(env):
         if host_path is not None:
             logger.info(
                 "Persisted large tool result: %s (%s, %d chars -> %s)",
-                tool_name, tool_use_id, len(content), host_path,
+                tool_name, tool_use_id, len(persisted_content), host_path,
             )
-            return _build_persisted_message(preview, has_more, len(content), host_path)
+            return _build_persisted_message(preview, has_more, len(persisted_content), host_path)
     elif env is not None:
         # Remote backend: the spillover dir is auto-mounted (docker) or
         # file-synced (modal/ssh/daytona) into the sandbox, so reference the
@@ -376,7 +430,7 @@ def maybe_persist_tool_result(
         storage_dir = _resolve_storage_dir(env)
         remote_path = f"{storage_dir}/{filename}"
         try:
-            if _write_to_sandbox(content, remote_path, env):
+            if _write_to_sandbox(persisted_content, remote_path, env):
                 logger.info(
                     "Persisted large tool result: %s (%s, %d chars -> %s)",
                     tool_name, tool_use_id, len(content), remote_path,

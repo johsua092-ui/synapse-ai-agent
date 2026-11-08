@@ -1,3 +1,39 @@
+
+def _sync_gateway_model_on_global_change(new_model: str, new_provider: str = "") -> None:
+    """Sync model change to gateway runtime and clear session overrides."""
+    try:
+        from gateway.run import _gateway_runner_ref
+        runner = _gateway_runner_ref()
+        if runner is not None:
+            # Evict all cached agents
+            lock = getattr(runner, "_agent_cache_lock", None)
+            cache = getattr(runner, "_agent_cache", None)
+            if lock and cache is not None:
+                with lock:
+                    cache.clear()
+            elif cache is not None:
+                cache.clear()
+            # Clear in-memory session overrides
+            sess_map = getattr(runner, "_sessions_map", None)
+            if callable(sess_map):
+                for _k, _st in sess_map().items():
+                    if hasattr(_st, "conversation"):
+                        _st.conversation.model_override = None
+            if hasattr(runner, "_session_model_overrides"):
+                runner._session_model_overrides = {}
+            # Clear persisted store overrides
+            store = getattr(runner, "session_store", None)
+            if store is not None:
+                with getattr(store, "_lock", threading.Lock()):
+                    entries = getattr(store, "_entries", {})
+                    for _k, _e in entries.items():
+                        _e.model_override = None
+                    save_fn = getattr(store, "_save", None)
+                    if callable(save_fn):
+                        save_fn()
+    except Exception:
+        pass
+
 #!/usr/bin/env python3
 """
 Synapse Agent CLI - Interactive Terminal Interface
@@ -11319,6 +11355,7 @@ class SynapseCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # need (#25106).
             save_config_value("model.base_url", result.base_url or None)
             save_config_value("model.api_mode", result.api_mode or None)
+            _sync_gateway_model_on_global_change(result.new_model, result.target_provider)
             _cprint("    Saved to config.yaml (--global)")
         else:
             _cprint("    (session only — add --global to persist)")
@@ -11714,6 +11751,7 @@ class SynapseCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # must be synced on every global switch (#25106).
             save_config_value("model.base_url", result.base_url or None)
             save_config_value("model.api_mode", result.api_mode or None)
+            _sync_gateway_model_on_global_change(result.new_model, result.target_provider)
             _cprint("    Saved to config.yaml")
         elif one_turn:
             _cprint("    (next turn only — restores after one response)")

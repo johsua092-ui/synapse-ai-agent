@@ -8012,6 +8012,11 @@ def _save_model_choice(model_id: str) -> None:
     else:
         config["model"] = {"default": model_id}
     save_config(config)
+    try:
+        from cli import _sync_gateway_model_on_global_change
+        _sync_gateway_model_on_global_change(model_id)
+    except Exception:
+        pass
 
 
 def login_command(args) -> None:
